@@ -4,19 +4,29 @@ project(videoEeg VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_package(LSL REQUIRED HINTS "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/liblsl-1.16.2-Win_amd64/lib/cmake/LSL"
+)
+
+message(STATUS "LSL_FOUND: ${LSL_FOUND}")
+message(STATUS "LSL_INCLUDE_DIRS: ${LSL_INCLUDE_DIRS}")
+message(STATUS "LSL_LIBRARIES: ${LSL_LIBRARIES}")
+
 find_package(Qt6 REQUIRED COMPONENTS Quick)
+find_package(Qt6 REQUIRED COMPONENTS Core)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
 qt_add_executable(appvideoEeg
-    main.cpp
+    src/main.cpp
 )
 
 qt_add_qml_module(appvideoEeg
     URI videoEeg
     VERSION 1.0
     QML_FILES
-        Main.qml
+        qml/Main.qml
+        SOURCES include/videoeegapp.h src/videoeegapp.cpp
+        SOURCES include/amplifiermanager.h src/amplifiermanager.cpp
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -31,8 +41,11 @@ set_target_properties(appvideoEeg PROPERTIES
 )
 
 target_link_libraries(appvideoEeg
-    PRIVATE Qt6::Quick
+    PRIVATE 
+        Qt6::Quick
+        LSL::lsl
 )
+target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
 
 include(GNUInstallDirs)
 install(TARGETS appvideoEeg
