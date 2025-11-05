@@ -2,6 +2,7 @@
 #define VIDEOEEGAPP_H
 
 #include <QObject>
+#include <memory>
 #include "amplifiermanager.h"
 
 class VideoEegApp : public QObject
@@ -10,10 +11,12 @@ class VideoEegApp : public QObject
 public:
     explicit VideoEegApp(QObject *parent = nullptr);
 
+    void InitializeAmplifier(const QString amp_path);
+
 signals:
 
 private:
-    std::unique_ptr<AmplifierManager> m_amplifierManager;
+    std::unique_ptr<AmplifierManager> amplifier_manager_;
 };
 
 #endif // VIDEOEEGAPP_H

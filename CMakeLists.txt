@@ -13,6 +13,9 @@ message(STATUS "LSL_LIBRARIES: ${LSL_LIBRARIES}")
 
 find_package(Qt6 REQUIRED COMPONENTS Quick)
 find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -27,6 +30,12 @@ qt_add_qml_module(appvideoEeg
         qml/Main.qml
         SOURCES include/videoeegapp.h src/videoeegapp.cpp
         SOURCES include/amplifiermanager.h src/amplifiermanager.cpp
+        SOURCES include/amplifierparser.h
+        QML_FILES qml/EegGraphsWindow.qml
+        SOURCES
+        SOURCES include/eegviewmodel.h src/eegviewmodel.cpp
+        QML_FILES qml/EegChannelGraph.qml
+        SOURCES include/lslstreamreader.h src/lslstreamreader.cpp
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -45,6 +54,9 @@ target_link_libraries(appvideoEeg
         Qt6::Quick
         LSL::lsl
 )
+target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
+target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
+target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
 target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
 
 include(GNUInstallDirs)
