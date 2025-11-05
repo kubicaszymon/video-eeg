@@ -96,7 +96,7 @@ void VideoEegApp::RegisterQmlTypes()
 
 void VideoEegApp::LoadQml()
 {
-    const QUrl url(QStringLiteral("qrc:/Main.qml"));
+    const QUrl url(QStringLiteral("qrc:/qt/qml/videoEeg/qml/Main.qml"));
 
     connect(engine_.get(), &QQmlApplicationEngine::objectCreated, this, [url](QObject *obj, const QUrl &objUrl) {
         if (!obj && url == objUrl) {

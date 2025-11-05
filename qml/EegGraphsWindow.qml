@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
 
-Window {
+ApplicationWindow {
     id: graphsWindow
     width: 1920
     height: 1080
