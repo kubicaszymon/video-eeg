@@ -9,8 +9,6 @@ ApplicationWindow {
     title: "EEG Channels - " + eegViewModel.channelCount + " channels"
     visible: false
 
-    flags: Qt.Window | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint
-
     onClosing: (close) => {
                    close.accepted = true
                    graphsWindow.hide()

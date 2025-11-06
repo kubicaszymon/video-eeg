@@ -24,9 +24,31 @@ Window {
         }
 
         Button {
-            text: "Open EEG Graphs"
+            text: "Scan for amplifiers"
             anchors.horizontalCenter: parent.horizontalCenter
-            onClicked: graphsWindows.show()
+            onClicked: veegapp.refreshAmplifiersList();
+        }
+
+        ComboBox {
+            id: amplifierCombo
+            anchors.horizontalCenter: parent.horizontalCenter
+            model: veegapp.amplifierNames
+            onCurrentIndexChanged: {
+                veegapp.selectedAmplifierIndex = currentIndex
+            }
+        }
+
+        ListView {
+            model: veegapp.currentAmplifierChannels
+            delegate: Text {
+                text: modelData
+            }
+        }
+
+        Button {
+            text: "Start Preview"
+            anchors.horizontalCenter: parent.horizontalCenter
+            onClicked: graphsWindow.show()
         }
 
         Row {

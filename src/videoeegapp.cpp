@@ -1,6 +1,4 @@
 #include "../include/videoeegapp.h"
-#include "../include/amplifiermanager.h"
-#include "../include/eegviewmodel.h"
 #include <QQmlContext>
 #include <QDebug>
 #include <qcoreapplication.h>
@@ -71,6 +69,46 @@ void VideoEegApp::Shutdown()
     is_initialized_ = false;
 }
 
+void VideoEegApp::refreshAmplifiersList()
+{
+    available_amplifiers_ = amplifier_manager_->GetAmplifiersList();
+    emit amplifiersChanged();
+}
+
+QStringList VideoEegApp::amplifierNames() const
+{
+    QStringList names;
+    for(const auto& amp : std::as_const(available_amplifiers_))
+    {
+        names << amp.name;
+    }
+    return names;
+}
+
+QStringList VideoEegApp::currentAmplifierChannels() const
+{
+    if(selected_amplifier_index_ >= 0 && selected_amplifier_index_ < available_amplifiers_.size())
+    {
+        qDebug() << available_amplifiers_[selected_amplifier_index_].available_channels;
+        return available_amplifiers_[selected_amplifier_index_].available_channels;
+    }
+    return {};
+}
+
+int VideoEegApp::selectedAmplifierIndex() const
+{
+    return selected_amplifier_index_;
+}
+
+void VideoEegApp::setSelectedAmplifierIndex(int index)
+{
+    if(index >= 0 && index < available_amplifiers_.size())
+    {
+        selected_amplifier_index_ = index;
+        emit selectedAmplifierChanged();
+    }
+}
+
 void VideoEegApp::CreateComponents()
 {
     engine_ = std::make_unique<QQmlApplicationEngine>();
@@ -90,7 +128,7 @@ void VideoEegApp::SetupConnections()
 
 void VideoEegApp::RegisterQmlTypes()
 {
-    engine_->rootContext()->setContextProperty("amplifierManager", amplifier_manager_.get());
+    engine_->rootContext()->setContextProperty("veegapp", this);
     engine_->rootContext()->setContextProperty("eegViewModel", eeg_view_model_.get());
 }
 
