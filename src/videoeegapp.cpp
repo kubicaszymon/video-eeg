@@ -2,6 +2,8 @@
 #include <QQmlContext>
 #include <QDebug>
 #include <qcoreapplication.h>
+#include <QGuiApplication>
+#include <QCursor>
 
 VideoEegApp::VideoEegApp(QObject *parent)
     : QObject{parent}
@@ -75,11 +77,27 @@ void VideoEegApp::refreshAmplifiersList()
     emit amplifiersChanged();
 }
 
-void VideoEegApp::setupGraphsWindow()
+void VideoEegApp::setupGraphsWindow(QVariantList selected_channels)
 {
-    const auto amp = available_amplifiers_.at(selected_amplifier_index_);
-    eeg_view_model_->Initialize(amp.available_channels);
+    QStringList channels{};
+    for (const QVariant& var : selected_channels)
+    {
+        channels.append(var.toString());
+    }
+    eeg_view_model_->Initialize(channels);
 
+}
+
+void VideoEegApp::setBusyCursor(bool busy)
+{
+    if(busy)
+    {
+        QGuiApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
+    }
+    else
+    {
+        QGuiApplication::restoreOverrideCursor();
+    }
 }
 
 QStringList VideoEegApp::amplifierNames() const
@@ -90,6 +108,15 @@ QStringList VideoEegApp::amplifierNames() const
         names << amp.name;
     }
     return names;
+}
+
+QStringList VideoEegApp::currentAmplifierChannels() const
+{
+    if(selected_amplifier_index_ >= 0 && selected_amplifier_index_ < available_amplifiers_.size())
+    {
+        return available_amplifiers_.at(selected_amplifier_index_).available_channels;
+    }
+    return QStringList();
 }
 
 int VideoEegApp::selectedAmplifierIndex() const

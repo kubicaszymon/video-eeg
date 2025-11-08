@@ -10,12 +10,6 @@ Window {
     height: 700
     title: qsTr("Amplifier Setup")
 
-    onVisibleChanged: {
-        if (visible) {
-            veegapp.refreshAmplifiersList()
-        }
-    }
-
     RowLayout {
         anchors.fill: parent
         anchors.margins: 10
@@ -58,6 +52,7 @@ Window {
                         anchors.margins: 5
                         clip: true
                         model: veegapp.amplifierNames
+                        currentIndex: -1
 
                         delegate: Rectangle {
                             width: amplifierListView.width - 10
@@ -275,8 +270,19 @@ Window {
                     Layout.alignment: Qt.AlignRight
                     Layout.preferredWidth: 100
                     onClicked: {
-                        veegapp.setupGraphsWindow()
+                        var selectedChannels = []
+                        for (var i = 0; i < channelsListView.count; i++)
+                        {
+                            var item = channelsListView.itemAtIndex(i)
+                            if (item && item.isSelected)
+                            {
+                                selectedChannels.push(veegapp.currentAmplifierChannels[i])
+                            }
+                        }
+
+                        veegapp.setupGraphsWindow(selectedChannels)
                         graphsWindow.show()
+                        ampSetup.hide()
                     }
                 }
             }

@@ -13,6 +13,7 @@ class VideoEegApp : public QObject
     Q_OBJECT
     Q_PROPERTY(QStringList amplifierNames READ amplifierNames NOTIFY amplifiersChanged)
     Q_PROPERTY(int selectedAmplifierIndex READ selectedAmplifierIndex WRITE setSelectedAmplifierIndex NOTIFY selectedAmplifierChanged)
+    Q_PROPERTY(QStringList currentAmplifierChannels READ currentAmplifierChannels NOTIFY selectedAmplifierChanged)
 
 public:
     explicit VideoEegApp(QObject *parent = nullptr);
@@ -25,7 +26,9 @@ public:
     void InitializeAmplifier(const QString amp_path);
 
     Q_INVOKABLE void refreshAmplifiersList();
-    Q_INVOKABLE void setupGraphsWindow();
+    Q_INVOKABLE void setupGraphsWindow(QVariantList selected_channels);
+
+    Q_INVOKABLE void setBusyCursor(bool busy);
 
     QStringList amplifierNames() const;
     QStringList currentAmplifierChannels() const;

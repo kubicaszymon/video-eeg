@@ -1,10 +1,10 @@
-import QtQuick
-import QtQuick.Controls
+import QtQuick 2.15
+import QtQuick.Controls 2.15
 import QtQuick.Window
 import QtQuick.Layouts
 
 Window {
-    id: mainWindow
+    id: root
     visible: true
     width: 250
     height: 100
@@ -28,6 +28,9 @@ Window {
             Layout.preferredHeight: 40
             Layout.alignment: Qt.AlignHCenter
             onClicked: {
+                veegapp.setBusyCursor(true)
+                veegapp.refreshAmplifiersList()
+                veegapp.setBusyCursor(false)
                 amplifierSetupWindow.show()
             }
         }
