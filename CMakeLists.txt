@@ -31,6 +31,7 @@ qt_add_qml_module(appvideoEeg
         include/amplifierparser.h
         include/eegviewmodel.h src/eegviewmodel.cpp
         include/lslstreamreader.h src/lslstreamreader.cpp
+        QML_FILES qml/AmplifierSetupWindow.qml
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

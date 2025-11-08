@@ -1,77 +1,45 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
+import QtQuick.Layouts
 
 Window {
     id: mainWindow
     visible: true
-    width: 800
-    height: 600
+    width: 250
+    height: 100
     title: qsTr("VideoEEG")
 
     EegGraphsWindow {
         id: graphsWindow
     }
 
-    Column {
+    AmplifierSetupWindow {
+        id: amplifierSetupWindow
+    }
+
+    ColumnLayout {
         anchors.centerIn: parent
-        spacing: 20
-
-        Label {
-            text: "Video EEG Application"
-            font.pixelSize: 24
-            anchors.horizontalCenter: parent.horizontalCenter
-        }
+        spacing: 10
 
         Button {
-            text: "Scan for amplifiers"
-            anchors.horizontalCenter: parent.horizontalCenter
-            onClicked: veegapp.refreshAmplifiersList();
-        }
-
-        ComboBox {
-            id: amplifierCombo
-            anchors.horizontalCenter: parent.horizontalCenter
-            model: veegapp.amplifierNames
-            onCurrentIndexChanged: {
-                veegapp.selectedAmplifierIndex = currentIndex
-            }
-        }
-
-        ListView {
-            model: veegapp.currentAmplifierChannels
-            delegate: Text {
-                text: modelData
+            text: "Amplifier"
+            Layout.preferredWidth: 100
+            Layout.preferredHeight: 40
+            Layout.alignment: Qt.AlignHCenter
+            onClicked: {
+                amplifierSetupWindow.show()
             }
         }
 
         Button {
-            text: "Start Preview"
-            anchors.horizontalCenter: parent.horizontalCenter
-            onClicked: graphsWindow.show()
-        }
-
-        Row {
-            spacing: 10
-            anchors.horizontalCenter: parent.horizontalCenter
-
-            Label {
-                text: "Streaming:"
-                anchors.verticalCenter: parent.verticalCenter
+            text: "Camera"
+            Layout.preferredWidth: 100
+            Layout.preferredHeight: 40
+            Layout.alignment: Qt.AlignHCenter
+            onClicked: {
+                // TODO: Open camera settings window
             }
-
-            Rectangle {
-                width: 20
-                height: 20
-                radius: 10
-                color: eegViewModel.isStreaming ? "green" : "red"
-                anchors.verticalCenter: parent.verticalCenter
-            }
-        }
-
-        Label {
-            text: "Channels: " + eegViewModel.channelCount
-            anchors.horizontalCenter: parent.horizontalCenter
         }
     }
 }

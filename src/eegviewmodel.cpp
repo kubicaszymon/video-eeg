@@ -57,8 +57,9 @@ void EegViewModel::SetDisplayWindowSize(int miliseconds)
     }
 }
 
-QVariantList EegViewModel::GetChannelData(int channel_index) const
+QVariantList EegViewModel::getChannelData(int channel_index) const
 {
+    /*
     QVariantList result;
 
     if (channel_index < 0 || channel_index >= channel_count_)
@@ -66,7 +67,7 @@ QVariantList EegViewModel::GetChannelData(int channel_index) const
         return result;
     }
 
-    const auto& data = channel_data_[channel_index];
+    const auto& data = channel_data_.at(channel_index);
 
     for(const QPointF& point : data)
     {
@@ -77,18 +78,20 @@ QVariantList EegViewModel::GetChannelData(int channel_index) const
     }
 
     return result;
+*/
+    return {};
 }
 
-QString EegViewModel::GetChannelName(int channel_index) const
+QString EegViewModel::getChannelName(int channel_index) const
 {
     if (channel_index >= 0 && channel_index < channel_count_)
     {
-        return channel_names_[channel_index];
+        return channel_names_.at(channel_index);
     }
     return QString();
 }
 
-void EegViewModel::ClearAllChannels()
+void EegViewModel::clearAllChannels()
 {
     for (auto& channel : channel_data_)
     {
@@ -136,20 +139,10 @@ void EegViewModel::StreamStopped()
     is_streaming_ = false;
 }
 
-void EegViewModel::InitializeChannels()
+void EegViewModel::Initialize(QStringList channels)
 {
-    max_samples_per_channel_ = CalculateMaxSamples();
+    channel_names_ = channels;
+
+    SetChannelCount(channels.count());
     channel_data_.resize(channel_count_);
-    channel_names_.resize(channel_count_);
-
-    for (int i = 0; i < channel_count_; ++i)
-    {
-        channel_data_[i].reserve(max_samples_per_channel_);
-        channel_names_[i] = QString("Channel %1").arg(i+1);
-    }
-}
-
-int EegViewModel::CalculateMaxSamples() const
-{
-    return static_cast<int>((display_window_size_ / 1000.0) * sample_rate_);
 }

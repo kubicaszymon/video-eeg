@@ -75,6 +75,13 @@ void VideoEegApp::refreshAmplifiersList()
     emit amplifiersChanged();
 }
 
+void VideoEegApp::setupGraphsWindow()
+{
+    const auto amp = available_amplifiers_.at(selected_amplifier_index_);
+    eeg_view_model_->Initialize(amp.available_channels);
+
+}
+
 QStringList VideoEegApp::amplifierNames() const
 {
     QStringList names;
@@ -83,16 +90,6 @@ QStringList VideoEegApp::amplifierNames() const
         names << amp.name;
     }
     return names;
-}
-
-QStringList VideoEegApp::currentAmplifierChannels() const
-{
-    if(selected_amplifier_index_ >= 0 && selected_amplifier_index_ < available_amplifiers_.size())
-    {
-        qDebug() << available_amplifiers_[selected_amplifier_index_].available_channels;
-        return available_amplifiers_[selected_amplifier_index_].available_channels;
-    }
-    return {};
 }
 
 int VideoEegApp::selectedAmplifierIndex() const

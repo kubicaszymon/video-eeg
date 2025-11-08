@@ -18,6 +18,8 @@ class EegViewModel : public QObject
 public:
     explicit EegViewModel(QObject *parent = nullptr);
 
+    void Initialize(QStringList channels);
+
     int ChannelCount() const;
     void SetChannelCount(int new_channel_count);
 
@@ -30,9 +32,9 @@ public:
     int DisplayWindowSize() const;
     void SetDisplayWindowSize(int newDisplay_window_size);
 
-    Q_INVOKABLE QVariantList GetChannelData(int channel_index) const;
-    Q_INVOKABLE QString GetChannelName(int channel_index) const;
-    Q_INVOKABLE void ClearAllChannels();
+    Q_INVOKABLE QVariantList getChannelData(int channel_index) const;
+    Q_INVOKABLE QString getChannelName(int channel_index) const;
+    Q_INVOKABLE void clearAllChannels();
 
 public slots:
     void UpdateChannelData(const std::vector<std::vector<float>>& chunk);
@@ -58,7 +60,6 @@ private:
     QVector<QVector<QPointF>> channel_data_;
     QVector<QString> channel_names_;
 
-    void InitializeChannels();
     int CalculateMaxSamples() const;
 
 };

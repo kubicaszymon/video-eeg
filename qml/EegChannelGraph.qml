@@ -44,17 +44,17 @@ Rectangle {
         Connections {
             target: eegViewModel
 
-            function onChannelDataUpdated(index) {
-                if (index === channelIndex) {
-                    canvas.channelData = eegViewModel.getChannelData(channelIndex)
-                    canvas.requestPaint()
-                }
-            }
+//            function onChannelDataUpdated(index) {
+//                if (index === channelIndex) {
+//                   canvas.channelData = eegViewModel.getChannelData(channelIndex)
+//                   canvas.requestPaint()
+//               }
+//           }
 
-            function onAllChannelsUpdated() {
-                canvas.channelData = eegViewModel.getChannelData(channelIndex)
-                canvas.requestPaint()
-            }
+//           function onAllChannelsUpdated() {
+//               canvas.channelData = eegViewModel.getChannelData(channelIndex)
+//               canvas.requestPaint()
+//           }
         }
 
         onPaint: {

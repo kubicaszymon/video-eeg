@@ -6,7 +6,7 @@ ApplicationWindow {
     id: graphsWindow
     width: 1920
     height: 1080
-    title: "EEG Channels - " + eegViewModel.channelCount + " channels"
+    title: "EEG Channels - " + eegViewModel.channel_count + " channels"
     visible: false
 
     onClosing: (close) => {
@@ -27,40 +27,16 @@ ApplicationWindow {
 
             ToolSeparator {}
 
-            Label {
-                text: "Display Window:"
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
-            ComboBox {
-                id: windowSizeCombo
-                model: ["1 sec", "5 sec", "10 sec", "30 sec"]
-                currentIndex: 1
-                anchors.verticalCenter: parent.verticalCenter
-
-                onCurrentIndexChanged: {
-                    var sizes = [1000, 5000, 10000, 30000]
-                    eegViewModel.setDisplayWindowSize(sizes[currentIndex])
-                }
-            }
-
-            ToolButton {
-                text: "Clear All"
-                onClicked: eegViewModel.clearAllChannels()
-            }
-
-            ToolSeparator {}
-
             Rectangle {
                 width: 15
                 height: 15
                 radius: 7.5
-                color: eegViewModel.isStreaming ? "#4CAF50" : "#F44336"
+                color: eegViewModel.is_streaming ? "#4CAF50" : "#F44336"
                 anchors.verticalCenter: parent.verticalCenter
             }
 
             Label {
-                text: eegViewModel.isStreaming ? "Streaming" : "Stopped"
+                text: eegViewModel.is_streaming ? "Streaming" : "Stopped"
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
@@ -71,20 +47,18 @@ ApplicationWindow {
         anchors.fill: parent
         clip: true
 
-        Grid {
-            id: graphGrid
-            columns: 6
-            rows: 5
-            columnSpacing: 5
-            rowSpacing: 5
+        Column {
+            id: graphColumn
+            width: graphsWindow.width
+            spacing: 5
             padding: 10
 
             Repeater {
-                model: eegViewModel.channelCount
+                model: eegViewModel.channel_count
 
                 EegChannelGraph {
-                    width: (graphsWindow.width - graphGrid.columnSpacing * 5 - 20) / 6
-                    height: (graphsWindow.height - graphGrid.rowSpacing * 4 - 100) / 5
+                    width: graphColumn.width - 20
+                    height: 100
                     channelIndex: index
                 }
             }
