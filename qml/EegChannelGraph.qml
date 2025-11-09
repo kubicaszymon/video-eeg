@@ -44,17 +44,10 @@ Rectangle {
         Connections {
             target: eegViewModel
 
-//            function onChannelDataUpdated(index) {
-//                if (index === channelIndex) {
-//                   canvas.channelData = eegViewModel.getChannelData(channelIndex)
-//                   canvas.requestPaint()
-//               }
-//           }
-
-//           function onAllChannelsUpdated() {
-//               canvas.channelData = eegViewModel.getChannelData(channelIndex)
-//               canvas.requestPaint()
-//           }
+            function onAllChannelsUpdated() {
+                canvas.channelData = eegViewModel.getChannelData(channelIndex)
+                canvas.requestPaint()
+            }
         }
 
         onPaint: {
@@ -70,7 +63,7 @@ Rectangle {
             for (var i = 0; i < channelData.length; i++){
                 var y = channelData[i].y
                 if (y < dataMinY) dataMinY = y
-                if(y > dataMinY) dataMaxY = y
+                if(y > dataMaxY) dataMaxY = y
             }
 
             var range = dataMaxY - dataMinY
@@ -111,10 +104,6 @@ Rectangle {
             }
 
             ctx.stroke()
-        }
-
-        Component.onCompleted: {
-            channelData = eegViewModel.getChannelData(channelIndex)
         }
     }
 

@@ -24,7 +24,7 @@ public:
     ~AmplifierManager();
 
     QList<AmplifierInfo> GetAmplifiersList();
-    void StartStream(const QString amplifier_id);
+    void StartStream(const QString amplifier_id, QList<quint8> selected_channels);
     void StopStream();
 
     QString SvarogPath() const;
@@ -37,12 +37,17 @@ signals:
     void AcquisitionStatusChanged();
     void DataReceived(const std::vector<std::vector<float>>& chunk);
 
+public slots:
+    void ProcessData(const std::vector<std::vector<float>>& chunk);
+
 private:
-    QProcess* stream_process_;
+    QProcess* stream_process_ = nullptr;
     QString svarog_path_{};
 
     QThread* lsl_thread_ = nullptr;
     std::unique_ptr<LSLStreamReader> lsl_reader_;
+
+    QList<quint8> selected_channels_{};
 };
 
 #endif // AMPLIFIERMANAGER_H

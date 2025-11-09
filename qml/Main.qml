@@ -10,8 +10,10 @@ Window {
     height: 100
     title: qsTr("VideoEEG")
 
-    EegGraphsWindow {
-        id: graphsWindow
+    Loader {
+        id: graphsWindowLoader
+        active: false
+        source: "EegGraphsWindow.qml"
     }
 
     AmplifierSetupWindow {

@@ -8,12 +8,14 @@
 VideoEegApp::VideoEegApp(QObject *parent)
     : QObject{parent}
 {
-    // TEST CODE
-    //auto amp_path = "C:\\Program Files (x86)\\Svarog Streamer\\svarog_streamer\\svarog_streamer.exe";
-    //InitializeAmplifier(amp_path);
-    //amplifier_manager_->GetAmplifiersList();
 
-    //amplifier_manager_->StartStream();
+}
+
+void VideoEegApp::SetupConnections()
+{
+    QObject::connect(amplifier_manager_.get(), &AmplifierManager::DataReceived, eeg_view_model_.get(), &EegViewModel::UpdateChannelData);
+    QObject::connect(amplifier_manager_.get(), &AmplifierManager::StartLSLReading, eeg_view_model_.get(), &EegViewModel::StreamStarted);
+    QObject::connect(amplifier_manager_.get(), &AmplifierManager::StopLSLReading, eeg_view_model_.get(), &EegViewModel::StreamStopped);
 }
 
 VideoEegApp::~VideoEegApp()
@@ -77,15 +79,33 @@ void VideoEegApp::refreshAmplifiersList()
     emit amplifiersChanged();
 }
 
-void VideoEegApp::setupGraphsWindow(QVariantList selected_channels)
+void VideoEegApp::setupGraphsWindow(const QVariantList& selected_channels)
 {
-    QStringList channels{};
-    for (const QVariant& var : selected_channels)
+    if(selected_amplifier_index_ >= available_amplifiers_.size())
     {
-        channels.append(var.toString());
+        return;
+    }
+
+    const auto& amp = available_amplifiers_.at(selected_amplifier_index_);
+
+    QStringList channels{};
+    QList<quint8> indexes{};
+
+    for (const QVariant& channel : selected_channels)
+    {
+        const auto index = static_cast<quint8>(channel.toInt());
+        indexes.append(index);
+        if(amp.available_channels.size() > index)
+        {
+            channels.append(amp.available_channels.at(index));
+        }
+        else
+        {
+            qWarning() << "[setupGraphsWindow] Invalid channel index: " << index;
+        }
     }
     eeg_view_model_->Initialize(channels);
-
+    amplifier_manager_->StartStream(amp.id, indexes);
 }
 
 void VideoEegApp::setBusyCursor(bool busy)
@@ -141,13 +161,6 @@ void VideoEegApp::CreateComponents()
     amplifier_manager_ = std::make_unique<AmplifierManager>(svarog_path);
 
     eeg_view_model_ = std::make_unique<EegViewModel>();
-}
-
-void VideoEegApp::SetupConnections()
-{
-    QObject::connect(amplifier_manager_.get(), &AmplifierManager::DataReceived, eeg_view_model_.get(), &EegViewModel::UpdateChannelData);
-    QObject::connect(amplifier_manager_.get(), &AmplifierManager::StartLSLReading, eeg_view_model_.get(), &EegViewModel::StreamStarted);
-    QObject::connect(amplifier_manager_.get(), &AmplifierManager::StopLSLReading, eeg_view_model_.get(), &EegViewModel::StreamStopped);
 }
 
 void VideoEegApp::RegisterQmlTypes()

@@ -13,9 +13,7 @@ AmplifierManager::AmplifierManager(const QString svarog_path, QObject* parent)
     connect(this, &AmplifierManager::StartLSLReading, lsl_reader_.get(), &LSLStreamReader::StartReading);
     connect(this, &AmplifierManager::StopLSLReading, lsl_reader_.get(), &LSLStreamReader::StopReading);
 
-    connect(lsl_reader_.get(), &LSLStreamReader::DataReceived, this, [this](const std::vector<std::vector<float>>& chunk){
-        emit DataReceived(chunk);
-    });
+    connect(lsl_reader_.get(), &LSLStreamReader::DataReceived, this, &AmplifierManager::ProcessData);
 }
 
 AmplifierManager::~AmplifierManager()
@@ -44,7 +42,7 @@ QList<AmplifierInfo> AmplifierManager::GetAmplifiersList()
     return rv;
 }
 
-void AmplifierManager::StartStream(const QString amplifier_id)
+void AmplifierManager::StartStream(const QString amplifier_id, QList<quint8> selected_channels)
 {
     if(stream_process_ && stream_process_->state() == QProcess::Running)
     {
@@ -56,6 +54,8 @@ void AmplifierManager::StartStream(const QString amplifier_id)
         stream_process_ = new QProcess(this);
     }
 
+    selected_channels_ = selected_channels;
+
     stream_process_->setProgram(svarog_path_);
     stream_process_->setArguments({"-a", amplifier_id});
     stream_process_->start();
@@ -63,6 +63,7 @@ void AmplifierManager::StartStream(const QString amplifier_id)
     // TO CHANGE IN FUTURE TO SOME BETTER MECHANISM (WAIT FOR DATA)
     QThread::msleep(1000);
 
+    lsl_thread_->start();
     emit StartLSLReading();
 }
 
@@ -74,6 +75,7 @@ void AmplifierManager::StopStream()
     {
         stream_process_->terminate();
         stream_process_->waitForFinished();
+        stream_process_ = nullptr;
     }
 
     lsl_thread_->quit();
@@ -88,4 +90,25 @@ QString AmplifierManager::SvarogPath() const
 void AmplifierManager::SetSvarogPath(const QString &new_svarog_path)
 {
     svarog_path_ = new_svarog_path;
+}
+
+void AmplifierManager::ProcessData(const std::vector<std::vector<float>>& chunk)
+{
+    qDebug() << "PROCESS DATA";
+    emit DataReceived(chunk);
+    /*
+    for(auto& sample : chunk)
+    {
+        std::vector<float> filtered;
+        filtered.reserve(selected_channels_.size());
+        for(int channel : selected_channels_)
+        {
+            if(channel >= 0 && channel < static_cast<int>(sample.size()))
+            {
+                filtered.push_back(sample[channel]);
+            }
+        }
+        sample = std::move(filtered);
+    }
+    */
 }

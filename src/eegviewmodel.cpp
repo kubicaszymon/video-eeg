@@ -14,52 +14,12 @@ void EegViewModel::SetChannelCount(int new_channel_count)
     if (channel_count_ == new_channel_count)
         return;
     channel_count_ = new_channel_count;
-    emit ChannelCountChanged();
-}
-
-bool EegViewModel::IsStreaming() const
-{
-    return is_streaming_;
-}
-
-void EegViewModel::SetIsStreaming(bool new_is_streaming)
-{
-    if (is_streaming_ == new_is_streaming)
-        return;
-    is_streaming_ = new_is_streaming;
-    emit IsStreamingChanged();
-}
-
-double EegViewModel::SampleRate() const
-{
-    return sample_rate_;
-}
-
-void EegViewModel::SetSampleRate(double new_sample_rate)
-{
-    if (qFuzzyCompare(sample_rate_, new_sample_rate))
-        return;
-    sample_rate_ = new_sample_rate;
-    emit SampleRateChanged();
-}
-
-int EegViewModel::DisplayWindowSize() const
-{
-    return display_window_size_;
-}
-
-void EegViewModel::SetDisplayWindowSize(int miliseconds)
-{
-    if(display_window_size_ != miliseconds) {
-        display_window_size_ = miliseconds;
-        //max_samples_per_channel_ = CalculateMaxSamples();
-        emit DisplayWindowSizeChanged();
-    }
+    emit channelCountChanged();
 }
 
 QVariantList EegViewModel::getChannelData(int channel_index) const
 {
-    /*
+    //qDebug() << "GET CHANNEL DATA";
     QVariantList result;
 
     if (channel_index < 0 || channel_index >= channel_count_)
@@ -68,6 +28,11 @@ QVariantList EegViewModel::getChannelData(int channel_index) const
     }
 
     const auto& data = channel_data_.at(channel_index);
+
+    if(data.empty())
+    {
+        return result;
+    }
 
     for(const QPointF& point : data)
     {
@@ -78,8 +43,6 @@ QVariantList EegViewModel::getChannelData(int channel_index) const
     }
 
     return result;
-*/
-    return {};
 }
 
 QString EegViewModel::getChannelName(int channel_index) const
@@ -91,38 +54,40 @@ QString EegViewModel::getChannelName(int channel_index) const
     return QString();
 }
 
-void EegViewModel::clearAllChannels()
-{
-    for (auto& channel : channel_data_)
-    {
-        channel.clear();
-    }
-    emit AllChannelsUpdated();
-}
-
 void EegViewModel::UpdateChannelData(const std::vector<std::vector<float>>& chunk)
 {
-    /*
-    auto& channel_buffer = channel_data_[channel_index];
-    double time_step = 1000.0 / sample_rate_;
-
-    for (int i = 0; i < new_samples.size(); ++i)
+    //qDebug() << "UPDATE CHANNEL DATA";
+    if(chunk.empty())
     {
-        double time_ms = channel_buffer.isEmpty() ? 0 : channel_buffer.last().x() + time_step;
-        channel_buffer.append(QPointF(time_ms, new_samples[i]));
-
-        while (channel_buffer.size() > max_samples_per_channel_)
-        {
-            channel_buffer.removeFirst();
-        }
+        return;
     }
 
-    emit ChannelDataUpdated(channel_index);
-*/
+    int num_samples = chunk.size();
+    int num_channels = chunk[0].size(); // ?
+
+    double time_increment = 1.0 / sample_rate_;
+
+    for (int sample_idx = 0; sample_idx < num_samples; ++sample_idx)
+    {
+        const auto& sample = chunk[sample_idx];
+        for(int ch = 0; ch < std::min(num_channels, channel_count_); ++ch)
+        {
+            channel_data_[ch].push_back(QPointF(current_time_, sample[ch]));
+            if(channel_data_[ch].size() > max_samples_per_channel_)
+            {
+                channel_data_[ch].pop_front();
+            }
+        }
+
+        current_time_ += time_increment;
+    }
+
+    emit allChannelsUpdated();
 }
 
 void EegViewModel::StreamStarted()
 {
+    // RIGHT KNOW UNUSED, JUST CALL
     if(is_streaming_)
     {
         qDebug() << "EEG VIEW MODEL WAS ALREADY STARTED";
@@ -132,6 +97,7 @@ void EegViewModel::StreamStarted()
 
 void EegViewModel::StreamStopped()
 {
+    // RIGHT KNOW UNUSED, JUST CALL
     if(!is_streaming_)
     {
         qDebug() << "EEG VIEW MODEL WAS ALREADY STOPPED";
@@ -142,7 +108,6 @@ void EegViewModel::StreamStopped()
 void EegViewModel::Initialize(QStringList channels)
 {
     channel_names_ = channels;
-
-    SetChannelCount(channels.count());
+    channel_count_ = channels.count();
     channel_data_.resize(channel_count_);
 }

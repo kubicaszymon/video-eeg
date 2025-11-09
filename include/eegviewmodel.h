@@ -11,10 +11,8 @@ class EegViewModel : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(int channel_count READ ChannelCount WRITE SetChannelCount NOTIFY ChannelCountChanged FINAL)
-    Q_PROPERTY(bool is_streaming READ IsStreaming WRITE SetIsStreaming NOTIFY IsStreamingChanged FINAL)
-    Q_PROPERTY(double sample_rate READ SampleRate WRITE SetSampleRate NOTIFY SampleRateChanged FINAL)
-    Q_PROPERTY(int display_window_size READ DisplayWindowSize WRITE SetDisplayWindowSize NOTIFY DisplayWindowSizeChanged FINAL)
+    Q_PROPERTY(int channel_count READ ChannelCount WRITE SetChannelCount NOTIFY channelCountChanged FINAL)
+
 public:
     explicit EegViewModel(QObject *parent = nullptr);
 
@@ -23,18 +21,8 @@ public:
     int ChannelCount() const;
     void SetChannelCount(int new_channel_count);
 
-    bool IsStreaming() const;
-    void SetIsStreaming(bool new_is_streaming);
-
-    double SampleRate() const;
-    void SetSampleRate(double newSample_rate);
-
-    int DisplayWindowSize() const;
-    void SetDisplayWindowSize(int newDisplay_window_size);
-
     Q_INVOKABLE QVariantList getChannelData(int channel_index) const;
     Q_INVOKABLE QString getChannelName(int channel_index) const;
-    Q_INVOKABLE void clearAllChannels();
 
 public slots:
     void UpdateChannelData(const std::vector<std::vector<float>>& chunk);
@@ -42,26 +30,21 @@ public slots:
     void StreamStopped();
 
 signals:
-    void ChannelCountChanged();
-    void IsStreamingChanged();
-    void SampleRateChanged();
-    void DisplayWindowSizeChanged();
+    void channelCountChanged();
 
-    void ChannelDataUpdated(int channel_index);
-    void AllChannelsUpdated();
+    void allChannelsUpdated();
 
 private:
     int channel_count_;
-    bool is_streaming_;
-    double sample_rate_;
-    int display_window_size_;
-    int max_samples_per_channel_;
-
-    QVector<QVector<QPointF>> channel_data_;
+    QVector<QVector<QPointF>> channel_data_; // [channel_count][max_samples_per_channel_]
     QVector<QString> channel_names_;
 
-    int CalculateMaxSamples() const;
+    double sample_rate_ = 128;
+    int max_samples_per_channel_ = 512;
 
+    bool is_streaming_;
+
+    double current_time_ = 0.0;
 };
 
 #endif // EEGVIEWMODEL_H

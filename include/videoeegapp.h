@@ -26,7 +26,7 @@ public:
     void InitializeAmplifier(const QString amp_path);
 
     Q_INVOKABLE void refreshAmplifiersList();
-    Q_INVOKABLE void setupGraphsWindow(QVariantList selected_channels);
+    Q_INVOKABLE void setupGraphsWindow(const QVariantList& selected_channels);
 
     Q_INVOKABLE void setBusyCursor(bool busy);
 

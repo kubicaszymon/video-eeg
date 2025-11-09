@@ -7,12 +7,7 @@ ApplicationWindow {
     width: 1920
     height: 1080
     title: "EEG Channels - " + eegViewModel.channel_count + " channels"
-    visible: false
-
-    onClosing: (close) => {
-                   close.accepted = true
-                   graphsWindow.hide()
-               }
+    visible: true
 
     header: ToolBar {
         Row {
@@ -22,21 +17,6 @@ ApplicationWindow {
             Label {
                 text: "EEG Graphs"
                 font.bold: true
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
-            ToolSeparator {}
-
-            Rectangle {
-                width: 15
-                height: 15
-                radius: 7.5
-                color: eegViewModel.is_streaming ? "#4CAF50" : "#F44336"
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
-            Label {
-                text: eegViewModel.is_streaming ? "Streaming" : "Stopped"
                 anchors.verticalCenter: parent.verticalCenter
             }
         }

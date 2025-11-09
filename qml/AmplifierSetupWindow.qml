@@ -196,6 +196,28 @@ Window {
                                 font.pixelSize: 11
                             }
                         }
+
+                        RowLayout {
+                            anchors.fill: parent
+
+                            CheckBox {
+                                id: selectAllCheck
+                                Layout.alignment: Qt.AlignRight
+                                checked: false
+
+                                onClicked: {
+                                    for (var i = 0; i < channelsListView.count; i++)
+                                    {
+                                        var item = channelsListView.itemAtIndex(i)
+                                        if (item)
+                                        {
+                                            item.isSelected = checked
+                                        }
+                                    }
+
+                                }
+                            }
+                        }
                     }
 
                     // Channels list
@@ -276,12 +298,13 @@ Window {
                             var item = channelsListView.itemAtIndex(i)
                             if (item && item.isSelected)
                             {
-                                selectedChannels.push(veegapp.currentAmplifierChannels[i])
+                                selectedChannels.push(i)
                             }
                         }
 
                         veegapp.setupGraphsWindow(selectedChannels)
-                        graphsWindow.show()
+
+                        graphsWindowLoader.active = true
                         ampSetup.hide()
                     }
                 }
