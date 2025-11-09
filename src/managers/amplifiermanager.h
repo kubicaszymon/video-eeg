@@ -7,8 +7,10 @@
 #include <QProcess>
 #include <QThread>
 
-#include "amplifierparser.h"
 #include "lslstreamreader.h"
+
+struct Amplifier;
+struct Channel;
 
 /*
  * @author Szymon Kubica
@@ -20,12 +22,16 @@ class AmplifierManager : public QObject
     Q_OBJECT
 
 public:
-    AmplifierManager(const QString svarog_path, QObject* parent = nullptr);
-    ~AmplifierManager();
+    static AmplifierManager* instance();
 
-    QList<AmplifierInfo> GetAmplifiersList();
-    void StartStream(const QString amplifier_id, QList<quint8> selected_channels);
+    AmplifierManager(const AmplifierManager&) = delete;
+    AmplifierManager& operator=(const AmplifierManager&) = delete;
+
+    QList<Amplifier> GetAmplifiersList();
+    void StartStream(const QString amplifier_id);
     void StopStream();
+
+    QList<Amplifier> ParseRawOutputToAmplifiers(const QByteArray& output);
 
     QString SvarogPath() const;
     void SetSvarogPath(const QString &new_svarog_path);
@@ -38,16 +44,18 @@ signals:
     void DataReceived(const std::vector<std::vector<float>>& chunk);
 
 public slots:
-    void ProcessData(const std::vector<std::vector<float>>& chunk);
+    void onProcessData(const std::vector<std::vector<float>>& chunk);
 
 private:
+    AmplifierManager(QObject* parent = nullptr);
+    ~AmplifierManager();
+
     QProcess* stream_process_ = nullptr;
-    QString svarog_path_{};
+    // TODO DO ZMIANY NA JAKIS SET OPTIONS CZY COS TAKIEGO
+    QString svarog_path_{"C:\\Program Files (x86)\\Svarog Streamer\\svarog_streamer\\svarog_streamer.exe"};
 
-    QThread* lsl_thread_ = nullptr;
+    QThread lsl_thread_;
     std::unique_ptr<LSLStreamReader> lsl_reader_;
-
-    QList<quint8> selected_channels_{};
 };
 
 #endif // AMPLIFIERMANAGER_H

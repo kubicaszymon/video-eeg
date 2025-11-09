@@ -15,15 +15,15 @@ public:
     explicit LSLStreamReader(QObject* parent = nullptr);
     ~LSLStreamReader();
 
-public slots:
-    void StartReading();
-    void StopReading();
-
 signals:
     void DataReceived(const std::vector<std::vector<float>>& chunk);
     void ErrorOccurred(const QString& error);
     void StreamConnected();
     void StreamDisconnected();
+
+public slots:
+    void onStartReading();
+    void onStopReading();
 
 private:
     void ReadLoop();

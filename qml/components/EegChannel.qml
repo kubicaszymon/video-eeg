@@ -5,6 +5,7 @@ Rectangle {
     id: root
 
     property int channelIndex: 0
+    property var name: "undefined"
 
     color: "#1E1E1E"
     border.color: "#3E3E3E"
@@ -20,7 +21,7 @@ Rectangle {
 
         Label {
             anchors.centerIn: parent
-            text: eegViewModel.getChannelName(channelIndex)
+            text: name
             color: "#FFFFFF"
             font.pixelSize: 11
         }

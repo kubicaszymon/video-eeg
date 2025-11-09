@@ -1,4 +1,4 @@
-#include "include/eegviewmodel.h"
+#include "eegviewmodel.h"
 
 EegViewModel::EegViewModel(QObject *parent)
     : QObject{parent}
@@ -110,4 +110,9 @@ void EegViewModel::Initialize(QStringList channels)
     channel_names_ = channels;
     channel_count_ = channels.count();
     channel_data_.resize(channel_count_);
+}
+
+void EegViewModel::initialize(int amplifier_id, QVariantList selected_channel_indices)
+{
+
 }

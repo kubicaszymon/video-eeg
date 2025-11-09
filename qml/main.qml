@@ -10,16 +10,6 @@ Window {
     height: 100
     title: qsTr("VideoEEG")
 
-    Loader {
-        id: graphsWindowLoader
-        active: false
-        source: "EegGraphsWindow.qml"
-    }
-
-    AmplifierSetupWindow {
-        id: amplifierSetupWindow
-    }
-
     ColumnLayout {
         anchors.centerIn: parent
         spacing: 10
@@ -30,10 +20,9 @@ Window {
             Layout.preferredHeight: 40
             Layout.alignment: Qt.AlignHCenter
             onClicked: {
-                veegapp.setBusyCursor(true)
-                veegapp.refreshAmplifiersList()
-                veegapp.setBusyCursor(false)
-                amplifierSetupWindow.show()
+                var component = Qt.createComponent("AmplifierSetupWindow.qml")
+                var window = component.createObject(null)
+                window.show()
             }
         }
 

@@ -6,6 +6,8 @@
 #include <QVector>
 #include <QPointF>
 #include <QTimer>
+#include "amplifiermodel.h"
+#include "amplifiermanager.h"
 
 class EegViewModel : public QObject
 {
@@ -24,6 +26,8 @@ public:
     Q_INVOKABLE QVariantList getChannelData(int channel_index) const;
     Q_INVOKABLE QString getChannelName(int channel_index) const;
 
+    Q_INVOKABLE void initialize(int amplifier_id, QVariantList selected_channel_indices);
+
 public slots:
     void UpdateChannelData(const std::vector<std::vector<float>>& chunk);
     void StreamStarted();
@@ -35,6 +39,11 @@ signals:
     void allChannelsUpdated();
 
 private:
+    Amplifier amplifier_;
+    AmplifierManager* amplifier_manager_;
+
+
+
     int channel_count_;
     QVector<QVector<QPointF>> channel_data_; // [channel_count][max_samples_per_channel_]
     QVector<QString> channel_names_;

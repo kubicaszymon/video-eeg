@@ -9,6 +9,8 @@ find_package(LSL REQUIRED HINTS "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/liblsl-1.1
 
 find_package(Qt6 REQUIRED COMPONENTS Quick)
 find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -22,16 +24,26 @@ qt_add_qml_module(appvideoEeg
     URI videoEeg
     VERSION 1.0
     QML_FILES
-        qml/Main.qml
-        qml/EegChannelGraph.qml
-        qml/EegGraphsWindow.qml
+        qml/main.qml
+        qml/AmplifierSetupWindow.qml
+        qml/EegWindow.qml
+        qml/components/EegChannel.qml
     SOURCES
-        include/videoeegapp.h src/videoeegapp.cpp
-        include/amplifiermanager.h src/amplifiermanager.cpp
-        include/amplifierparser.h
-        include/eegviewmodel.h src/eegviewmodel.cpp
-        include/lslstreamreader.h src/lslstreamreader.cpp
-        QML_FILES qml/AmplifierSetupWindow.qml
+        src/viewmodels/amplifiersetupviewmodel.h src/viewmodels/amplifiersetupviewmodel.cpp
+        src/viewmodels/eegviewmodel.h src/viewmodels/eegviewmodel.cpp
+
+        src/managers/amplifiermanager.h src/managers/amplifiermanager.cpp
+        src/managers/lslstreamreader.h src/managers/lslstreamreader.cpp
+
+        src/models/amplifiermodel.h
+
+)
+
+target_include_directories(appvideoEeg PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/viewmodels
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/models
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/managers
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -50,6 +62,8 @@ target_link_libraries(appvideoEeg
         Qt6::Quick
         LSL::lsl
 )
+target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
+target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
 target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
 
 include(GNUInstallDirs)

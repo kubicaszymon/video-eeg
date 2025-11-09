@@ -1,21 +1,19 @@
 #include <QGuiApplication>
-#include "../include/videoeegapp.h"
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
 
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
+    QQmlApplicationEngine engine;
 
-    QCoreApplication::setOrganizationName("PWR W11");
-    QCoreApplication::setApplicationName("VideoEEG");
-    QCoreApplication::setApplicationVersion("0.0.1");
+    const QUrl url{QStringLiteral("qrc:/qt/qml/videoEeg/qml/main.qml")};
+    engine.load(url);
 
-    VideoEegApp video_eeg_app;
-    if(!video_eeg_app.Initialize())
+    if (engine.rootObjects().isEmpty())
     {
-        qCritical() << "Failed to initialize application";
         return -1;
     }
 
-    video_eeg_app.Run();
     return app.exec();
 }

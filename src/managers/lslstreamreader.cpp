@@ -1,4 +1,4 @@
-#include "include/lslstreamreader.h"
+#include "lslstreamreader.h"
 #include <QDebug>
 
 LSLStreamReader::LSLStreamReader(QObject* parent)
@@ -7,14 +7,14 @@ LSLStreamReader::LSLStreamReader(QObject* parent)
 
 LSLStreamReader::~LSLStreamReader()
 {
-    StopReading();
+    onStopReading();
     if(inlet_)
     {
         delete inlet_;
     }
 }
 
-void LSLStreamReader::StartReading()
+void LSLStreamReader::onStartReading()
 {
     if(is_running_)
     {
@@ -46,7 +46,7 @@ void LSLStreamReader::StartReading()
     }
 }
 
-void LSLStreamReader::StopReading()
+void LSLStreamReader::onStopReading()
 {
     is_running_ = false;
 

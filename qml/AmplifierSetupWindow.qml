@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
 import QtQuick.Layouts
+import videoEeg
 
 Window {
     id: ampSetup
@@ -9,6 +10,14 @@ Window {
     width: 1400
     height: 700
     title: qsTr("Amplifier Setup")
+
+    AmplifierSetupViewModel {
+        id: viewModel
+    }
+
+    Component.onCompleted: {
+        viewModel.initialize()
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -50,14 +59,13 @@ Window {
                         id: amplifierListView
                         anchors.fill: parent
                         anchors.margins: 5
+                        currentIndex: viewModel.selectedAmplifierIndex
                         clip: true
-                        model: veegapp.amplifierNames
-                        currentIndex: -1
-
+                        model: viewModel.availableAmplifiers
                         delegate: Rectangle {
                             width: amplifierListView.width - 10
                             height: 60
-                            color: amplifierListView.currentIndex === index ? "#ffa726" : "white"
+                            color: viewModel.selectedAmplifierIndex === index ? "#ffa726" : "white"
                             border.color: "#cccccc"
                             border.width: 1
 
@@ -81,8 +89,7 @@ Window {
                             MouseArea {
                                 anchors.fill: parent
                                 onClicked: {
-                                    amplifierListView.currentIndex = index
-                                    veegapp.selectedAmplifierIndex = index
+                                    viewModel.selectedAmplifierIndex = index
                                 }
                             }
                         }
@@ -105,7 +112,7 @@ Window {
                     Button {
                         text: "Refresh"
                         Layout.fillWidth: true
-                        onClicked: veegapp.refreshAmplifiersList()
+                        onClicked: viewModel.refreshAmplifiersList()
                     }
 
                     Button {
@@ -214,7 +221,6 @@ Window {
                                             item.isSelected = checked
                                         }
                                     }
-
                                 }
                             }
                         }
@@ -228,7 +234,7 @@ Window {
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
                         clip: true
-                        model: veegapp.currentAmplifierChannels
+                        model: viewModel.currentChannels
 
                         delegate: Rectangle {
                             width: channelsListView.width
@@ -302,10 +308,13 @@ Window {
                             }
                         }
 
-                        veegapp.setupGraphsWindow(selectedChannels)
+                        var component = Qt.createComponent("EegWindow.qml")
+                        var window = component.createObject(null, {
+                            "channelIndices": selectedChannels,
+                            "amplifierId": viewModel.selectedAmplifierIndex
+                        })
 
-                        graphsWindowLoader.active = true
-                        ampSetup.hide()
+                        ampSetup.close()
                     }
                 }
             }
