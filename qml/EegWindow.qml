@@ -7,12 +7,12 @@ ApplicationWindow {
     id: eegWindow
     width: 1920
     height: 1080
-    title: "EEG Channels - " + eegViewModel.channel_count + " channels"
+    title: "EEG Channels"
     visible: true
 
     property var channelIndices: []
     property var channelNames: []
-    property int amplifierId: -1
+    property string amplifierId: ""
 
     EegViewModel {
         id: viewModel

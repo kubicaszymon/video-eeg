@@ -311,7 +311,7 @@ Window {
                         var component = Qt.createComponent("EegWindow.qml")
                         var window = component.createObject(null, {
                             "channelIndices": selectedChannels,
-                            "amplifierId": viewModel.selectedAmplifierIndex
+                            "amplifierId": viewModel.selectedAmplifierId
                         })
 
                         ampSetup.close()

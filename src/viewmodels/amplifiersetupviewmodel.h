@@ -15,12 +15,14 @@ class AmplifierSetupViewModel : public QObject
 
     Q_PROPERTY(QVariantList availableAmplifiers READ getAvailableAmplifiers NOTIFY availableAmplifiersChanged FINAL)
     Q_PROPERTY(int selectedAmplifierIndex READ getSelectedAmplifierIndex WRITE setSelectedAmplifierIndex NOTIFY selectedAmplifierIndexChanged FINAL)
+    Q_PROPERTY(QString selectedAmplifierId READ getSelectedAmplifierId NOTIFY selectedAmplifierIndexChanged FINAL)
     Q_PROPERTY(QVariantList currentChannels READ getCurrentChannels NOTIFY selectedAmplifierIndexChanged FINAL)
 
 public:
     explicit AmplifierSetupViewModel(QObject *parent = nullptr);
 
     QVariantList getAvailableAmplifiers() const;
+    QString getSelectedAmplifierId() const;
     int getSelectedAmplifierIndex() const;
     QVariantList getCurrentChannels() const;
 

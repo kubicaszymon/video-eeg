@@ -19,6 +19,16 @@ QVariantList AmplifierSetupViewModel::getAvailableAmplifiers() const
     return available_amplifiers;
 }
 
+QString AmplifierSetupViewModel::getSelectedAmplifierId() const
+{
+    const auto& amp = GetCurrentAmplifier();
+    if(amp == nullptr)
+    {
+        return "";
+    }
+    return amp->id;
+}
+
 int AmplifierSetupViewModel::getSelectedAmplifierIndex() const
 {
     int val = selected_amplifier_index_.value();
@@ -53,7 +63,6 @@ void AmplifierSetupViewModel::setSelectedAmplifierIndex(int index)
     {
         return;
     }
-
     selected_amplifier_index_ = index;
     emit selectedAmplifierIndexChanged();
 }

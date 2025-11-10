@@ -5,7 +5,7 @@ Rectangle {
     id: root
 
     property int channelIndex: 0
-    property var name: "undefined"
+    property string name: "undefined"
 
     color: "#1E1E1E"
     border.color: "#3E3E3E"
@@ -38,15 +38,14 @@ Rectangle {
         renderStrategy: Canvas.Threaded
         renderTarget: Canvas.FramebufferObject
 
-        property var channelData: []
-        property real minY: -100
-        property real maxY: 100
+        property var renderData: null
 
         Connections {
             target: eegViewModel
 
             function onAllChannelsUpdated() {
-                canvas.channelData = eegViewModel.getChannelData(channelIndex)
+                console.log("DUPA DUPA DUPA")
+                canvas.channelData = eegViewModel.getChannelRenderData(channelIndex)
                 canvas.requestPaint()
             }
         }
@@ -54,29 +53,18 @@ Rectangle {
         onPaint: {
             var ctx = getContext("2d")
 
+            // Clear background
             ctx.fillStyle = "#1E1E1E"
             ctx.fillRect(0, 0, width, height)
 
-            if (channelData.length === 0) return
-
-            var dataMinY = Infinity
-            var dataMaxY = -Infinity
-            for (var i = 0; i < channelData.length; i++){
-                var y = channelData[i].y
-                if (y < dataMinY) dataMinY = y
-                if(y > dataMaxY) dataMaxY = y
+            // Check if we have data
+            if (!renderData || renderData.isEmpty) {
+                return
             }
 
-            var range = dataMaxY - dataMinY
-            if (range === 0) range = 1
-            dataMinY -= range * 0.1
-            dataMaxY += range * 0.1
+            var points = renderData.points
 
-            var minX = channelData[0].x
-            var maxX = channelData[channelData.length - 1].x
-            var timeRange = maxX - minX
-            if (timeRange === 0) timeRange = 1
-
+            // Draw grid lines
             ctx.strokeStyle = "#2A2A2A"
             ctx.lineWidth = 1
 
@@ -88,14 +76,17 @@ Rectangle {
                 ctx.stroke()
             }
 
+            // Draw signal - points are already normalized to 0-1
             ctx.strokeStyle = "#00BCD4"
             ctx.lineWidth = 1.5
             ctx.beginPath()
 
-            for (var k = 0; k < channelData.length; k++){
-                var point = channelData[k]
-                var x = ((point.x - minX) / timeRange) * width
-                var y = height - ((point.y - dataMinY) / (dataMaxY - dataMinY)) * height
+            for (var k = 0; k < points.length; k++){
+                var point = points[k]
+
+                // Map normalized coordinates to canvas pixels
+                var x = point.x * width
+                var y = height - (point.y * height)  // Flip Y axis
 
                 if (k === 0){
                     ctx.moveTo(x, y)
@@ -112,6 +103,6 @@ Rectangle {
         anchors.centerIn: canvas
         text: "No data"
         color: "#666666"
-        visible: canvas.channelData.length === 0
+        visible: !canvas.renderData || canvas.renderData.isEmpty
     }
 }
