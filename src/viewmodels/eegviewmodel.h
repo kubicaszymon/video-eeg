@@ -13,18 +13,15 @@ class EegViewModel : public QObject
 {
     Q_OBJECT
     QML_ELEMENT
-
-    Q_PROPERTY(int channelCount READ GetChannelCount WRITE SetChannelCount NOTIFY channelCountChanged FINAL)
+    Q_PROPERTY(QVariantList channelNames READ GetChannelNames NOTIFY initializeEnded FINAL)
 
 public:
     explicit EegViewModel(QObject *parent = nullptr);
 
-    int GetChannelCount() const;
-    void SetChannelCount(int new_channel_count);
+    QVariantList GetChannelNames() const;
 
     Q_INVOKABLE void initialize(QString amplifier_id, QVariantList selected_channel_indices);
     Q_INVOKABLE QVariantMap getChannelRenderData(int channel_index) const;
-    Q_INVOKABLE QString getChannelName(int channel_index) const;
 
 public slots:
     void UpdateChannelData(const std::vector<std::vector<float>>& chunk);
@@ -33,20 +30,26 @@ public slots:
 
 signals:
     void channelCountChanged();
-    void allChannelsUpdated();
+    void channelDataChanged(int channelIndex);
+    void initializeEnded();
 
 private:
-    Amplifier amplifier_;
+    void normalizeChannelData(int channel_index);
+
+    Amplifier* amplifier_ = nullptr;
     AmplifierManager* amplifier_manager_ = nullptr;
 
-    int channel_count_;
     QVector<QVector<QPointF>> channel_data_; // [channel_count][max_samples_per_channel_]
-    QVector<QString> channel_names_;
+    QVector<QVariantMap> channel_render_cache_; // prenormalized render data
 
     double sample_rate_ = 128;
     int max_samples_per_channel_ = 512;
     bool is_streaming_;
     double current_time_ = 0.0;
+
+    QTimer* update_timer_ = nullptr;
+    QSet<int> dirty_channels_;
+    int batch_interval_ms_ = 50;
 };
 
 #endif // EEGVIEWMODEL_H

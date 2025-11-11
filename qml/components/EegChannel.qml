@@ -4,6 +4,8 @@ import QtQuick.Controls
 Rectangle {
     id: root
 
+    property var viewModel: null
+
     property int channelIndex: 0
     property string name: "undefined"
 
@@ -41,12 +43,14 @@ Rectangle {
         property var renderData: null
 
         Connections {
-            target: eegViewModel
+            target: viewModel
 
-            function onAllChannelsUpdated() {
-                console.log("DUPA DUPA DUPA")
-                canvas.channelData = eegViewModel.getChannelRenderData(channelIndex)
-                canvas.requestPaint()
+            function onChannelDataChanged(chanIndex) {
+                //console.log("Channel", chanIndex, "updating")
+                if (chanIndex === channelIndex) {
+                    canvas.renderData = viewModel.getChannelRenderData(channelIndex)
+                    canvas.requestPaint()
+                }
             }
         }
 

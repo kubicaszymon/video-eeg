@@ -4,15 +4,14 @@
 AmplifierSetupViewModel::AmplifierSetupViewModel(QObject *parent)
     : QObject{parent}
 {
-    selected_amplifier_index_.onValueChanged([this](){
-        int a  =3;
-    });
+
 }
 
 QVariantList AmplifierSetupViewModel::getAvailableAmplifiers() const
 {
     QVariantList available_amplifiers{};
-    for(const auto& amp : std::as_const(amplifiers_))
+    const auto amps = manager_->RefreshAmplifiersList();
+    for(auto amp : amps)
     {
         available_amplifiers.append(amp.name);
     }
@@ -53,7 +52,7 @@ void AmplifierSetupViewModel::initialize()
     qDebug() << "initialize";
 
     manager_ = AmplifierManager::instance();
-    amplifiers_ = manager_->GetAmplifiersList();
+    amplifiers_ = manager_->RefreshAmplifiersList();
     emit availableAmplifiersChanged();
 }
 

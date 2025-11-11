@@ -4,17 +4,12 @@
 #include "amplifiermodel.h"
 #include "amplifiermanager.h"
 #include <lsl_cpp.h>
+#include <qtimer.h>
 
 AmplifierManager::AmplifierManager(QObject* parent)
     : QObject(parent)
 {
-    lsl_reader_ = std::make_unique<LSLStreamReader>();
-    lsl_reader_->moveToThread(&lsl_thread_);
 
-    connect(lsl_reader_.get(), &LSLStreamReader::DataReceived, this, &AmplifierManager::onProcessData);
-
-    connect(this, &AmplifierManager::StartLSLReading, lsl_reader_.get(), &LSLStreamReader::onStartReading);
-    connect(this, &AmplifierManager::StopLSLReading, lsl_reader_.get(), &LSLStreamReader::onStopReading);
 }
 
 AmplifierManager::~AmplifierManager()
@@ -22,7 +17,13 @@ AmplifierManager::~AmplifierManager()
     StopStream();
 }
 
-QList<Amplifier> AmplifierManager::GetAmplifiersList()
+AmplifierManager *AmplifierManager::instance()
+{
+    static AmplifierManager instance;
+    return &instance;
+}
+
+QList<Amplifier> AmplifierManager::RefreshAmplifiersList()
 {
     QList<Amplifier> rv{};
     QProcess process;
@@ -30,7 +31,7 @@ QList<Amplifier> AmplifierManager::GetAmplifiersList()
     process.setArguments({"-l"});
     process.start();
 
-    if(process.waitForFinished(3000))
+    if(process.waitForFinished(PROCESS_TIMEOUT_MS))
     {
         QByteArray output = process.readAllStandardOutput();
         rv = ParseRawOutputToAmplifiers(output);
@@ -40,51 +41,101 @@ QList<Amplifier> AmplifierManager::GetAmplifiersList()
         qDebug() << "Nie udalo sie pozyskac listy wzmacniaczy";
     }
 
+    amplifiers_ = rv;
     return rv;
 }
 
-AmplifierManager *AmplifierManager::instance()
+Amplifier* AmplifierManager::GetAmplifierById(QString id)
 {
-    static AmplifierManager instance;
-    return &instance;
+    auto it = std::find_if(amplifiers_.begin(), amplifiers_.end(),[&](Amplifier& amp) {
+        return amp.id == id;
+    });
+    return it != amplifiers_.end() ? &*it : nullptr;
 }
 
 void AmplifierManager::StartStream(const QString amplifier_id)
 {
     if(stream_process_ && stream_process_->state() == QProcess::Running)
     {
+        qDebug() << "Stopping existing stream";
         StopStream();
     }
 
-    if(!stream_process_)
-    {
-        stream_process_ = new QProcess(this);
-    }
+    stream_process_ = new QProcess(this);
 
     stream_process_->setProgram(svarog_path_);
     stream_process_->setArguments({"-a", amplifier_id});
     stream_process_->start();
 
-    // TO CHANGE IN FUTURE TO SOME BETTER MECHANISM (WAIT FOR DATA)
-    QThread::msleep(1000);
+    if(!stream_process_->waitForStarted(PROCESS_TIMEOUT_MS))
+    {
+        qDebug() << "Failed to start stream process";
+        delete stream_process_;
+        stream_process_ = nullptr;
+        return;
+    }
 
-    lsl_thread_.start();
-    emit StartLSLReading();
+    if(!lsl_thread_)
+    {
+        lsl_thread_ = new QThread(this);
+        lsl_reader_ = std::make_unique<LSLStreamReader>();
+        lsl_reader_->moveToThread(lsl_thread_);
+
+        connect(lsl_reader_.get(), &LSLStreamReader::DataReceived, this, &AmplifierManager::onProcessData);
+        connect(this, &AmplifierManager::StartLSLReading, lsl_reader_.get(), &LSLStreamReader::onStartReading);
+        connect(this, &AmplifierManager::StopLSLReading, lsl_reader_.get(), &LSLStreamReader::onStopReading);
+
+        lsl_thread_->start();
+    }
+
+    QTimer::singleShot(STREAM_STARTUP_DELAY_MS, this, [this](){
+        emit StartLSLReading();
+    });
 }
 
 void AmplifierManager::StopStream()
 {
-    emit StopLSLReading();
+    qDebug() <<"Stopping Stream";
 
-    if(stream_process_ && stream_process_->state() == QProcess::Running)
+    if(lsl_reader_)
     {
-        stream_process_->terminate();
-        stream_process_->waitForFinished();
-        stream_process_ = nullptr;
+        emit StopLSLReading();
+        QThread::msleep(100);
     }
 
-    lsl_thread_.quit();
-    lsl_thread_.wait();
+    if(lsl_thread_)
+    {
+        if(lsl_thread_->isRunning())
+        {
+            lsl_thread_->quit();
+            if(!lsl_thread_->wait(3000))
+            {
+                lsl_thread_->terminate();
+                lsl_thread_->wait();
+            }
+        }
+
+        lsl_thread_->deleteLater();
+        lsl_thread_ = nullptr;
+    }
+
+    lsl_reader_.reset();
+
+    if(stream_process_)
+    {
+        if(stream_process_->state() == QProcess::Running)
+        {
+            stream_process_->terminate();
+            if(!stream_process_->waitForFinished(3000))
+            {
+                stream_process_->kill();
+                stream_process_->waitForFinished();
+            }
+        }
+
+        stream_process_->deleteLater();
+        stream_process_ = nullptr;
+    }
 }
 
 QString AmplifierManager::SvarogPath() const

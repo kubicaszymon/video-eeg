@@ -11,18 +11,21 @@ ApplicationWindow {
     visible: true
 
     property var channelIndices: []
-    property var channelNames: []
+    property var channelNames: eegViewModel.channelNames
     property string amplifierId: ""
 
     EegViewModel {
-        id: viewModel
+        id: eegViewModel
     }
+
+    property bool isInitialized: false
 
     Component.onCompleted: {
         console.log("EegWindow opened with channels:", channelIndices)
         console.log("Amplifier ID:", amplifierId)
 
-        viewModel.initialize(amplifierId, channelIndices)
+        eegViewModel.initialize(amplifierId, channelIndices)
+        isInitialized = true
     }
 
 
@@ -46,18 +49,19 @@ ApplicationWindow {
 
         Column {
             id: graphColumn
-            width: graphsWindow.width
+            width: eegWindow.width
             spacing: 5
             padding: 10
 
             Repeater {
-                model: channelNames
+                model: isInitialized ? channelNames : []
 
-                EegChannel {
+                delegate: EegChannel {
                     width: graphColumn.width - 20
                     height: 100
                     channelIndex: index
                     name: modelData
+                    viewModel: eegViewModel
                 }
             }
         }

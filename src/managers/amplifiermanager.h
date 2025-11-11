@@ -27,7 +27,9 @@ public:
     AmplifierManager(const AmplifierManager&) = delete;
     AmplifierManager& operator=(const AmplifierManager&) = delete;
 
-    QList<Amplifier> GetAmplifiersList();
+    QList<Amplifier> RefreshAmplifiersList();
+    Amplifier* GetAmplifierById(QString id);
+
     void StartStream(const QString amplifier_id);
     void StopStream();
 
@@ -54,8 +56,13 @@ private:
     // TODO DO ZMIANY NA JAKIS SET OPTIONS CZY COS TAKIEGO
     QString svarog_path_{"C:\\Program Files (x86)\\Svarog Streamer\\svarog_streamer\\svarog_streamer.exe"};
 
-    QThread lsl_thread_;
+    QThread* lsl_thread_ = nullptr;
     std::unique_ptr<LSLStreamReader> lsl_reader_;
+
+    QList<Amplifier> amplifiers_{};
+
+    static constexpr int PROCESS_TIMEOUT_MS = 3000;
+    static constexpr int STREAM_STARTUP_DELAY_MS = 1000;
 };
 
 #endif // AMPLIFIERMANAGER_H

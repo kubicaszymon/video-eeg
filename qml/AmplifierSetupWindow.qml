@@ -15,8 +15,11 @@ Window {
         id: viewModel
     }
 
+    property bool isInitialized: false
+
     Component.onCompleted: {
         viewModel.initialize()
+        isInitialized = true
     }
 
     RowLayout {
@@ -61,7 +64,7 @@ Window {
                         anchors.margins: 5
                         currentIndex: viewModel.selectedAmplifierIndex
                         clip: true
-                        model: viewModel.availableAmplifiers
+                        model: isInitialized ? viewModel.availableAmplifiers : []
                         delegate: Rectangle {
                             width: amplifierListView.width - 10
                             height: 60
