@@ -45,17 +45,18 @@ Rectangle {
         Connections {
             target: viewModel
 
-            function onChannelDataChanged(chanIndex) {
-                //console.log("Channel", chanIndex, "updating")
-                if (chanIndex === channelIndex) {
-                    canvas.renderData = viewModel.getChannelRenderData(channelIndex)
-                    canvas.requestPaint()
-                }
+            function onAllChannelsUpdated() {
+                canvas.renderData = viewModel.getChannelRenderData(channelIndex)
+                canvas.requestPaint()
             }
         }
 
         onPaint: {
             var ctx = getContext("2d")
+            if (!ctx) {
+                console.log("Failed to get canvas context for channel", channelIndex)
+                return
+            }
 
             // Clear background
             ctx.fillStyle = "#1E1E1E"
@@ -63,10 +64,15 @@ Rectangle {
 
             // Check if we have data
             if (!renderData || renderData.isEmpty) {
+                console.log("No renderData for channel", channelIndex)
                 return
             }
 
             var points = renderData.points
+            if (!points || points.length === 0) {
+                console.log("No points for channel", channelIndex)
+                return
+            }
 
             // Draw grid lines
             ctx.strokeStyle = "#2A2A2A"
@@ -87,6 +93,10 @@ Rectangle {
 
             for (var k = 0; k < points.length; k++){
                 var point = points[k]
+                if (!point || point.x === undefined || point.y === undefined) {
+                    console.log("Invalid point at index", k, "for channel", channelIndex)
+                    continue
+                }
 
                 // Map normalized coordinates to canvas pixels
                 var x = point.x * width

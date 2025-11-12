@@ -10,6 +10,9 @@ Window {
     height: 100
     title: qsTr("VideoEEG")
 
+    property var amplifierSetupWindow: null
+    property var eegWindow: null
+
     ColumnLayout {
         anchors.centerIn: parent
         spacing: 10
@@ -20,9 +23,12 @@ Window {
             Layout.preferredHeight: 40
             Layout.alignment: Qt.AlignHCenter
             onClicked: {
-                var component = Qt.createComponent("AmplifierSetupWindow.qml")
-                var window = component.createObject(null)
-                window.show()
+                if(!amplifierSetupWindow)
+                {
+                    var component = Qt.createComponent("AmplifierSetupWindow.qml")
+                    amplifierSetupWindow = component.createObject(root, {"mainWindow": root})
+                }
+                amplifierSetupWindow.show()
             }
         }
 

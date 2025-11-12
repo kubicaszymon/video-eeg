@@ -11,11 +11,12 @@ Window {
     height: 700
     title: qsTr("Amplifier Setup")
 
+    property var mainWindow: null
+    property bool isInitialized: false
+
     AmplifierSetupViewModel {
         id: viewModel
     }
-
-    property bool isInitialized: false
 
     Component.onCompleted: {
         viewModel.initialize()
@@ -312,10 +313,13 @@ Window {
                         }
 
                         var component = Qt.createComponent("EegWindow.qml")
-                        var window = component.createObject(null, {
-                            "channelIndices": selectedChannels,
-                            "amplifierId": viewModel.selectedAmplifierId
-                        })
+                        if(mainWindow)
+                        {
+                            mainWindow.eegWindow = component.createObject(mainWindow, {
+                                "channelIndices": selectedChannels,
+                                "amplifierId": viewModel.selectedAmplifierId
+                            })
+                        }
 
                         ampSetup.close()
                     }

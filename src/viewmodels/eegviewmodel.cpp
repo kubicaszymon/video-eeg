@@ -11,17 +11,24 @@ EegViewModel::EegViewModel(QObject *parent)
     update_timer_->setInterval(batch_interval_ms_);
     update_timer_->setSingleShot(true);
     connect(update_timer_, &QTimer::timeout, this, [this](){
-        for(int ch : dirty_channels_)
+        for(int ch : std::as_const(dirty_channels_))
         {
+            qDebug() << "[EegViewModel] timer: " << ch;
             normalizeChannelData(ch);
-            emit channelDataChanged(ch);
         }
+        emit allChannelsUpdated();
         dirty_channels_.clear();
     });
 }
 
+EegViewModel::~EegViewModel()
+{
+    qDebug() << "[EegViewModel] DESTRUCTOR CALLED - this pointer:" << this;
+}
+
 QVariantMap EegViewModel::getChannelRenderData(int channel_index) const
 {
+    qDebug() << "[EegViewModel] getChannelRenderData: " << channel_index;
     if(channel_index < 0 || channel_index >= channel_render_cache_.size())
     {
         QVariantMap empty;
@@ -50,6 +57,7 @@ QVariantList EegViewModel::GetChannelNames() const
 
 void EegViewModel::UpdateChannelData(const std::vector<std::vector<float>>& chunk)
 {
+    qDebug() << "[EegViewModel] UpdateChannelData";
     if(chunk.empty())
     {
         return;
@@ -85,30 +93,9 @@ void EegViewModel::UpdateChannelData(const std::vector<std::vector<float>>& chun
     }
 }
 
-void EegViewModel::StreamStarted()
-{
-    // RIGHT KNOW UNUSED, JUST CALL
-    if(is_streaming_)
-    {
-        qDebug() << "EEG VIEW MODEL WAS ALREADY STARTED";
-        return;
-    }
-    is_streaming_ = true;
-}
-
-void EegViewModel::StreamStopped()
-{
-    // RIGHT KNOW UNUSED, JUST CALL
-    if(!is_streaming_)
-    {
-        qDebug() << "EEG VIEW MODEL WAS ALREADY STOPPED";
-        return;
-    }
-    is_streaming_ = false;
-}
-
 void EegViewModel::normalizeChannelData(int channel_index)
 {
+    qDebug() << "[EegViewModel] normalizeChannelData " << channel_index;
     if (channel_index < 0 || channel_index >= channel_data_.size())
         return;
 
@@ -170,6 +157,11 @@ void EegViewModel::normalizeChannelData(int channel_index)
 void EegViewModel::initialize(QString amplifier_id, QVariantList selected_channel_indices)
 {
     amplifier_ = amplifier_manager_->GetAmplifierById(amplifier_id);
+    if(amplifier_ == nullptr)
+    {
+        qWarning() << "[EegViewModel] Amplifier is nullptr";
+        return;
+    }
 
     int num_channels = amplifier_->available_channels.size();
     channel_data_.resize(num_channels);

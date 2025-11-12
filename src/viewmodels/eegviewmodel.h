@@ -17,6 +17,7 @@ class EegViewModel : public QObject
 
 public:
     explicit EegViewModel(QObject *parent = nullptr);
+    ~EegViewModel();
 
     QVariantList GetChannelNames() const;
 
@@ -25,12 +26,10 @@ public:
 
 public slots:
     void UpdateChannelData(const std::vector<std::vector<float>>& chunk);
-    void StreamStarted();
-    void StreamStopped();
 
 signals:
     void channelCountChanged();
-    void channelDataChanged(int channelIndex);
+    void allChannelsUpdated();
     void initializeEnded();
 
 private:
