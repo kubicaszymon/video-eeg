@@ -49,7 +49,7 @@ ApplicationWindow {
                 anchors.verticalCenter: parent.verticalCenter
             }
 
-            // Time window control
+            // Time window control - NAPRAWIONE
             Label {
                 text: "Time:"
                 anchors.verticalCenter: parent.verticalCenter
@@ -57,9 +57,9 @@ ApplicationWindow {
 
             Slider {
                 id: timeSlider
-                from: 2
-                to: 10
-                value: 5
+                from: 5           // Min: 5 sekund
+                to: 30            // Max: 30 sekund
+                value: 10         // Domyślnie: 10 sekund
                 stepSize: 1
                 width: 150
                 anchors.verticalCenter: parent.verticalCenter
@@ -79,7 +79,7 @@ ApplicationWindow {
                 anchors.verticalCenter: parent.verticalCenter
             }
 
-            // Amplitude control
+            // Amplitude control - NAPRAWIONE (O WIELE MNIEJSZE WARTOŚCI)
             Label {
                 text: "Gain:"
                 anchors.verticalCenter: parent.verticalCenter
@@ -87,16 +87,16 @@ ApplicationWindow {
 
             Slider {
                 id: amplitudeSlider
-                from: 5
-                to: 100
-                value: 20
-                stepSize: 5
+                from: 0.1         // Min: 0.1 (bardzo mały gain)
+                to: 10            // Max: 10
+                value: 1.0        // Domyślnie: 1.0
+                stepSize: 0.1
                 width: 150
                 anchors.verticalCenter: parent.verticalCenter
             }
 
             Label {
-                text: amplitudeSlider.value.toFixed(0)
+                text: amplitudeSlider.value.toFixed(1)
                 anchors.verticalCenter: parent.verticalCenter
                 color: "#00BCD4"
                 font.pixelSize: 12
@@ -109,7 +109,7 @@ ApplicationWindow {
                 anchors.verticalCenter: parent.verticalCenter
             }
 
-            // Channel spacing
+            // Channel spacing - NAPRAWIONE (DUŻO WIĘKSZE)
             Label {
                 text: "Spacing:"
                 anchors.verticalCenter: parent.verticalCenter
@@ -117,10 +117,10 @@ ApplicationWindow {
 
             Slider {
                 id: spacingSlider
-                from: 40
-                to: 150
-                value: 80
-                stepSize: 5
+                from: 50          // Min: 50px
+                to: 500           // Max: 500px (było 150!)
+                value: 150        // Domyślnie: 150px
+                stepSize: 10
                 width: 150
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -197,45 +197,6 @@ ApplicationWindow {
                 color: "#888888"
                 font.pixelSize: 9
             }
-        }
-    }
-
-    // FPS Monitor (optional - for debugging)
-    Rectangle {
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.margins: 10
-        width: 80
-        height: 30
-        color: "#2E2E2E"
-        border.color: "#555555"
-        visible: false // Włącz do debugowania
-
-        property int frameCount: 0
-        property real fps: 0
-
-        Timer {
-            interval: 1000
-            running: true
-            repeat: true
-            onTriggered: {
-                parent.fps = parent.frameCount
-                parent.frameCount = 0
-            }
-        }
-
-        Connections {
-            target: eegViewModel
-            function onDataUpdated() {
-                parent.frameCount++
-            }
-        }
-
-        Label {
-            anchors.centerIn: parent
-            text: "FPS: " + parent.fps
-            color: parent.fps < 20 ? "#FF6B6B" : "#4ECDC4"
-            font.pixelSize: 11
         }
     }
 }

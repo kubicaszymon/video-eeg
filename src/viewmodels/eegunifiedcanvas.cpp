@@ -1,4 +1,4 @@
-// eegunifiedcanvas.cpp
+// eegunifiedcanvas.cpp - POPRAWNA WERSJA
 #include "eegunifiedcanvas.h"
 #include <QPainterPath>
 #include <QFontMetrics>
@@ -119,10 +119,10 @@ void EegUnifiedCanvas::drawGrid(QPainter* painter)
 
     // Horizontal lines - co 5 kanałów
     int channel_count = view_model_->GetChannelCount();
+    painter->setPen(QPen(QColor("#3A3A3A"), 1, Qt::DotLine));
     for(int ch = 0; ch < channel_count; ch += 5)
     {
         qreal y = 40.0 + (ch * channel_spacing_);
-        painter->setPen(QPen(QColor("#3A3A3A"), 1, Qt::DotLine));
         painter->drawLine(QPointF(0, y), QPointF(w, y));
     }
 }
@@ -144,7 +144,9 @@ void EegUnifiedCanvas::drawChannelLabel(QPainter* painter, int channel_index, qr
 void EegUnifiedCanvas::drawChannelBaseline(QPainter* painter, int channel_index, qreal y_baseline)
 {
     qreal w = width();
-    painter->setPen(QPen(QColor("#3A3A3A"), 1, Qt::DotLine));
+
+    // Linia zera (baseline) - wyraźna, ciągła
+    painter->setPen(QPen(QColor("#5A5A5A"), 1.5));
     painter->drawLine(QPointF(70, y_baseline), QPointF(w, y_baseline));
 }
 
@@ -160,7 +162,7 @@ void EegUnifiedCanvas::drawChannelSignal(QPainter* painter, int channel_index, q
     int total_points = data.size();
 
     // Oblicz ile sampli powinno być w oknie czasowym
-    int sample_rate = 128; // UWAGA: hardcoded, lepiej to pobierać z viewmodel
+    int sample_rate = view_model_->GetSampleRate();
     int samples_in_window = static_cast<int>(time_window_ * sample_rate);
 
     // Jeśli mamy więcej danych niż okno - pokaż tylko ostatnie
@@ -173,11 +175,11 @@ void EegUnifiedCanvas::drawChannelSignal(QPainter* painter, int channel_index, q
         points_to_draw = samples_in_window;
     }
 
-    // Decimation - maksymalnie 2000 punktów na ekran
-    int step = qMax(1, points_to_draw / 2000);
-    int visible_points = points_to_draw / step;
+    // KRYTYCZNE: Decimation - więcej punktów dla gładkich krzywych
+    int step = qMax(1, points_to_draw / 5000);  // 5000 zamiast 2000!
+    int visible_points = (points_to_draw + step - 1) / step;
 
-    // Użyj drawPolyline zamiast QPainterPath (szybsze!)
+    // Użyj QVector<QPointF>
     QVector<QPointF> points;
     points.reserve(visible_points);
 
