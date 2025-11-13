@@ -57,9 +57,9 @@ ApplicationWindow {
 
             Slider {
                 id: timeSlider
-                from: 5           // Min: 5 sekund
-                to: 30            // Max: 30 sekund
-                value: 10         // Domyślnie: 10 sekund
+                from: 5
+                to: 30
+                value: 10
                 stepSize: 1
                 width: 150
                 anchors.verticalCenter: parent.verticalCenter
@@ -68,14 +68,14 @@ ApplicationWindow {
             Label {
                 text: timeSlider.value.toFixed(0) + "s"
                 anchors.verticalCenter: parent.verticalCenter
-                color: "#FFD93D"
+                color: "#000000"
                 font.pixelSize: 12
             }
 
             Rectangle {
                 width: 1
                 height: 30
-                color: "#555555"
+                color: "#000000"
                 anchors.verticalCenter: parent.verticalCenter
             }
 
@@ -87,10 +87,10 @@ ApplicationWindow {
 
             Slider {
                 id: amplitudeSlider
-                from: 0.1         // Min: 0.1 (bardzo mały gain)
-                to: 10            // Max: 10
-                value: 1.0        // Domyślnie: 1.0
-                stepSize: 0.1
+                from: 0.05
+                to: 2
+                value: 0.5
+                stepSize: 0.05
                 width: 150
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -98,7 +98,7 @@ ApplicationWindow {
             Label {
                 text: amplitudeSlider.value.toFixed(1)
                 anchors.verticalCenter: parent.verticalCenter
-                color: "#00BCD4"
+                color: "#000000"
                 font.pixelSize: 12
             }
 
@@ -109,7 +109,6 @@ ApplicationWindow {
                 anchors.verticalCenter: parent.verticalCenter
             }
 
-            // Channel spacing - NAPRAWIONE (DUŻO WIĘKSZE)
             Label {
                 text: "Spacing:"
                 anchors.verticalCenter: parent.verticalCenter
@@ -117,9 +116,9 @@ ApplicationWindow {
 
             Slider {
                 id: spacingSlider
-                from: 50          // Min: 50px
-                to: 500           // Max: 500px (było 150!)
-                value: 150        // Domyślnie: 150px
+                from: 50
+                to: 500
+                value: 150
                 stepSize: 10
                 width: 150
                 anchors.verticalCenter: parent.verticalCenter
@@ -139,7 +138,7 @@ ApplicationWindow {
         anchors.fill: parent
         clip: true
 
-        EegUnifiedCanvas {
+        EegCanva {
             id: unifiedCanvas
             width: eegWindow.width
             height: Math.max(eegWindow.height, eegViewModel.channelCount * spacingSlider.value + 100)
@@ -149,54 +148,6 @@ ApplicationWindow {
             channelSpacing: spacingSlider.value
             showGrid: gridCheckbox.checked
             timeWindow: timeSlider.value
-        }
-    }
-
-    // Scale reference
-    Rectangle {
-        anchors.bottom: parent.bottom
-        anchors.right: parent.right
-        anchors.margins: 20
-        width: 120
-        height: 80
-        color: "#2E2E2E"
-        border.color: "#555555"
-        border.width: 1
-        radius: 4
-
-        Column {
-            anchors.centerIn: parent
-            spacing: 8
-
-            Label {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "Scale:"
-                color: "#888888"
-                font.pixelSize: 9
-            }
-
-            Row {
-                spacing: 10
-
-                Rectangle {
-                    width: 2
-                    height: 50
-                    color: "#00BCD4"
-                }
-
-                Label {
-                    text: (50 / amplitudeSlider.value).toFixed(1) + " µV"
-                    color: "#CCCCCC"
-                    font.pixelSize: 10
-                }
-            }
-
-            Label {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: timeSlider.value.toFixed(0) + " seconds"
-                color: "#888888"
-                font.pixelSize: 9
-            }
         }
     }
 }

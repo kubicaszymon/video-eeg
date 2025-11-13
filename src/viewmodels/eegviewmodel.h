@@ -61,7 +61,7 @@ private:
     std::vector<ChannelBuffer> channel_buffers_;
     mutable QMutex data_mutex_;
 
-    static constexpr int MAX_SAMPLES_PER_CHANNEL = 512;
+    static constexpr int MAX_SAMPLES_PER_CHANNEL = 2560;
     double current_time_ = 0.0;
     double sample_rate_ = 128.0;
     int max_samples_per_channel_ = 640;

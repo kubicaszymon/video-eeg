@@ -150,23 +150,8 @@ void AmplifierManager::SetSvarogPath(const QString &new_svarog_path)
 
 void AmplifierManager::onProcessData(const std::vector<std::vector<float>>& chunk)
 {
-    qDebug() << "PROCESS DATA";
     emit DataReceived(chunk);
-    /*
-    for(auto& sample : chunk)
-    {
-        std::vector<float> filtered;
-        filtered.reserve(selected_channels_.size());
-        for(int channel : selected_channels_)
-        {
-            if(channel >= 0 && channel < static_cast<int>(sample.size()))
-            {
-                filtered.push_back(sample[channel]);
-            }
-        }
-        sample = std::move(filtered);
-    }
-    */
+    // wybieranie kanalow czy cos takiego? save pewnie tu bedzie
 }
 
 QList<Amplifier> AmplifierManager::ParseRawOutputToAmplifiers(const QByteArray& output)

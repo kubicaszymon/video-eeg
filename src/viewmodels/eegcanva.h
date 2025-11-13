@@ -1,13 +1,13 @@
 // eegunifiedcanvas.h
-#ifndef EEGUNIFIEDCANVAS_H
-#define EEGUNIFIEDCANVAS_H
+#ifndef EEGCANVA_H
+#define EEGCANVA_H
 
 #include <QQuickPaintedItem>
 #include <QPainter>
 #include <QVector>
 #include "eegviewmodel.h"
 
-class EegUnifiedCanvas : public QQuickPaintedItem
+class EegCanva : public QQuickPaintedItem
 {
     Q_OBJECT
     QML_ELEMENT
@@ -19,7 +19,7 @@ class EegUnifiedCanvas : public QQuickPaintedItem
     Q_PROPERTY(float timeWindow READ timeWindow WRITE setTimeWindow NOTIFY timeWindowChanged)
 
 public:
-    explicit EegUnifiedCanvas(QQuickItem *parent = nullptr);
+    explicit EegCanva(QQuickItem *parent = nullptr);
 
     void paint(QPainter *painter) override;
 
@@ -63,4 +63,4 @@ private:
     QVector<QColor> channel_colors_;
 };
 
-#endif // EEGUNIFIEDCANVAS_H
+#endif // EEGCANVA_H

@@ -37,7 +37,7 @@ qt_add_qml_module(appvideoEeg
 
         src/models/amplifiermodel.h
         SOURCES
-        SOURCES src/viewmodels/eegunifiedcanvas.h src/viewmodels/eegunifiedcanvas.cpp
+        SOURCES src/viewmodels/eegcanva.h src/viewmodels/eegcanva.cpp
 
 )
 

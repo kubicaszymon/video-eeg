@@ -1,99 +1,125 @@
 // eegunifiedcanvas.cpp - POPRAWNA WERSJA
-#include "eegunifiedcanvas.h"
+#include "eegcanva.h"
 #include <QPainterPath>
 #include <QFontMetrics>
 
-EegUnifiedCanvas::EegUnifiedCanvas(QQuickItem *parent)
+EegCanva::EegCanva(QQuickItem *parent)
     : QQuickPaintedItem(parent)
 {
     setRenderTarget(QQuickPaintedItem::FramebufferObject);
     setPerformanceHint(QQuickPaintedItem::FastFBOResizing);
     setAntialiasing(false);
 
-    channel_colors_ << QColor("#FFFFFF")
-                    << QColor("#FF6B6B")
-                    << QColor("#4ECDC4")
-                    << QColor("#FFD93D")
-                    << QColor("#95E1D3");
+    channel_colors_ << QColor(255, 255, 255)
+                    << QColor(255, 107, 107)
+                    << QColor( 78, 205, 196)
+                    << QColor(255, 217,  61)
+                    << QColor(149, 225, 211);
 }
 
-void EegUnifiedCanvas::setViewModel(EegViewModel* model)
+void EegCanva::setViewModel(EegViewModel* model)
 {
-    if(view_model_ == model) return;
+    if(view_model_ == model)
+    {
+        return;
+    }
 
     if(view_model_)
+    {
         disconnect(view_model_, nullptr, this, nullptr);
+    }
 
     view_model_ = model;
 
     if(view_model_)
     {
         connect(view_model_, &EegViewModel::dataUpdated,
-                this, &EegUnifiedCanvas::onDataUpdated, Qt::QueuedConnection);
+                this, &EegCanva::onDataUpdated, Qt::QueuedConnection);
     }
 
     emit viewModelChanged();
 }
 
-void EegUnifiedCanvas::setAmplitudeScale(float scale)
+void EegCanva::setAmplitudeScale(float scale)
 {
-    if(qFuzzyCompare(amplitude_scale_, scale)) return;
+    if(qFuzzyCompare(amplitude_scale_, scale))
+    {
+        return;
+    }
     amplitude_scale_ = scale;
     emit amplitudeScaleChanged();
     update();
 }
 
-void EegUnifiedCanvas::setChannelSpacing(float spacing)
+void EegCanva::setChannelSpacing(float spacing)
 {
-    if(qFuzzyCompare(channel_spacing_, spacing)) return;
+    if(qFuzzyCompare(channel_spacing_, spacing))
+    {
+        return;
+    }
     channel_spacing_ = spacing;
     emit channelSpacingChanged();
     update();
 }
 
-void EegUnifiedCanvas::setShowGrid(bool show)
+void EegCanva::setShowGrid(bool show)
 {
-    if(show_grid_ == show) return;
+    if(show_grid_ == show)
+    {
+        return;
+    }
     show_grid_ = show;
     emit showGridChanged();
     update();
 }
 
-void EegUnifiedCanvas::setTimeWindow(float seconds)
+void EegCanva::setTimeWindow(float seconds)
 {
-    if(qFuzzyCompare(time_window_, seconds)) return;
+    if(qFuzzyCompare(time_window_, seconds))
+    {
+        return;
+    }
     time_window_ = seconds;
     emit timeWindowChanged();
     update();
 }
 
-void EegUnifiedCanvas::onDataUpdated()
+void EegCanva::onDataUpdated()
 {
     update();
 }
 
-void EegUnifiedCanvas::paint(QPainter *painter)
+void EegCanva::paint(QPainter *painter)
 {
-    if(!view_model_) return;
+    if(!view_model_)
+    {
+        return;
+    }
 
     painter->setRenderHint(QPainter::Antialiasing, false);
 
     qreal w = width();
     qreal h = height();
 
-    // Background
-    painter->fillRect(0, 0, w, h, QColor("#1E1E1E"));
+    // paint background to gray
+    painter->fillRect(0, 0, w, h, QColor(30, 30, 30));
 
     int channel_count = view_model_->GetChannelCount();
-    if(channel_count == 0) return;
+    if(channel_count == 0)
+    {
+        return;
+    }
 
-    // Draw grid first
+    // grid
     if(show_grid_)
+    {
         drawGrid(painter);
+    }
 
-    // Draw each channel
+    // draw each channel
     for(int ch = 0; ch < channel_count; ++ch)
     {
+        // odstep miedzy channelami
         qreal y_baseline = 40.0 + (ch * channel_spacing_);
 
         drawChannelLabel(painter, ch, y_baseline);
@@ -102,7 +128,7 @@ void EegUnifiedCanvas::paint(QPainter *painter)
     }
 }
 
-void EegUnifiedCanvas::drawGrid(QPainter* painter)
+void EegCanva::drawGrid(QPainter* painter)
 {
     qreal w = width();
     qreal h = height();
@@ -127,30 +153,31 @@ void EegUnifiedCanvas::drawGrid(QPainter* painter)
     }
 }
 
-void EegUnifiedCanvas::drawChannelLabel(QPainter* painter, int channel_index, qreal y_baseline)
+void EegCanva::drawChannelLabel(QPainter* painter, int channel_index, qreal y_baseline)
 {
     QVariantList names = view_model_->GetChannelNames();
-    if(channel_index >= names.size()) return;
+    if(channel_index >= names.size())
+    {
+        return;
+    }
 
     QString name = names[channel_index].toString();
 
-    painter->setPen(QColor("#CCCCCC"));
+    painter->setPen(QColor(204, 204, 204));
     painter->setFont(QFont("Arial", 9));
 
     QRectF label_rect(5, y_baseline - 10, 60, 20);
     painter->drawText(label_rect, Qt::AlignLeft | Qt::AlignVCenter, name);
 }
 
-void EegUnifiedCanvas::drawChannelBaseline(QPainter* painter, int channel_index, qreal y_baseline)
+void EegCanva::drawChannelBaseline(QPainter* painter, int channel_index, qreal y_baseline)
 {
     qreal w = width();
-
-    // Linia zera (baseline) - wyraźna, ciągła
-    painter->setPen(QPen(QColor("#5A5A5A"), 1.5));
+    painter->setPen(QPen(QColor(90, 90, 90), 1.5));
     painter->drawLine(QPointF(70, y_baseline), QPointF(w, y_baseline));
 }
 
-void EegUnifiedCanvas::drawChannelSignal(QPainter* painter, int channel_index, qreal y_baseline)
+void EegCanva::drawChannelSignal(QPainter* painter, int channel_index, qreal y_baseline)
 {
     QVector<float> data = view_model_->getChannelData(channel_index);
     if(data.isEmpty()) return;
@@ -161,22 +188,21 @@ void EegUnifiedCanvas::drawChannelSignal(QPainter* painter, int channel_index, q
 
     int total_points = data.size();
 
-    // Oblicz ile sampli powinno być w oknie czasowym
+    // count samples in time window
     int sample_rate = view_model_->GetSampleRate();
     int samples_in_window = static_cast<int>(time_window_ * sample_rate);
 
-    // Jeśli mamy więcej danych niż okno - pokaż tylko ostatnie
     int start_index = 0;
     int points_to_draw = total_points;
 
+    // select start and points to draw
     if(total_points > samples_in_window)
     {
         start_index = total_points - samples_in_window;
         points_to_draw = samples_in_window;
     }
 
-    // KRYTYCZNE: Decimation - więcej punktów dla gładkich krzywych
-    int step = qMax(1, points_to_draw / 5000);  // 5000 zamiast 2000!
+    int step = qMax(1, points_to_draw / 5000);
     int visible_points = (points_to_draw + step - 1) / step;
 
     // Użyj QVector<QPointF>
@@ -197,7 +223,7 @@ void EegUnifiedCanvas::drawChannelSignal(QPainter* painter, int channel_index, q
     }
 
     // Kolory
-    QColor signal_color = QColor("#00BCD4");
+    QColor signal_color = QColor(0, 188, 212);
 
     QVariantList names = view_model_->GetChannelNames();
     if(channel_index < names.size())
@@ -205,7 +231,7 @@ void EegUnifiedCanvas::drawChannelSignal(QPainter* painter, int channel_index, q
         QString name = names[channel_index].toString();
         if(name.contains("Fz") || name.contains("Cz") || name.contains("Pz"))
         {
-            signal_color = QColor("#FF6B6B");
+            signal_color = QColor(255, 107, 107);
         }
     }
 
