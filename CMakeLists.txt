@@ -36,6 +36,8 @@ qt_add_qml_module(appvideoEeg
         src/managers/lslstreamreader.h src/managers/lslstreamreader.cpp
 
         src/models/amplifiermodel.h
+        SOURCES
+        SOURCES src/viewmodels/eegunifiedcanvas.h src/viewmodels/eegunifiedcanvas.cpp
 
 )
 

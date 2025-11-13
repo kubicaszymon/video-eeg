@@ -81,7 +81,7 @@ void LSLStreamReader::ReadLoop()
         {
             emit ErrorOccurred(QString("Read error: %1").arg(e.what()));
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(16)); // 60 Hz
     }
 }
 

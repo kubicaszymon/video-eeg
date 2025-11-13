@@ -5,38 +5,12 @@
 EegViewModel::EegViewModel(QObject *parent)
     : QObject{parent}, amplifier_manager_{AmplifierManager::instance()}
 {
-    connect(amplifier_manager_, &AmplifierManager::DataReceived, this, &EegViewModel::UpdateChannelData);
-
-    update_timer_ = new QTimer(this);
-    update_timer_->setInterval(batch_interval_ms_);
-    update_timer_->setSingleShot(true);
-    connect(update_timer_, &QTimer::timeout, this, [this](){
-        for(int ch : std::as_const(dirty_channels_))
-        {
-            qDebug() << "[EegViewModel] timer: " << ch;
-            normalizeChannelData(ch);
-        }
-        emit allChannelsUpdated();
-        dirty_channels_.clear();
-    });
+    connect(amplifier_manager_, &AmplifierManager::DataReceived, this, &EegViewModel::UpdateChannelData, Qt::QueuedConnection);
 }
 
 EegViewModel::~EegViewModel()
 {
-    qDebug() << "[EegViewModel] DESTRUCTOR CALLED - this pointer:" << this;
-}
-
-QVariantMap EegViewModel::getChannelRenderData(int channel_index) const
-{
-    qDebug() << "[EegViewModel] getChannelRenderData: " << channel_index;
-    if(channel_index < 0 || channel_index >= channel_render_cache_.size())
-    {
-        QVariantMap empty;
-        empty["points"] = QVariantList();
-        empty["isEmpty"] = true;
-        return empty;
-    }
-    return channel_render_cache_.at(channel_index);
+    qDebug() << "[EegViewModel] DESTRUCTOR CALLED";
 }
 
 QVariantList EegViewModel::GetChannelNames() const
@@ -55,103 +29,149 @@ QVariantList EegViewModel::GetChannelNames() const
     return channels;
 }
 
+int EegViewModel::GetChannelCount() const
+{
+    return channel_buffers_.size();
+}
+
+int EegViewModel::GetMaxSamples() const
+{
+    return MAX_SAMPLES_PER_CHANNEL;
+}
+
+QVector<float> EegViewModel::getChannelData(int channel_index) const
+{
+    QMutexLocker locker(&data_mutex_);
+
+    if(channel_index < 0 || channel_index >= channel_buffers_.size())
+    {
+        return {};
+    }
+
+    const auto& buffer = channel_buffers_[channel_index];
+
+    QVector<float> result;
+    result.reserve(buffer.count);
+
+    if(buffer.count < MAX_SAMPLES_PER_CHANNEL)
+    {
+        std::copy(buffer.values.begin(), buffer.values.begin() + buffer.count, std::back_inserter(result));
+    }
+    else
+    {
+        int start = buffer.write_index;
+
+        // Copy from write_index to end
+        std::copy(buffer.values.begin() + start, buffer.values.end(), std::back_inserter(result));
+
+        // Copy from beginning to write_index
+        std::copy(buffer.values.begin(), buffer.values.begin() + start, std::back_inserter(result));
+    }
+
+    return result;
+}
+
+float EegViewModel::getChannelMin(int channel_index) const
+{
+    QMutexLocker locker(&data_mutex_);
+    if(channel_index < 0 || channel_index >= channel_buffers_.size())
+    {
+        return 0.0f;
+    }
+    return channel_buffers_[channel_index].min_value;
+}
+
+float EegViewModel::getChannelMax(int channel_index) const
+{
+    QMutexLocker locker(&data_mutex_);
+    if(channel_index < 0 || channel_index >= channel_buffers_.size())
+    {
+        return 0.0f;
+    }
+    return channel_buffers_[channel_index].max_value;
+}
+
 void EegViewModel::UpdateChannelData(const std::vector<std::vector<float>>& chunk)
 {
-    qDebug() << "[EegViewModel] UpdateChannelData";
     if(chunk.empty())
     {
         return;
     }
 
+    QMutexLocker locker(&data_mutex_);
+
     int num_samples = chunk.size();
     int num_channels = chunk[0].size();
 
-    double time_increment = 1.0 / sample_rate_;
-
-    for (int sample_idx = 0; sample_idx < num_samples; ++sample_idx)
+    for(int sample_idx = 0; sample_idx < num_samples; sample_idx++)
     {
         const auto& sample = chunk[sample_idx];
-        for(int ch = 0; ch < num_channels; ++ch)
+
+        for(int ch = 0; ch < num_channels && ch < channel_buffers_.size(); ch++)
         {
-            channel_data_[ch].push_back(QPointF(current_time_, sample[ch]));
-            if(channel_data_[ch].size() > max_samples_per_channel_)
+            auto& buffer = channel_buffers_[ch];
+
+            // write to buffer
+            buffer.values[buffer.write_index] = sample[ch];
+            buffer.write_index = (buffer.write_index + 1) % MAX_SAMPLES_PER_CHANNEL;
+
+            if(buffer.count < MAX_SAMPLES_PER_CHANNEL)
             {
-                channel_data_[ch].pop_front();
+                buffer.count++;
             }
-
-            // Mark channel as dirty
-            dirty_channels_.insert(ch);
         }
-
-        current_time_ += time_increment;
     }
 
-    // Start/restart the batch timer
-    if (!update_timer_->isActive())
+    locker.unlock();
+
+    // THROTTLING: sygnał maksymalnie co 33ms (30 FPS)
+    static auto last_emit = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_emit);
+
+    if(elapsed.count() >= 33) // 30 FPS
     {
-        update_timer_->start();
+        // Update min/max tylko raz na render
+        for(int ch = 0; ch < channel_buffers_.size(); ++ch)
+        {
+            updateMinMax(ch);
+        }
+
+        emit dataUpdated();
+        last_emit = now;
     }
 }
 
-void EegViewModel::normalizeChannelData(int channel_index)
+void EegViewModel::updateMinMax(int channel_index)
 {
-    qDebug() << "[EegViewModel] normalizeChannelData " << channel_index;
-    if (channel_index < 0 || channel_index >= channel_data_.size())
-        return;
+    QMutexLocker locker(&data_mutex_);
 
-    const auto& data = channel_data_.at(channel_index);
-
-    QVariantMap result;
-
-    if (data.empty())
+    if(channel_index < 0 || channel_index >= channel_buffers_.size())
     {
-        result["points"] = QVariantList();
-        result["isEmpty"] = true;
-        channel_render_cache_[channel_index] = result;
         return;
     }
 
-    qreal minY = std::numeric_limits<qreal>::max();
-    qreal maxY = std::numeric_limits<qreal>::lowest();
-    qreal minX = std::numeric_limits<qreal>::max();
-    qreal maxX = std::numeric_limits<qreal>::lowest();
-
-    for (const QPointF& point : data)
+    auto& buffer = channel_buffers_[channel_index];
+    if(buffer.count == 0)
     {
-        minY = qMin(minY, point.y());
-        maxY = qMax(maxY, point.y());
-        minX = qMin(minX, point.x());
-        maxX = qMax(maxX, point.x());
+        return;
     }
 
-    // Add 10% padding to Y range
-    qreal range = maxY - minY;
-    if (range == 0) range = 1.0;
+    auto min_it = std::min_element(buffer.values.begin(), buffer.values.begin() + buffer.count);
+    auto max_it = std::max_element(buffer.values.begin(), buffer.values.begin() + buffer.count);
 
-    minY -= range * 0.1;
-    maxY += range * 0.1;
-    range = maxY - minY;
+    buffer.min_value = *min_it;
+    buffer.max_value = *max_it;
 
-    qreal timeRange = maxX - minX;
-    if (timeRange == 0) timeRange = 1.0;
-
-    QVariantList normalized;
-    for (const QPointF& point : data)
+    // 10% padding
+    float range = buffer.max_value - buffer.min_value;
+    if(range < 1e-6f)
     {
-        QVariantMap normalizedPoint;
-        normalizedPoint["x"] = (point.x() - minX) / timeRange;
-        normalizedPoint["y"] = (point.y() - minY) / range;
-        normalized.append(normalizedPoint);
+        range = 1.0f;
     }
 
-    result["points"] = normalized;
-    result["isEmpty"] = false;
-    result["dataMin"] = minY;
-    result["dataMax"] = maxY;
-    result["timeMin"] = minX;
-    result["timeMax"] = maxX;
-
-    channel_render_cache_[channel_index] = result;
+    buffer.min_value -= range * 0.1f;
+    buffer.max_value += range * 0.1f;
 }
 
 void EegViewModel::initialize(QString amplifier_id, QVariantList selected_channel_indices)
@@ -164,17 +184,21 @@ void EegViewModel::initialize(QString amplifier_id, QVariantList selected_channe
     }
 
     int num_channels = amplifier_->available_channels.size();
-    channel_data_.resize(num_channels);
-    channel_render_cache_.resize(num_channels);
 
-    for(int i = 0; i < num_channels; ++i)
+    QMutexLocker locker(&data_mutex_);
+    channel_buffers_.resize(num_channels);
+
+    for(auto& buffer : channel_buffers_)
     {
-        QVariantMap empty;
-        empty["points"] = QVariantList();
-        empty["isEmpty"] = true;
-        channel_render_cache_[i] = empty;
+        buffer.values.resize(MAX_SAMPLES_PER_CHANNEL, 0.0f);
+        buffer.write_index = 0;
+        buffer.count = 0;
+        buffer.needs_update = false;
     }
 
+    locker.unlock();
+
+    emit channelCountChanged();
     emit initializeEnded();
     amplifier_manager_->StartStream(amplifier_id);
 }
