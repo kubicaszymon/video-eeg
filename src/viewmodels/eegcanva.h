@@ -46,7 +46,7 @@ signals:
     void timeWindowChanged();
 
 private slots:
-    void onDataUpdated();
+    void onShowData();
 
 private:
     void drawGrid(QPainter* painter);

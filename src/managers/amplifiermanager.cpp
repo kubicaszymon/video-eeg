@@ -88,6 +88,7 @@ void AmplifierManager::StartStream(const QString amplifier_id)
         lsl_thread_->start();
     }
 
+    //@TODO think about something better
     QTimer::singleShot(STREAM_STARTUP_DELAY_MS, this, [this](){
         emit StartLSLReading();
     });
@@ -95,6 +96,8 @@ void AmplifierManager::StartStream(const QString amplifier_id)
 
 void AmplifierManager::StopStream()
 {
+    //@TODO maybe put disconenct from startstream here?
+
     qDebug() <<"Stopping Stream";
 
     if(lsl_reader_)
@@ -150,8 +153,8 @@ void AmplifierManager::SetSvarogPath(const QString &new_svarog_path)
 
 void AmplifierManager::onProcessData(const std::vector<std::vector<float>>& chunk)
 {
+    // we get new chunk, we want to process it and send nice data to viewmodel
     emit DataReceived(chunk);
-    // wybieranie kanalow czy cos takiego? save pewnie tu bedzie
 }
 
 QList<Amplifier> AmplifierManager::ParseRawOutputToAmplifiers(const QByteArray& output)

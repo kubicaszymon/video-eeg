@@ -61,7 +61,6 @@ void LSLStreamReader::onStopReading()
 void LSLStreamReader::ReadLoop()
 {
     std::vector<std::vector<float>> chunk;
-    int sum = 0;
 
     while(is_running_)
     {
@@ -70,9 +69,6 @@ void LSLStreamReader::ReadLoop()
             inlet_->pull_chunk(chunk);
             if(!chunk.empty())
             {
-                sum += chunk.size();
-                qDebug() << sum;
-
                 emit DataReceived(chunk);
                 chunk.clear();
             }
@@ -81,7 +77,7 @@ void LSLStreamReader::ReadLoop()
         {
             emit ErrorOccurred(QString("Read error: %1").arg(e.what()));
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 30 Hz
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 30 fps
     }
 }
 

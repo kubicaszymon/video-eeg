@@ -49,7 +49,6 @@ ApplicationWindow {
                 anchors.verticalCenter: parent.verticalCenter
             }
 
-            // Time window control - NAPRAWIONE
             Label {
                 text: "Time:"
                 anchors.verticalCenter: parent.verticalCenter
@@ -137,11 +136,12 @@ ApplicationWindow {
     ScrollView {
         anchors.fill: parent
         clip: true
+        contentHeight: eegViewModel.channelCount * spacingSlider.value + 100
 
         EegCanva {
-            id: unifiedCanvas
+            id: eegCanvas
             width: eegWindow.width
-            height: Math.max(eegWindow.height, eegViewModel.channelCount * spacingSlider.value + 100)
+            height: eegViewModel.channelCount * spacingSlider.value + 100
 
             viewModel: eegViewModel
             amplitudeScale: amplitudeSlider.value

@@ -1,0 +1,6 @@
+DATA ACQUISITION AND VIEW
+
+LslReader (pure data acquisition from lsl stream) ->
+AmplifierManager (data modifications, filtering, maybe clasificator here) ->
+EegViewModel (data transformation, spacing, gain etc) ->
+EegCanva (pure UI, get points and draw)

@@ -15,6 +15,8 @@ struct Channel;
 /*
  * @author Szymon Kubica
  * @source https://braintech.pl/pliki/svarog/manuals/Perun32_instrukcja_obslugi.pdf
+ *
+ * This class right now act as a model between LSLReader and ViewModel
  */
 
 class AmplifierManager : public QObject

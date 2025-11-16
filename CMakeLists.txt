@@ -27,7 +27,6 @@ qt_add_qml_module(appvideoEeg
         qml/main.qml
         qml/AmplifierSetupWindow.qml
         qml/EegWindow.qml
-        qml/components/EegChannel.qml
     SOURCES
         src/viewmodels/amplifiersetupviewmodel.h src/viewmodels/amplifiersetupviewmodel.cpp
         src/viewmodels/eegviewmodel.h src/viewmodels/eegviewmodel.cpp
@@ -38,6 +37,7 @@ qt_add_qml_module(appvideoEeg
         src/models/amplifiermodel.h
         SOURCES
         SOURCES src/viewmodels/eegcanva.h src/viewmodels/eegcanva.cpp
+        RESOURCES notes
 
 )
 

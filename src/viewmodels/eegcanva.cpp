@@ -33,8 +33,8 @@ void EegCanva::setViewModel(EegViewModel* model)
 
     if(view_model_)
     {
-        connect(view_model_, &EegViewModel::dataUpdated,
-                this, &EegCanva::onDataUpdated, Qt::QueuedConnection);
+        connect(view_model_, &EegViewModel::showData,
+                this, &EegCanva::onShowData, Qt::QueuedConnection);
     }
 
     emit viewModelChanged();
@@ -84,7 +84,7 @@ void EegCanva::setTimeWindow(float seconds)
     update();
 }
 
-void EegCanva::onDataUpdated()
+void EegCanva::onShowData()
 {
     update();
 }
@@ -101,8 +101,8 @@ void EegCanva::paint(QPainter *painter)
     qreal w = width();
     qreal h = height();
 
-    // paint background to gray
-    painter->fillRect(0, 0, w, h, QColor(30, 30, 30));
+    // paint background to white
+    painter->fillRect(0, 0, w, h, QColor(0, 0, 0));
 
     int channel_count = view_model_->GetChannelCount();
     if(channel_count == 0)
@@ -179,7 +179,7 @@ void EegCanva::drawChannelBaseline(QPainter* painter, int channel_index, qreal y
 
 void EegCanva::drawChannelSignal(QPainter* painter, int channel_index, qreal y_baseline)
 {
-    QVector<float> data = view_model_->getChannelData(channel_index);
+    QVector<float> data{};
     if(data.isEmpty()) return;
 
     qreal w = width();
@@ -189,7 +189,7 @@ void EegCanva::drawChannelSignal(QPainter* painter, int channel_index, qreal y_b
     int total_points = data.size();
 
     // count samples in time window
-    int sample_rate = view_model_->GetSampleRate();
+    int sample_rate;
     int samples_in_window = static_cast<int>(time_window_ * sample_rate);
 
     int start_index = 0;
