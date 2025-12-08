@@ -317,6 +317,7 @@ Window {
                         {
                             mainWindow.eegWindow = component.createObject(mainWindow, {
                                 "channelIndices": selectedChannels,
+                                "channelCount": selectedChannels.length,
                                 "amplifierId": viewModel.selectedAmplifierId
                             })
                         }

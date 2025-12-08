@@ -4,8 +4,6 @@
 #include <QObject>
 #include <QVariantMap>
 #include <QVector>
-#include <QPointF>
-#include <QMutex>
 #include <QtQml/qqmlregistration.h>
 #include "amplifiermodel.h"
 #include "amplifiermanager.h"
@@ -30,12 +28,12 @@ public slots:
     void DataReceived(const std::vector<std::vector<float>>& chunk);
 
 signals:
-    void channelCountChanged();
-    void showData(const std::vector<std::vector<float>>& chunk);
     void initializeEnded();
+    void channelCountChanged();
+    void updateData(const std::vector<std::vector<float>>& chunk);
 
 private:
-    /* to remove */Amplifier* amplifier_ = nullptr;
+    Amplifier* amplifier_ = nullptr;
     AmplifierManager* amplifier_manager_ = nullptr;
 };
 

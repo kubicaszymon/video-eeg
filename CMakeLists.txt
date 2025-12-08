@@ -8,9 +8,9 @@ find_package(LSL REQUIRED HINTS "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/liblsl-1.1
 )
 
 find_package(Qt6 REQUIRED COMPONENTS Quick)
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package(Qt6 REQUIRED COMPONENTS Core)
-find_package(Qt6 REQUIRED COMPONENTS Core)
-find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS PrintSupport)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -36,8 +36,11 @@ qt_add_qml_module(appvideoEeg
 
         src/models/amplifiermodel.h
         SOURCES
-        SOURCES src/viewmodels/eegcanva.h src/viewmodels/eegcanva.cpp
+        SOURCES
         RESOURCES notes
+        SOURCES
+        SOURCES 3rdparty/QCustomPlot/qcustomplot.cpp 3rdparty/QCustomPlot/qcustomplot.h
+        SOURCES src/viewmodels/eegplotitem.h src/viewmodels/eegplotitem.cpp
 
 )
 
@@ -62,10 +65,10 @@ set_target_properties(appvideoEeg PROPERTIES
 target_link_libraries(appvideoEeg
     PRIVATE 
         Qt6::Quick
+        Qt6::Widgets
+        Qt6::PrintSupport
         LSL::lsl
 )
-target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
-target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
 target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
 
 include(GNUInstallDirs)

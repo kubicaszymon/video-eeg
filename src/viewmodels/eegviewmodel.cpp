@@ -23,7 +23,7 @@ void EegViewModel::initialize(QString amplifier_id, QVariantList selected_channe
     }
 
     emit initializeEnded();
-    //amplifier_manager_->StartStream(amplifier_id);
+    amplifier_manager_->StartStream(amplifier_id);
 }
 
 void EegViewModel::DataReceived(const std::vector<std::vector<float>>& chunk)
@@ -32,29 +32,7 @@ void EegViewModel::DataReceived(const std::vector<std::vector<float>>& chunk)
     {
         return;
     }
-
-    emit showData(chunk);
-
-    /*
-    for(int sample_idx = 0; sample_idx < num_samples; sample_idx++)
-    {
-        const auto& sample = chunk[sample_idx];
-
-        for(int ch = 0; ch < num_channels && ch < channel_buffers_.size(); ch++)
-        {
-            auto& buffer = channel_buffers_[ch];
-
-            // write to buffer
-            buffer.values[buffer.write_index] = sample[ch];
-            buffer.write_index = (buffer.write_index + 1) % MAX_SAMPLES_PER_CHANNEL;
-
-            if(buffer.count < MAX_SAMPLES_PER_CHANNEL)
-            {
-                buffer.count++;
-            }
-        }
-    }
-*/
+    emit updateData(chunk);
 }
 
 QVariantList EegViewModel::GetChannelNames() const
@@ -75,5 +53,9 @@ QVariantList EegViewModel::GetChannelNames() const
 
 int EegViewModel::GetChannelCount() const
 {
+    if(amplifier_ == nullptr)
+    {
+        return 0;
+    }
     return amplifier_->available_channels.size();
 }

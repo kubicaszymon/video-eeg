@@ -12,15 +12,20 @@ ApplicationWindow {
 
     property var channelIndices: []
     property string amplifierId: ""
+    property int channelCount: 0
 
     EegViewModel {
         id: eegViewModel
+
+        Component.onCompleted: {
+            initialize(amplifierId, channelIndices)
+        }
     }
 
     Component.onCompleted: {
         console.log("EegWindow opened with channels:", channelIndices)
+        console.log("Channels count:", channelCount)
         console.log("Amplifier ID:", amplifierId)
-        eegViewModel.initialize(amplifierId, channelIndices)
     }
 
     header: ToolBar {
@@ -37,7 +42,7 @@ ApplicationWindow {
             }
 
             Label {
-                text: eegViewModel.channelCount + " channels"
+                text: channelCount + " channels"
                 anchors.verticalCenter: parent.verticalCenter
                 color: "#888888"
             }
@@ -136,18 +141,14 @@ ApplicationWindow {
     ScrollView {
         anchors.fill: parent
         clip: true
-        contentHeight: eegViewModel.channelCount * spacingSlider.value + 100
+        contentHeight: channelCount * spacingSlider.value + 100
 
-        EegCanva {
-            id: eegCanvas
-            width: eegWindow.width
-            height: eegViewModel.channelCount * spacingSlider.value + 100
+        EegPlotItem {
+            id: myEeg
+            anchors.fill: parent
+            anchors.margins: 20
 
             viewModel: eegViewModel
-            amplitudeScale: amplitudeSlider.value
-            channelSpacing: spacingSlider.value
-            showGrid: gridCheckbox.checked
-            timeWindow: timeSlider.value
         }
     }
 }
