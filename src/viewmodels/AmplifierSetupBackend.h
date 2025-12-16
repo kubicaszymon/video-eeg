@@ -1,5 +1,5 @@
-#ifndef AMPLIFIERSETUPVIEWMODEL_H
-#define AMPLIFIERSETUPVIEWMODEL_H
+#ifndef AMPLIFIERSETUPBACKEND_H
+#define AMPLIFIERSETUPBACKEND_H
 
 #include <QObject>
 #include <QProperty>
@@ -8,7 +8,7 @@
 #include "amplifiermodel.h"
 #include "amplifiermanager.h"
 
-class AmplifierSetupViewModel : public QObject
+class AmplifierSetupBackend : public QObject
 {
     Q_OBJECT
     QML_ELEMENT
@@ -19,14 +19,14 @@ class AmplifierSetupViewModel : public QObject
     Q_PROPERTY(QVariantList currentChannels READ getCurrentChannels NOTIFY selectedAmplifierIndexChanged FINAL)
 
 public:
-    explicit AmplifierSetupViewModel(QObject *parent = nullptr);
+    explicit AmplifierSetupBackend(QObject *parent = nullptr);
 
     QVariantList getAvailableAmplifiers() const;
     QString getSelectedAmplifierId() const;
     int getSelectedAmplifierIndex() const;
     QVariantList getCurrentChannels() const;
 
-    Q_INVOKABLE void initialize();
+    Q_INVOKABLE void refreshAmplifiersList();
     Q_INVOKABLE void setSelectedAmplifierIndex(int index);
 
 signals:
@@ -34,13 +34,14 @@ signals:
     void selectedAmplifierIndexChanged();
     void currentChannelsChanged();
 
+
 private:
     const Amplifier* GetCurrentAmplifier() const;
 
-    AmplifierManager* manager_;
+    AmplifierManager* m_manager;
 
-    QList<Amplifier> amplifiers_;
-    QProperty<int> selected_amplifier_index_{-1};
+    QList<Amplifier> m_amplifiers;
+    QProperty<int> m_selectedAmplifierIndex{-1};
 };
 
-#endif // AMPLIFIERSETUPVIEWMODEL_H
+#endif // AMPLIFIERSETUPBACKEND_H

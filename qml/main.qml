@@ -1,45 +1,25 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
+import QtQuick
+import QtQuick.Controls
 import QtQuick.Window
-import QtQuick.Layouts
+import videoEeg
 
-Window {
+ApplicationWindow {
     id: root
     visible: true
     width: 250
     height: 100
-    title: qsTr("VideoEEG")
+    title: qsTr("VideoEEG main.qml")
 
-    property var amplifierSetupWindow: null
-    property var eegWindow: null
+    Loader {
+        id: contentLoader
+        anchors.fill: parent
+        source: "MainWindow.qml"
 
-    ColumnLayout {
-        anchors.centerIn: parent
-        spacing: 10
-
-        Button {
-            text: "Amplifier"
-            Layout.preferredWidth: 100
-            Layout.preferredHeight: 40
-            Layout.alignment: Qt.AlignHCenter
-            onClicked: {
-                if(!amplifierSetupWindow)
-                {
-                    var component = Qt.createComponent("AmplifierSetupWindow.qml")
-                    amplifierSetupWindow = component.createObject(root, {"mainWindow": root})
-                }
-                amplifierSetupWindow.show()
-            }
-        }
-
-        Button {
-            text: "Camera"
-            Layout.preferredWidth: 100
-            Layout.preferredHeight: 40
-            Layout.alignment: Qt.AlignHCenter
-            onClicked: {
-                // TODO: Open camera settings window
-            }
+        Connections {
+           target: contentLoader.item
+           function onEegWindowOpen(){
+               contentLoader.setSource("EegWindow.qml")
+           }
         }
     }
 }

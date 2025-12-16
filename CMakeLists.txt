@@ -11,6 +11,7 @@ find_package(Qt6 REQUIRED COMPONENTS Quick)
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS PrintSupport)
+find_package(Qt6 REQUIRED COMPONENTS Core)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -25,23 +26,36 @@ qt_add_qml_module(appvideoEeg
     VERSION 1.0
     QML_FILES
         qml/main.qml
+        qml/MainWindow.qml
         qml/AmplifierSetupWindow.qml
         qml/EegWindow.qml
-    SOURCES
-        src/viewmodels/amplifiersetupviewmodel.h src/viewmodels/amplifiersetupviewmodel.cpp
-        src/viewmodels/eegviewmodel.h src/viewmodels/eegviewmodel.cpp
 
-        src/managers/amplifiermanager.h src/managers/amplifiermanager.cpp
-        src/managers/lslstreamreader.h src/managers/lslstreamreader.cpp
+    SOURCES
+        src/viewmodels/AmplifierSetupBackend.h
+        src/viewmodels/AmplifierSetupBackend.cpp
+
+        src/viewmodels/eegviewmodel.h
+        src/viewmodels/eegviewmodel.cpp
+
+        src/managers/amplifiermanager.h
+        src/managers/amplifiermanager.cpp
+
+        src/managers/lslstreamreader.h
+        src/managers/lslstreamreader.cpp
+
+        src/globals.h
+        src/globals.cpp
 
         src/models/amplifiermodel.h
-        SOURCES
-        SOURCES
-        RESOURCES notes
-        SOURCES
-        SOURCES 3rdparty/QCustomPlot/qcustomplot.cpp 3rdparty/QCustomPlot/qcustomplot.h
-        SOURCES src/viewmodels/eegplotitem.h src/viewmodels/eegplotitem.cpp
 
+        src/viewmodels/eegplotitem.h
+        src/viewmodels/eegplotitem.cpp
+
+        3rdparty/QCustomPlot/qcustomplot.h
+        3rdparty/QCustomPlot/qcustomplot.cpp
+
+        RESOURCES
+            notes
 )
 
 target_include_directories(appvideoEeg PRIVATE
@@ -69,6 +83,7 @@ target_link_libraries(appvideoEeg
         Qt6::PrintSupport
         LSL::lsl
 )
+target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
 target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
 
 include(GNUInstallDirs)

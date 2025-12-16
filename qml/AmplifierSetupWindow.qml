@@ -1,32 +1,52 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Window
 import QtQuick.Layouts
 import videoEeg
 
 Window {
-    id: ampSetup
+    id: window
     visible: false
     width: 1400
     height: 700
     title: qsTr("Amplifier Setup")
 
-    property var mainWindow: null
-    property bool isInitialized: false
+    signal accepted()
+    signal rejected()
 
-    AmplifierSetupViewModel {
-        id: viewModel
+    property int loading: Globals.status
+
+    AmplifierSetupBackend {
+        id: backend
     }
 
-    Component.onCompleted: {
-        viewModel.initialize()
-        isInitialized = true
+    Timer {
+        id: timer
+
+        running: true
+        repeat: true
+
+        onTriggered: {
+            if(window.loading === Globals.Loading){
+                Globals.status = Globals.Ready
+            }
+        }
     }
 
-    RowLayout {
+    BusyIndicator {
+        width: 50
+        height: 50
+        anchors.horizontalCenter: parent.horizontalCenter
+        running: dialog.loading
+    }
+
+    StackView {
+        id: stackView
         anchors.fill: parent
-        anchors.margins: 10
-        spacing: 10
+        initialItem: amplifierSelectionPage
+    }
+
+    Component {
+        id: amplifierSelectionPage
 
         // Left panel - Amplifiers
         Rectangle {
@@ -63,13 +83,13 @@ Window {
                         id: amplifierListView
                         anchors.fill: parent
                         anchors.margins: 5
-                        currentIndex: viewModel.selectedAmplifierIndex
+                        currentIndex: backend.selectedAmplifierIndex
                         clip: true
-                        model: isInitialized ? viewModel.availableAmplifiers : []
+                        model: backend.availableAmplifiers
                         delegate: Rectangle {
                             width: amplifierListView.width - 10
                             height: 60
-                            color: viewModel.selectedAmplifierIndex === index ? "#ffa726" : "white"
+                            color: backend.selectedAmplifierIndex === index ? "#ffa726" : "white"
                             border.color: "#cccccc"
                             border.width: 1
 
@@ -93,7 +113,7 @@ Window {
                             MouseArea {
                                 anchors.fill: parent
                                 onClicked: {
-                                    viewModel.selectedAmplifierIndex = index
+                                    backend.selectedAmplifierIndex = index
                                 }
                             }
                         }
@@ -115,17 +135,26 @@ Window {
 
                     Button {
                         text: "Refresh"
+                        enabled: !window.loading
                         Layout.fillWidth: true
-                        onClicked: viewModel.refreshAmplifiersList()
+                        onClicked: {
+                            Globals.status = Globals.Loading
+                            timer.restart()
+                            backend.refreshAmplifiersList()
+                        }
                     }
 
                     Button {
-                        text: "Cancel"
-                        Layout.fillWidth: true
+                        text: "Next"
+                        onClicked: stackView.push(channelSelectionPage)
                     }
                 }
             }
         }
+    }
+
+    Component {
+        id: channelSelectionPage
 
         // Right panel - Channels
         Rectangle {
@@ -238,7 +267,7 @@ Window {
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
                         clip: true
-                        model: viewModel.currentChannels
+                        model: backend.currentChannels
 
                         delegate: Rectangle {
                             width: channelsListView.width
@@ -297,32 +326,23 @@ Window {
                     }
                 }
 
-                Button {
-                    text: "Select"
-                    Layout.alignment: Qt.AlignRight
-                    Layout.preferredWidth: 100
-                    onClicked: {
-                        var selectedChannels = []
-                        for (var i = 0; i < channelsListView.count; i++)
-                        {
-                            var item = channelsListView.itemAtIndex(i)
-                            if (item && item.isSelected)
-                            {
-                                selectedChannels.push(i)
-                            }
-                        }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
 
-                        var component = Qt.createComponent("EegWindow.qml")
-                        if(mainWindow)
-                        {
-                            mainWindow.eegWindow = component.createObject(mainWindow, {
-                                "channelIndices": selectedChannels,
-                                "channelCount": selectedChannels.length,
-                                "amplifierId": viewModel.selectedAmplifierId
-                            })
+                    Button {
+                        text: "Back"
+                        onClicked: {
+                            stackView.pop()
                         }
+                    }
 
-                        ampSetup.close()
+                    Button {
+                        text: "Finish"
+                        onClicked: {
+                            accepted()
+                            window.close()
+                        }
                     }
                 }
             }

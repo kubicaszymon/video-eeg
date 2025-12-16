@@ -5,6 +5,10 @@
 #include "3rdparty/QCustomPlot/qcustomplot.h"
 #include "eegviewmodel.h"
 
+// SK: TODO
+// If somebody will have time it would be nice to refactor this EEG graphs entire to use some custom GPU render for better performance etc
+// QCustomPlot is allright but it always can be better
+
 class EegPlotItem : public QQuickPaintedItem
 {
     Q_OBJECT
