@@ -40,6 +40,7 @@ private:
     QPixmap buffer_;
 
     void updateBuffer();
+
 };
 
 #endif // EEGPLOTITEM_H
