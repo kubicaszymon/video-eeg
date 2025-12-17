@@ -7,23 +7,21 @@ ApplicationWindow {
     id: eegWindow
     width: 1920
     height: 1080
-    title: "EEG Viewer - Scrolling Window"
+    title: "EEG Viewer"
     visible: true
 
-    property var channelIndices: []
-    property string amplifierId: ""
-    property int channelCount: 0
+    property int amplifierId: -1
+    property var channels: []
+    property int channelCount: channels.length
 
-    EegViewModel {
-        id: eegViewModel
-
-        Component.onCompleted: {
-            initialize(amplifierId, channelIndices)
-        }
+    EegBackend {
+        id: backend
+        amplifierId: eegWindow.amplifierId
+        channels: eegWindow.channels
     }
 
     Component.onCompleted: {
-        console.log("EegWindow opened with channels:", channelIndices)
+        console.log("EegWindow opened with channels:", channels)
         console.log("Channels count:", channelCount)
         console.log("Amplifier ID:", amplifierId)
     }
@@ -83,7 +81,6 @@ ApplicationWindow {
                 anchors.verticalCenter: parent.verticalCenter
             }
 
-            // Amplitude control - NAPRAWIONE (O WIELE MNIEJSZE WARTOŚCI)
             Label {
                 text: "Gain:"
                 anchors.verticalCenter: parent.verticalCenter
@@ -137,18 +134,17 @@ ApplicationWindow {
         }
     }
 
-    // Main unified canvas
     ScrollView {
         anchors.fill: parent
         clip: true
         contentHeight: channelCount * spacingSlider.value + 100
 
-        //EegPlotItem {
-        //    id: myEeg
-        //    anchors.fill: parent
-        //    anchors.margins: 20
+        EegPlotItem {
+            id: myEeg
+            anchors.fill: parent
+            anchors.margins: 20
 
-        //    viewModel: eegViewModel
-        //}
+            backend: backend
+        }
     }
 }

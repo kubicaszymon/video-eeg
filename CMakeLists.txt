@@ -34,8 +34,8 @@ qt_add_qml_module(appvideoEeg
         src/viewmodels/AmplifierSetupBackend.h
         src/viewmodels/AmplifierSetupBackend.cpp
 
-        src/viewmodels/eegviewmodel.h
-        src/viewmodels/eegviewmodel.cpp
+        src/viewmodels/EegBackend.h
+        src/viewmodels/EegBackend.cpp
 
         src/managers/amplifiermanager.h
         src/managers/amplifiermanager.cpp
@@ -48,8 +48,8 @@ qt_add_qml_module(appvideoEeg
 
         src/models/amplifiermodel.h
 
-        src/viewmodels/eegplotitem.h
-        src/viewmodels/eegplotitem.cpp
+        src/viewmodels/EegPlotItem.h
+        src/viewmodels/EegPlotItem.cpp
 
         3rdparty/QCustomPlot/qcustomplot.h
         3rdparty/QCustomPlot/qcustomplot.cpp

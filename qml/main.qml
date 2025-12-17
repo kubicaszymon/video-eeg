@@ -14,12 +14,16 @@ ApplicationWindow {
         id: contentLoader
         anchors.fill: parent
         source: "MainWindow.qml"
+    }
 
-        Connections {
-           target: contentLoader.item
-           function onEegWindowOpen(){
-               contentLoader.setSource("EegWindow.qml")
-           }
-        }
+    Connections {
+       target: contentLoader.item
+       ignoreUnknownSignals: true
+       function onEegWindowOpen(amplifier, channels){
+           contentLoader.setSource("EegWindow.qml", {
+                "amplifierId": amplifier,
+                "channels": channels
+            })
+       }
     }
 }

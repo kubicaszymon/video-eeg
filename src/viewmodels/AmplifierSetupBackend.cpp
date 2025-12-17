@@ -7,6 +7,11 @@ AmplifierSetupBackend::AmplifierSetupBackend(QObject *parent)
     qInfo() << "AmplifierSetupBackend " << this << " created!";
 }
 
+AmplifierSetupBackend::~AmplifierSetupBackend()
+{
+    qInfo() << "AmplifierSetupBackend " << this << " destroyed!";
+}
+
 QVariantList AmplifierSetupBackend::getAvailableAmplifiers() const
 {
     QVariantList available_amplifiers{};

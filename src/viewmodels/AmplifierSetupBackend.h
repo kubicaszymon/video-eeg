@@ -20,6 +20,7 @@ class AmplifierSetupBackend : public QObject
 
 public:
     explicit AmplifierSetupBackend(QObject *parent = nullptr);
+    ~AmplifierSetupBackend();
 
     QVariantList getAvailableAmplifiers() const;
     QString getSelectedAmplifierId() const;
@@ -33,7 +34,6 @@ signals:
     void availableAmplifiersChanged();
     void selectedAmplifierIndexChanged();
     void currentChannelsChanged();
-
 
 private:
     const Amplifier* GetCurrentAmplifier() const;

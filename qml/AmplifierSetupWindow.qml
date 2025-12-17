@@ -10,7 +10,7 @@ Window {
     height: 700
     title: qsTr("Amplifier Setup")
 
-    signal accepted()
+    signal accepted(amplifier: int, channels: var)
     signal rejected()
 
     property int loading: Globals.status
@@ -36,7 +36,7 @@ Window {
         width: 50
         height: 50
         anchors.horizontalCenter: parent.horizontalCenter
-        running: dialog.loading
+        running: window.loading
     }
 
     StackView {
@@ -113,6 +113,7 @@ Window {
                             MouseArea {
                                 anchors.fill: parent
                                 onClicked: {
+                                    console.log("Selected amplifier " + index)
                                     backend.selectedAmplifierIndex = index
                                 }
                             }
@@ -146,6 +147,7 @@ Window {
 
                     Button {
                         text: "Next"
+                        enabled: backend.selectedAmplifierIndex !== -1
                         onClicked: stackView.push(channelSelectionPage)
                     }
                 }
@@ -276,7 +278,7 @@ Window {
                             border.color: "#e0e0e0"
                             border.width: 1
 
-                            property bool isSelected: false
+                            property bool channelChecked: false
 
                             RowLayout {
                                 anchors.fill: parent
@@ -316,9 +318,9 @@ Window {
                                     Layout.preferredWidth: 80
                                     Layout.fillHeight: true
                                     Layout.alignment: Qt.AlignHCenter
-                                    checked: parent.parent.isSelected
+                                    checked: parent.parent.channelChecked
                                     onCheckedChanged: {
-                                        parent.parent.isSelected = checked
+                                        parent.parent.channelChecked = checked
                                     }
                                 }
                             }
@@ -340,7 +342,17 @@ Window {
                     Button {
                         text: "Finish"
                         onClicked: {
-                            accepted()
+                            var selectedChannels = []
+                            for (var i = 0; i < channelsListView.count; i++)
+                            {
+                                var item = channelsListView.itemAtIndex(i)
+                                if (item.channelChecked)
+                                {
+                                    selectedChannels.push(i)
+                                    console.log("Selected channel: " + i)
+                                }
+                            }
+                            accepted(backend.selectedAmplifierIndex, selectedChannels)
                             window.close()
                         }
                     }

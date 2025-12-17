@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Item {
-    signal eegWindowOpen
+    signal eegWindowOpen(amplifier: int, channels: var)
 
     ColumnLayout {
         anchors.centerIn: parent
@@ -22,8 +22,8 @@ Item {
 
     AmplifierSetupWindow {
         id: amplifierSetupWindow
-        onAccepted: {
-            eegWindowOpen()
+        onAccepted: function(amplifier, channels) {
+            eegWindowOpen(amplifier, channels)
         }
 
         onRejected: {

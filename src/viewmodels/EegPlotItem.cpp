@@ -1,8 +1,9 @@
-#include <eegplotitem.h>
+#include <EegPlotItem.h>
 
 EegPlotItem::EegPlotItem(QQuickItem* parent)
     : QQuickPaintedItem(parent)
 {
+    qInfo() << "EegPlotItem created " << this;
     setFlag(ItemHasContents, true);
     custom_plot_ = new QCustomPlot();
     custom_plot_->setBackground(Qt::transparent);
@@ -11,36 +12,22 @@ EegPlotItem::EegPlotItem(QQuickItem* parent)
 
 EegPlotItem::~EegPlotItem()
 {
+    qInfo() << "EegPlotItem destroyed " << this;
     delete custom_plot_;
 }
 
-void EegPlotItem::setViewModel(EegViewModel *model)
+void EegPlotItem::setBackend(EegBackend *backend)
 {
-    if(view_model_ == model)
+    qInfo() << "EegPlotItem set backend " << backend;
+    if(backend)
     {
-        return;
+        m_backend = backend;
+        connect(m_backend, &EegBackend::updateData, this, &EegPlotItem::updateData, Qt::QueuedConnection);
+        auto channels = m_backend->channels().count();
+        for(int i = 0; i < channels; i++) custom_plot_->addGraph();
+        for(int i = 0; i < channels; i++) qInfo() << channels << " count";
+        emit backendChanged();
     }
-
-    if(view_model_)
-    {
-        disconnect(view_model_, nullptr, this, nullptr);
-    }
-
-    view_model_ = model;
-
-    if(view_model_)
-    {
-        connect(view_model_, &EegViewModel::updateData,
-                this, &EegPlotItem::updateData, Qt::QueuedConnection);
-    }
-
-    auto channels = view_model_->GetChannelCount();
-    for(int i = 0; i < channels; i++)
-    {
-        custom_plot_->addGraph();
-    }
-
-    emit viewModelChanged();
 }
 
 void EegPlotItem::paint(QPainter *painter)
