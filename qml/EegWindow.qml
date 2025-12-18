@@ -143,7 +143,6 @@ ApplicationWindow {
             id: myEeg
             anchors.fill: parent
             anchors.margins: 20
-
             backend: backend
         }
     }

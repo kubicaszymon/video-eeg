@@ -32,6 +32,7 @@ signals:
 
 public slots:
     void updateData(const std::vector<std::vector<float>>& chunk);
+    void onChannelsChanged();
 
 private:
     EegBackend* m_backend = nullptr;
@@ -40,7 +41,6 @@ private:
     QPixmap buffer_;
 
     void updateBuffer();
-
 };
 
 #endif // EEGPLOTITEM_H

@@ -22,10 +22,8 @@ void EegPlotItem::setBackend(EegBackend *backend)
     if(backend)
     {
         m_backend = backend;
+        connect(m_backend, &EegBackend::channelsChanged, this, &EegPlotItem::onChannelsChanged);
         connect(m_backend, &EegBackend::updateData, this, &EegPlotItem::updateData, Qt::QueuedConnection);
-        auto channels = m_backend->channels().count();
-        for(int i = 0; i < channels; i++) custom_plot_->addGraph();
-        for(int i = 0; i < channels; i++) qInfo() << channels << " count";
         emit backendChanged();
     }
 }
@@ -82,4 +80,12 @@ void EegPlotItem::updateData(const std::vector<std::vector<float> > &chunk)
     }
 
     update();
+}
+
+void EegPlotItem::onChannelsChanged()
+{
+    auto channels = m_backend->channels();
+    for(auto chan : channels) qInfo() << "EegPlotItem channel: " << chan;
+
+    for(const auto& chan : std::as_const(channels)) custom_plot_->addGraph();
 }
