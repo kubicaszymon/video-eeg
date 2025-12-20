@@ -133,17 +133,10 @@ ApplicationWindow {
             }
         }
     }
-
-    ScrollView {
+    EegPlotItem {
+        id: myEeg
         anchors.fill: parent
-        clip: true
-        contentHeight: channelCount * spacingSlider.value + 100
-
-        EegPlotItem {
-            id: myEeg
-            anchors.fill: parent
-            anchors.margins: 20
-            backend: backend
-        }
+        anchors.margins: 20
+        backend: backend
     }
 }

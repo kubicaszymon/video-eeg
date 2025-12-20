@@ -14,7 +14,8 @@ class EegPlotItem : public QQuickPaintedItem
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(EegBackend* backend READ backend WRITE setBackend NOTIFY backendChanged)
+    Q_PROPERTY(EegBackend* backend READ backend WRITE setBackend REQUIRED) // clazy:exclude=qproperty-without-notify
+
 public:
     EegPlotItem(QQuickItem* parent = nullptr);
     virtual ~EegPlotItem();
@@ -27,9 +28,6 @@ public:
 protected:
     void geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry) override;
 
-signals:
-    void backendChanged();
-
 public slots:
     void updateData(const std::vector<std::vector<float>>& chunk);
     void onChannelsChanged();
@@ -37,7 +35,7 @@ public slots:
 private:
     EegBackend* m_backend = nullptr;
 
-    QCustomPlot *custom_plot_;
+    QCustomPlot *m_custom_plot;
     QPixmap buffer_;
 
     void updateBuffer();
