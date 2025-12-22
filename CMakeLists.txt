@@ -11,7 +11,7 @@ find_package(Qt6 REQUIRED COMPONENTS Quick)
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS PrintSupport)
-find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS GraphsWidgets)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -48,14 +48,13 @@ qt_add_qml_module(appvideoEeg
 
         src/models/amplifiermodel.h
 
-        src/viewmodels/EegPlotItem.h
-        src/viewmodels/EegPlotItem.cpp
 
-        3rdparty/QCustomPlot/qcustomplot.h
-        3rdparty/QCustomPlot/qcustomplot.cpp
+
 
         RESOURCES
             notes
+            QML_FILES qml/EegGraph.qml
+            SOURCES src/models/eegdatamodel.h src/models/eegdatamodel.cpp
 )
 
 target_include_directories(appvideoEeg PRIVATE
@@ -81,6 +80,7 @@ target_link_libraries(appvideoEeg
         Qt6::Quick
         Qt6::Widgets
         Qt6::PrintSupport
+        Qt6::GraphsWidgets
         LSL::lsl
 )
 target_link_libraries(appvideoEeg PRIVATE Qt6::Core)

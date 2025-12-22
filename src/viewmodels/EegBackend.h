@@ -7,6 +7,7 @@
 #include <QtQml/qqmlregistration.h>
 #include "amplifiermodel.h"
 #include "amplifiermanager.h"
+#include "eegdatamodel.h"
 
 class EegBackend : public QObject
 {
@@ -19,6 +20,10 @@ class EegBackend : public QObject
 public:
     explicit EegBackend(QObject *parent = nullptr);
     ~EegBackend();
+
+    Q_INVOKABLE void registerDataModel(EegDataModel* dataModel);
+
+    Q_INVOKABLE void generateTestData();
 
     QVariantList GetChannelNames() const;
     QVariantList channels() const;
@@ -43,6 +48,8 @@ private:
     AmplifierManager* amplifier_manager_ = nullptr;
     QVariantList m_channels;
     int m_amplifierId;
+
+    EegDataModel* m_dataModel = nullptr;
 };
 
 #endif // EEGBACKEND_H

@@ -14,13 +14,12 @@ AmplifierSetupBackend::~AmplifierSetupBackend()
 
 QVariantList AmplifierSetupBackend::getAvailableAmplifiers() const
 {
-    QVariantList available_amplifiers{};
-    const auto amps = m_manager->RefreshAmplifiersList();
-    for(auto amp : amps)
+    QVariantList ampNames{};
+    for(const auto& amp : std::as_const(m_amplifiers))
     {
-        available_amplifiers.append(amp.name);
+        ampNames.append(amp.name);
     }
-    return available_amplifiers;
+    return ampNames;
 }
 
 QString AmplifierSetupBackend::getSelectedAmplifierId() const

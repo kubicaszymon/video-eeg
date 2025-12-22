@@ -56,7 +56,7 @@ private:
 
     QProcess* stream_process_ = nullptr;
     // TODO DO ZMIANY NA JAKIS SET OPTIONS CZY COS TAKIEGO
-    QString svarog_path_{"C:\\Program Files (x86)\\Svarog Streamer\\svarog_streamer\\svarog_streamer.exe"};
+    QString svarog_path_{"D:\\Svarog Streamer\\svarog_streamer\\svarog_streamer.exe"};
 
     QThread* lsl_thread_ = nullptr;
     std::unique_ptr<LSLStreamReader> lsl_reader_;

@@ -25,6 +25,7 @@ AmplifierManager *AmplifierManager::instance()
 
 QList<Amplifier> AmplifierManager::RefreshAmplifiersList()
 {
+    qInfo() << "ODSWIEZAM LISTE AMPLIFIEROW";
     QList<Amplifier> rv{};
     QProcess process;
     process.setProgram(svarog_path_);

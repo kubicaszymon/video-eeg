@@ -24,7 +24,7 @@
     {
       "hidden": true,
       "name": "Qt-Default",
-      "inherits": "6.5.2_msvc2019_64",
+      "inherits": "6.10.1_msvc2022_64",
       "vendor": {
         "qt-project.org/Default": {
           "checksum": "6gVsp0NkL62j2aevfaEjiHalPU4="
@@ -33,10 +33,10 @@
     },
     {
       "hidden": true,
-      "name": "6.5.2_msvc2019_64",
+      "name": "6.10.1_msvc2022_64",
       "inherits": "Qt",
       "environment": {
-        "QTDIR": "C:/PRACA/projects/AppTools/QT/6.5.2/msvc2019_64"
+        "QTDIR": "C:/Qt/6.10.1/msvc2022_64"
       },
       "architecture": {
         "strategy": "external",

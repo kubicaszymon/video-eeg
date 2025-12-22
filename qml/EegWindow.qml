@@ -24,6 +24,8 @@ ApplicationWindow {
         console.log("EegWindow opened with channels:", channels)
         console.log("Channels count:", channelCount)
         console.log("Amplifier ID:", amplifierId)
+
+        backend.registerDataModel(eegGraph.dataModel)
     }
 
     header: ToolBar {
@@ -31,6 +33,13 @@ ApplicationWindow {
             spacing: 20
             anchors.verticalCenter: parent.verticalCenter
             leftPadding: 10
+
+            Button {
+                text: "TEST"
+                onClicked: {
+                    backend.generateTestData()
+                }
+            }
 
             Label {
                 text: "EEG Viewer"
@@ -133,10 +142,10 @@ ApplicationWindow {
             }
         }
     }
-    EegPlotItem {
-        id: myEeg
+
+    EegGraph {
+        id: eegGraph
         anchors.fill: parent
-        anchors.margins: 20
-        backend: backend
+        anchors.bottomMargin: 20
     }
 }
