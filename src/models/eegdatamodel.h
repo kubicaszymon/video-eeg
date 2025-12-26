@@ -10,6 +10,7 @@ class EegDataModel : public QAbstractTableModel
 {
     Q_OBJECT
     QML_ELEMENT
+
 public:
     EegDataModel();
 
@@ -19,6 +20,12 @@ public:
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
     Q_INVOKABLE void updateAllData(const QVector<QVector<double>>& incomingData);
+
+    int channelCount() const;
+    void setChannelCount(int newChannelCount);
+
+signals:
+    void channelCountChanged();
 
 private:
     QVector<QVector<double>> m_data;

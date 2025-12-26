@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtGraphs
 import videoEeg
 
@@ -6,78 +7,92 @@ Rectangle {
     id: eegGraphContainer
     color: "white"
     property alias dataModel: eegData
+    property int channelSpacing: 1
+
+    property var selectedChannels: []
+    onSelectedChannelsChanged:
+    {
+        if(selectedChannels.length > 0)
+        {
+            eegGraph.createAllSeries(selectedChannels)
+        }
+    }
 
     EegDataModel {
         id: eegData
     }
 
-    GraphsView {
-        id: eegGraph
+    ScrollView {
         anchors.fill: parent
-        anchors.margins: 16
-        theme: GraphsTheme {
-            grid.mainColor: "darkgrey"
-            grid.subColor: "lightgrey"
-            labelTextColor: "black"
-            plotAreaBackgroundColor: "white"
-            backgroundColor: "white"
-            colorScheme: Qt.Light
-        }
-        axisX: ValueAxis {
-            max: 10
-            tickInterval: 2
-            subTickCount: 9
-            labelDecimals: 1
-        }
-        axisY: ValueAxis {
-            max: 10
-        }
+        clip: true
 
-        component Marker : Rectangle {
-            width: 4
-            height: 4
-            color: "#ffffff"
-            radius: width * 0.5
-            border.width: 2
-            border.color: "#000000"
-        }
+        GraphsView {
+            id: eegGraph
+            width: parent.width
+            height: Math.max(parent.height, selectedChannels.length * channelSpacing + 10)
+            anchors.margins: 16
+            theme: GraphsTheme {
+                grid.mainColor: "darkgrey"
+                grid.subColor: "lightgrey"
+                labelTextColor: "black"
+                plotAreaBackgroundColor: "white"
+                backgroundColor: "white"
+                colorScheme: Qt.Light
+            }
+            axisX: ValueAxis {
+                max: 10
+                tickInterval: 2
+                subTickCount: 9
+                labelDecimals: 1
+            }
+            axisY: ValueAxis {
+                min: 0
+                max: selectedChannels.length * channelSpacing
+                //labelsVisible: false
+            }
 
-        LineSeries {
-                id: line1
-                name: "Test Channel"
-                XYModelMapper {
-                    model: eegData
-                    series: line1
-                    xSection: 0
-                    ySection: 1
+            property var activeSeries: []
 
-                    Component.onCompleted: console.log("MAPPER DZIALA!")
+            function createAllSeries(channelList) {
+                for (var i = 0; i < activeSeries.length; i++){
+                    eegGraph.removeSeries(activeSeries[i])
+                    activeSeries[i].destroy()
+                }
+                activeSeries = []
+
+                var count = channelList.length;
+                var names = channelList;
+
+                for (var j = 0; j < count; j++){
+                    var series = seriesComponent.createObject(eegGraph, {
+                                                                  "name": names[j],
+
+                                                              })
+
+                    var mapper = mapperComponent.createObject(series, {
+                                                                  "model": eegData,
+                                                                  "series": series,
+                                                                  "xSection": 0,
+                                                                  "ySection": j+1
+                                                              })
+
+                    eegGraph.addSeries(series)
+                    activeSeries.push(series)
                 }
             }
-        //! [linemarker]
-
-        //Repeater {
-         //   model: 5
-          //  delegate: LineSeries {
-          //      id: lines
-          //      name: "Channel " + index
-
-//                XYModelMapper {
-//                    model: eegData
-//                    series: lines
-//                    xSection: 0
-//                    ySection: index + 1
-  //                  orientation: Qt.Vertical
-//
-  //                  Component.onCompleted: {
-    //                        console.log("Mapper created. Model is:", model)
-      //                  }
-        //            onModelChanged: {
-          //                  console.log("Model in mapper changed to:", model)
-            //            }
-             //   }
-       //     }
-        //}
+        }
     }
 
+    Component {
+        id: seriesComponent
+        LineSeries {
+            width: 2
+            color: "red"
+        }
+    }
+
+    Component {
+        id: mapperComponent
+        XYModelMapper {}
+    }
 }

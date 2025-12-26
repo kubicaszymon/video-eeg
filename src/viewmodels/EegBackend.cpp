@@ -27,10 +27,11 @@ void EegBackend::generateTestData()
 {
     if (!m_dataModel) return;
 
-    const int numChannels = 5;
+    auto channel_spacing = m_spacing;
+
+    const int numChannels = m_channels.size();
     const int numSamples = 500; // 500 points per 5-second window
 
-    // We create a structure: Vector of 6 Vectors (1 for Time + 5 for Channels)
     QVector<QVector<double>> testData(numChannels + 1);
 
     for (int i = 0; i < numSamples; ++i) {
@@ -40,11 +41,15 @@ void EegBackend::generateTestData()
         for (int ch = 1; ch <= numChannels; ++ch) {
             // Create different frequencies for each channel
             double value = qSin(time + ch) + (ch * 0.5);
-            testData[ch].append(value);
+            ///////////////////////////////////////
+
+
+            auto offset = channel_spacing * (numChannels - ch + 1);
+
+            testData[ch].append(value + offset);
         }
     }
 
-    // Call the model update directly using C++ types
     m_dataModel->updateAllData(testData);
 }
 
@@ -97,4 +102,14 @@ void EegBackend::setAmplifierId(int newAmplifierId)
         return;
     m_amplifierId = newAmplifierId;
     emit amplifierIdChanged();
+}
+
+int EegBackend::spacing() const
+{
+    return m_spacing;
+}
+
+void EegBackend::setSpacing(int newSpacing)
+{
+    m_spacing = newSpacing;
 }

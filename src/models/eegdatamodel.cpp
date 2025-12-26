@@ -25,9 +25,6 @@ QVariant EegDataModel::data(const QModelIndex &index, int role) const
 
     if (role == Qt::DisplayRole)
     {
-        // mapper asks for (row, col)
-        // If m_data is QVector<QVector<double>> where each inner vector is a CHANNEL:
-        // You must access it as [column][row]
         if (index.column() < m_data.size() && index.row() < m_data[index.column()].size())
         {
             return m_data[index.column()][index.row()];

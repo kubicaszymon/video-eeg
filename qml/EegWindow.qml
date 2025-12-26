@@ -18,6 +18,10 @@ ApplicationWindow {
         id: backend
         amplifierId: eegWindow.amplifierId
         channels: eegWindow.channels
+
+        onChannelsChanged: {
+            eegGraph.selectedChannels = channels
+        }
     }
 
     Component.onCompleted: {
@@ -126,10 +130,11 @@ ApplicationWindow {
 
             Slider {
                 id: spacingSlider
-                from: 50
-                to: 500
-                value: 150
-                stepSize: 10
+                from: 1
+                to: 20
+                value: backend.spacing
+                onMoved: backend.spacing = value
+                stepSize: 1
                 width: 150
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -147,5 +152,7 @@ ApplicationWindow {
         id: eegGraph
         anchors.fill: parent
         anchors.bottomMargin: 20
+
+        channelSpacing: spacingSlider.value
     }
 }
