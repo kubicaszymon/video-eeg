@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Item {
-    signal eegWindowOpen(amplifier: int, channels: var)
+    signal eegWindowOpen(amplifierId: string, channels: var)
 
     ColumnLayout {
         anchors.centerIn: parent

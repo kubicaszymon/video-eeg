@@ -15,7 +15,8 @@ class EegBackend : public QObject
     QML_ELEMENT
 
     Q_PROPERTY(QVariantList channels READ channels WRITE setChannels NOTIFY channelsChanged FINAL)
-    Q_PROPERTY(int amplifierId READ amplifierId WRITE setAmplifierId NOTIFY amplifierIdChanged FINAL)
+    Q_PROPERTY(int amplifierIdx READ amplifierIdx WRITE setAmplifierIdx NOTIFY amplifierIdxChanged FINAL)
+    Q_PROPERTY(QString amplifierId READ amplifierId WRITE setAmplifierId NOTIFY amplifierIdChanged FINAL)
 
     Q_PROPERTY(int spacing READ spacing WRITE setSpacing FINAL)
 
@@ -24,6 +25,7 @@ public:
     ~EegBackend();
 
     Q_INVOKABLE void registerDataModel(EegDataModel* dataModel);
+    Q_INVOKABLE void startStream();
 
     Q_INVOKABLE void generateTestData();
 
@@ -32,11 +34,14 @@ public:
 
     void setChannels(const QVariantList &newChannels);
 
-    int amplifierId() const;
-    void setAmplifierId(int newAmplifierId);
+    int amplifierIdx() const;
+    void setAmplifierIdx(int newAmplifierIdx);
 
     int spacing() const;
     void setSpacing(int newSpacing);
+
+    QString amplifierId() const;
+    void setAmplifierId(const QString &newAmplifierId);
 
 public slots:
     void DataReceived(const std::vector<std::vector<float>>& chunk);
@@ -46,16 +51,19 @@ signals:
 
     void channelsChanged();
 
+    void amplifierIdxChanged();
+
     void amplifierIdChanged();
 
 private:
     Amplifier* amplifier_ = nullptr;
     AmplifierManager* amplifier_manager_ = nullptr;
     QVariantList m_channels;
-    int m_amplifierId;
+    int m_amplifierIdx;
 
     EegDataModel* m_dataModel = nullptr;
     int m_spacing = 5;
+    QString m_amplifierId;
 };
 
 #endif // EEGBACKEND_H

@@ -10,7 +10,7 @@ Window {
     height: 700
     title: qsTr("Amplifier Setup")
 
-    signal accepted(amplifier: int, channels: var)
+    signal accepted(amplifierId: string, channels: var)
     signal rejected()
 
     property int loading: Globals.status
@@ -352,7 +352,7 @@ Window {
                                     console.log("Selected channel: " + i)
                                 }
                             }
-                            accepted(backend.selectedAmplifierIndex, selectedChannels)
+                            accepted(backend.getSelectedAmplifierId(), selectedChannels)
                             window.close()
                         }
                     }

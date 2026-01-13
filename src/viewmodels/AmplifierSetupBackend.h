@@ -15,7 +15,6 @@ class AmplifierSetupBackend : public QObject
 
     Q_PROPERTY(QVariantList availableAmplifiers READ getAvailableAmplifiers NOTIFY availableAmplifiersChanged FINAL)
     Q_PROPERTY(int selectedAmplifierIndex READ getSelectedAmplifierIndex WRITE setSelectedAmplifierIndex NOTIFY selectedAmplifierIndexChanged FINAL)
-    Q_PROPERTY(QString selectedAmplifierId READ getSelectedAmplifierId NOTIFY selectedAmplifierIndexChanged FINAL)
     Q_PROPERTY(QVariantList currentChannels READ getCurrentChannels NOTIFY selectedAmplifierIndexChanged FINAL)
 
 public:
@@ -23,12 +22,12 @@ public:
     ~AmplifierSetupBackend();
 
     QVariantList getAvailableAmplifiers() const;
-    QString getSelectedAmplifierId() const;
     int getSelectedAmplifierIndex() const;
     QVariantList getCurrentChannels() const;
 
     Q_INVOKABLE void refreshAmplifiersList();
     Q_INVOKABLE void setSelectedAmplifierIndex(int index);
+    Q_INVOKABLE QString getSelectedAmplifierId() const;
 
 signals:
     void availableAmplifiersChanged();

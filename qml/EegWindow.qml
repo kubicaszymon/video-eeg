@@ -10,7 +10,7 @@ ApplicationWindow {
     title: "EEG Viewer"
     visible: true
 
-    property int amplifierId: -1
+    property string amplifierId: ""
     property var channels: []
     property int channelCount: channels.length
 
@@ -30,6 +30,8 @@ ApplicationWindow {
         console.log("Amplifier ID:", amplifierId)
 
         backend.registerDataModel(eegGraph.dataModel)
+
+        backend.startStream()
     }
 
     header: ToolBar {
