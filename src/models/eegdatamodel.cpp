@@ -49,11 +49,6 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
     int newSamples = incomingData[0].size();
     int numChannels = incomingData.size();
 
-    // DEBUG: Pokaż co zapisujesz
-    qInfo() << "=== UPDATE DEBUG ===";
-    qInfo() << "Current index BEFORE:" << m_currentIndex;
-    qInfo() << "New samples to write:" << newSamples;
-
     beginResetModel();
 
     if (m_data.isEmpty())
@@ -63,10 +58,9 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
         m_totalSamples = 0;
     }
 
-    int lastWrittenIndex = -1; // Śledzimy ostatni RZECZYWIŚCIE zapisany indeks
-
     if (m_totalSamples < MAX_SAMPLES)
     {
+        // Faza początkowa - wypełniamy bufor
         for (int s = 0; s < newSamples && m_totalSamples < MAX_SAMPLES; ++s)
         {
             m_data[0].append(m_totalSamples);
@@ -76,7 +70,6 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
                 m_data[ch + 1].append(incomingData[ch][s]);
             }
 
-            lastWrittenIndex = m_totalSamples;
             m_totalSamples++;
         }
 
@@ -84,6 +77,7 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
     }
     else
     {
+        // Faza circular buffer
         for (int s = 0; s < newSamples; ++s)
         {
             int writeIndex = m_currentIndex % MAX_SAMPLES;
@@ -95,19 +89,22 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
                 m_data[ch + 1][writeIndex] = incomingData[ch][s];
             }
 
-            lastWrittenIndex = writeIndex;
             m_currentIndex++;
         }
 
         m_currentIndex = m_currentIndex % MAX_SAMPLES;
     }
 
-    // Ustaw writePosition na OSTATNI ZAPISANY indeks + 1 (zaraz za danymi)
-    m_writePosition = (lastWrittenIndex + 1) % MAX_SAMPLES;
+    // writePosition = miejsce gdzie BĘDĄ zapisane następne dane
+    // To jest dokładnie m_currentIndex!
+    // Dodajemy GAP (20 sampli) żeby była przerwa między linią a starymi danymi
+    const int GAP = 20;
+    m_writePosition = (m_currentIndex + GAP) % MAX_SAMPLES;
 
-    qInfo() << "Last written index:" << lastWrittenIndex;
-    qInfo() << "Current index AFTER:" << m_currentIndex;
-    qInfo() << "Write position (for line):" << m_writePosition;
+    qInfo() << "Total samples:" << m_totalSamples
+            << "Current index:" << m_currentIndex
+            << "Write position (with gap):" << m_writePosition
+            << "New samples:" << newSamples;
 
     emit writePositionChanged();
 
