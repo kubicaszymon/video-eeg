@@ -6,9 +6,10 @@ import videoEeg
 ApplicationWindow {
     id: root
     visible: true
-    width: 250
-    height: 100
-    title: qsTr("VideoEEG main.qml")
+    width: Screen.width
+    height: Screen.height
+    visibility: Window.Maximized
+    title: qsTr("VideoEEG")
 
     Loader {
         id: contentLoader

@@ -12,6 +12,7 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS PrintSupport)
 find_package(Qt6 REQUIRED COMPONENTS GraphsWidgets)
+find_package(Qt6 REQUIRED COMPONENTS QuickControls2)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -81,6 +82,7 @@ target_link_libraries(appvideoEeg
         Qt6::Widgets
         Qt6::PrintSupport
         Qt6::GraphsWidgets
+        Qt6::QuickControls2
         LSL::lsl
 )
 target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
