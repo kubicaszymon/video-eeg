@@ -1,19 +1,21 @@
 #include "eegdatamodel.h"
 #include <QtCore/qnumeric.h>
+#include <algorithm>
 
 EegDataModel::EegDataModel()
 {
     qInfo() << "EEGDATAMODEL CREATED " << this;
+    m_updateTimer.start();
 }
 
 int EegDataModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent);
-    if(m_data.empty())
+    if (!m_bufferInitialized || m_data.empty())
     {
         return 0;
     }
-    return m_data[0].size();
+    return MAX_SAMPLES;
 }
 
 int EegDataModel::columnCount(const QModelIndex &parent) const
@@ -39,12 +41,108 @@ QVariant EegDataModel::data(const QModelIndex &index, int role) const
     return QVariant();
 }
 
+void EegDataModel::initializeBuffer(int numChannels)
+{
+    if (m_bufferInitialized && m_numChannels == numChannels)
+    {
+        return;
+    }
+
+    // Use beginResetModel only during initialization
+    beginResetModel();
+
+    m_data.clear();
+    m_data.resize(numChannels + 1);
+
+    // Pre-allocate all vectors with exact size
+    for (int col = 0; col <= numChannels; ++col)
+    {
+        m_data[col].resize(MAX_SAMPLES);
+    }
+
+    // Initialize X-axis column and set gap values
+    for (int i = 0; i < MAX_SAMPLES; ++i)
+    {
+        m_data[0][i] = i;
+        for (int ch = 0; ch < numChannels; ++ch)
+        {
+            m_data[ch + 1][i] = GAP_VALUE;
+        }
+    }
+
+    m_currentIndex = 0;
+    m_writePosition = 0;
+    m_numChannels = numChannels;
+    m_bufferInitialized = true;
+    m_minMaxDirty = true;
+
+    endResetModel();
+
+    qInfo() << "EegDataModel buffer initialized for" << numChannels << "channels";
+}
+
+void EegDataModel::emitDataChanged(int startRow, int endRow)
+{
+    // Rate limit UI updates to prevent overload
+    qint64 elapsed = m_updateTimer.elapsed();
+
+    if (elapsed < MIN_UPDATE_INTERVAL_MS)
+    {
+        // Accumulate the range of changed rows
+        if (m_pendingUpdate)
+        {
+            m_pendingStartRow = std::min(m_pendingStartRow, startRow);
+            m_pendingEndRow = std::max(m_pendingEndRow, endRow);
+        }
+        else
+        {
+            m_pendingUpdate = true;
+            m_pendingStartRow = startRow;
+            m_pendingEndRow = endRow;
+        }
+        return;
+    }
+
+    // Include any pending updates
+    if (m_pendingUpdate)
+    {
+        startRow = std::min(m_pendingStartRow, startRow);
+        endRow = std::max(m_pendingEndRow, endRow);
+        m_pendingUpdate = false;
+    }
+
+    // Emit incremental dataChanged signal instead of full model reset
+    QModelIndex topLeft = index(startRow, 0);
+    QModelIndex bottomRight = index(endRow, m_data.size() - 1);
+    emit QAbstractItemModel::dataChanged(topLeft, bottomRight);
+
+    m_updateTimer.restart();
+}
+
+void EegDataModel::updateMinMaxCache(double value)
+{
+    if (value >= GAP_VALUE) return;
+
+    bool changed = false;
+    if (value < m_cachedMin)
+    {
+        m_cachedMin = value;
+        changed = true;
+    }
+    if (value > m_cachedMax)
+    {
+        m_cachedMax = value;
+        changed = true;
+    }
+
+    if (changed)
+    {
+        emit minMaxChanged();
+    }
+}
+
 void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
 {
-    const int MAX_SAMPLES = 1000;
-    const int GAP_SIZE = 50;
-    const double GAP_VALUE = 1e9;
-
     if (incomingData.isEmpty() || incomingData[0].isEmpty())
     {
         return;
@@ -53,22 +151,15 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
     int newSamples = incomingData[0].size();
     int numChannels = incomingData.size();
 
-    beginResetModel();
-
-    if (m_data.isEmpty())
+    // Initialize buffer if needed (only happens once or on channel count change)
+    if (!m_bufferInitialized || m_numChannels != numChannels)
     {
-        m_data.resize(numChannels + 1);
-        for (int i = 0; i < MAX_SAMPLES; ++i)
-        {
-            m_data[0].append(i);
-            for (int ch = 0; ch < numChannels; ++ch)
-            {
-                m_data[ch + 1].append(GAP_VALUE);
-            }
-        }
-        m_currentIndex = 0;
+        initializeBuffer(numChannels);
     }
 
+    int startWriteIndex = m_currentIndex % MAX_SAMPLES;
+
+    // Write incoming data to circular buffer
     for (int s = 0; s < newSamples; ++s)
     {
         int writeIndex = m_currentIndex % MAX_SAMPLES;
@@ -76,44 +167,71 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
         m_data[0][writeIndex] = writeIndex;
         for (int ch = 0; ch < numChannels; ++ch)
         {
-            m_data[ch + 1][writeIndex] = incomingData[ch][s];
+            double value = incomingData[ch][s];
+            m_data[ch + 1][writeIndex] = value;
+
+            // Update min/max cache incrementally
+            updateMinMaxCache(value);
         }
 
         m_currentIndex++;
     }
 
-    int lastWritten = (m_currentIndex - 1 + MAX_SAMPLES) % MAX_SAMPLES;
+    int endWriteIndex = (m_currentIndex - 1 + MAX_SAMPLES) % MAX_SAMPLES;
 
+    // Update write position for cursor
+    m_writePosition = endWriteIndex;
+
+    // Create gap after write position (clear ahead)
     for (int g = 1; g <= GAP_SIZE; ++g)
     {
-        int gapIndex = (lastWritten + g) % MAX_SAMPLES;
+        int gapIndex = (endWriteIndex + g) % MAX_SAMPLES;
         for (int ch = 0; ch < numChannels; ++ch)
         {
             m_data[ch + 1][gapIndex] = GAP_VALUE;
         }
     }
 
-    endResetModel();
+    // Calculate the range of changed rows for incremental update
+    int changedStart, changedEnd;
+
+    if (startWriteIndex <= endWriteIndex)
+    {
+        // No wraparound - simple case
+        changedStart = startWriteIndex;
+        changedEnd = std::min(endWriteIndex + GAP_SIZE, MAX_SAMPLES - 1);
+    }
+    else
+    {
+        // Wraparound occurred - update whole buffer
+        // This happens rarely, only when we cross the buffer boundary
+        changedStart = 0;
+        changedEnd = MAX_SAMPLES - 1;
+    }
+
+    // Emit incremental update with rate limiting
+    emitDataChanged(changedStart, changedEnd);
 }
 
 double EegDataModel::minValue() const
 {
-    double min = std::numeric_limits<double>::infinity();
-    for (const auto& col : m_data) {
-        for (double val : col) {
-            if (val < 1e8) min = std::min(min, val);
-        }
+    if (m_cachedMin == std::numeric_limits<double>::infinity())
+    {
+        return 0.0;
     }
-    return min;
+    return m_cachedMin;
 }
 
 double EegDataModel::maxValue() const
 {
-    double max = -std::numeric_limits<double>::infinity();
-    for (const auto& col : m_data) {
-        for (double val : col) {
-            if (val < 1e8) max = std::max(max, val);
-        }
+    if (m_cachedMax == -std::numeric_limits<double>::infinity())
+    {
+        return 1000.0;
     }
-    return max;
+    return m_cachedMax;
+}
+
+int EegDataModel::writePosition() const
+{
+    return m_writePosition;
 }

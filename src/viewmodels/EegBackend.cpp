@@ -28,6 +28,44 @@ void EegBackend::startStream()
     amplifier_manager_->StartStream(m_amplifierId);
 }
 
+void EegBackend::initializeBuffers(int numChannels, int numSamples)
+{
+    // Only reallocate if size changed significantly
+    if (numChannels != m_lastNumChannels || numSamples > m_lastBufferSize)
+    {
+        m_scaledDataBuffer.resize(numChannels);
+
+        // Pre-allocate with some extra capacity to avoid frequent reallocations
+        int reserveSize = numSamples * 2;
+        for (int ch = 0; ch < numChannels; ++ch)
+        {
+            m_scaledDataBuffer[ch].clear();
+            m_scaledDataBuffer[ch].reserve(reserveSize);
+        }
+
+        m_lastNumChannels = numChannels;
+        m_lastBufferSize = reserveSize;
+    }
+    else
+    {
+        // Just clear existing buffers for reuse
+        for (int ch = 0; ch < numChannels; ++ch)
+        {
+            m_scaledDataBuffer[ch].clear();
+        }
+    }
+
+    // Cache channel indices to avoid repeated QVariant::toInt() calls
+    if (m_channelIndexCache.size() != numChannels)
+    {
+        m_channelIndexCache.resize(numChannels);
+        for (int i = 0; i < numChannels; ++i)
+        {
+            m_channelIndexCache[i] = m_channels[i].toInt();
+        }
+    }
+}
+
 void EegBackend::generateTestData()
 {
     if (!m_dataModel) return;
@@ -64,84 +102,48 @@ void EegBackend::generateTestData()
 
 void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
 {
-    if(chunk.empty() || chunk[0].empty() || m_channels.isEmpty())
+    if(chunk.empty() || chunk[0].empty() || m_channels.isEmpty() || !m_dataModel)
     {
         return;
     }
 
-    int numSamples = chunk.size();
-    int numSelectedChannels = m_channels.size();
-
-    // Use dynamic spacing from QML (set by EegGraph)
+    const int numSamples = static_cast<int>(chunk.size());
+    const int numSelectedChannels = m_channels.size();
     const double channelSpacing = m_spacing;
+    const int totalChunkChannels = static_cast<int>(chunk[0].size());
 
-    // STEP 1: Transposition and conversion
-    QVector<QVector<double>> transposedData(numSelectedChannels);
-    for(int i = 0; i < numSelectedChannels; ++i)
+    // Initialize/reuse pre-allocated buffers
+    initializeBuffers(numSelectedChannels, numSamples);
+
+    // Pre-calculate offsets for each channel (from top to bottom)
+    // Channel 0 = highest, channel N-1 = lowest
+    // Combined transposition, conversion and scaling in single pass
+    for (int ch = 0; ch < numSelectedChannels; ++ch)
     {
-        transposedData[i].reserve(numSamples);
+        const int channelIndex = m_channelIndexCache[ch];
+
+        // Skip invalid channel indices
+        if (channelIndex < 0 || channelIndex >= totalChunkChannels)
+        {
+            continue;
+        }
+
+        // Pre-calculate offset for this channel
+        const double offset = (numSelectedChannels - 1 - ch) * channelSpacing;
+
+        // Direct access to output buffer
+        QVector<double>& outputChannel = m_scaledDataBuffer[ch];
+
+        // Process all samples for this channel
+        for (int sample = 0; sample < numSamples; ++sample)
+        {
+            // Combined: read float -> convert to double -> add offset
+            outputChannel.append(static_cast<double>(chunk[sample][channelIndex]) + offset);
+        }
     }
 
-    for(int sample = 0; sample < numSamples; ++sample)
-    {
-        for(int i = 0; i < numSelectedChannels; ++i)
-        {
-            int channelIndex = m_channels[i].toInt();
-
-            if(channelIndex >= 0 && channelIndex < static_cast<int>(chunk[sample].size()))
-            {
-                transposedData[i].append(static_cast<double>(chunk[sample][channelIndex]));
-            }
-        }
-    }
-
-    // STEP 2: SCALING - use dynamic channelSpacing
-    QVector<QVector<double>> scaledData(numSelectedChannels);
-
-    for(int ch = 0; ch < numSelectedChannels; ++ch)
-    {
-        if(transposedData[ch].isEmpty()) continue;
-
-        scaledData[ch].reserve(transposedData[ch].size());
-
-        // Offset for this channel (from top to bottom)
-        // Channel 0 = highest, channel N-1 = lowest
-        double offset = (numSelectedChannels - 1 - ch) * channelSpacing;
-
-        // Option A: Without normalization, offset only
-        // EEG signal is usually in microvolts, so it may require scaling
-        for(double val : transposedData[ch])
-        {
-            scaledData[ch].append(val + offset);
-        }
-
-        /* Option B: With normalization (uncomment if signals are too large/small)
-        double minVal = *std::min_element(transposedData[ch].begin(), transposedData[ch].end());
-        double maxVal = *std::max_element(transposedData[ch].begin(), transposedData[ch].end());
-        double range = maxVal - minVal;
-
-        // Amplitude is ~40% spacing so signals don't overlap
-        const double TARGET_AMPLITUDE = channelSpacing * 0.4;
-
-        if(range > 0.001)
-        {
-            for(double val : transposedData[ch])
-            {
-                double normalized = ((val - minVal) / range - 0.5) * TARGET_AMPLITUDE;
-                scaledData[ch].append(normalized + offset);
-            }
-        }
-        else
-        {
-            for(double val : transposedData[ch])
-            {
-                scaledData[ch].append(offset);
-            }
-        }
-        */
-    }
-
-    m_dataModel->updateAllData(scaledData);
+    // Send to data model
+    m_dataModel->updateAllData(m_scaledDataBuffer);
 }
 
 QVariantList EegBackend::GetChannelNames() const
@@ -170,6 +172,15 @@ void EegBackend::setChannels(const QVariantList &newChannels)
     if (m_channels == newChannels)
         return;
     m_channels = newChannels;
+
+    // Update channel index cache when channels change
+    const int numChannels = m_channels.size();
+    m_channelIndexCache.resize(numChannels);
+    for (int i = 0; i < numChannels; ++i)
+    {
+        m_channelIndexCache[i] = m_channels[i].toInt();
+    }
+
     emit channelsChanged();
 }
 

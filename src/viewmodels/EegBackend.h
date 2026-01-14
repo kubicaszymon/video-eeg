@@ -59,6 +59,8 @@ signals:
     void spacingChanged();
 
 private:
+    void initializeBuffers(int numChannels, int numSamples);
+
     Amplifier* amplifier_ = nullptr;
     AmplifierManager* amplifier_manager_ = nullptr;
     QVariantList m_channels;
@@ -67,6 +69,12 @@ private:
     EegDataModel* m_dataModel = nullptr;
     double m_spacing = 100.0;  // Default value, will be overwritten by QML
     QString m_amplifierId;
+
+    // Pre-allocated buffers to avoid runtime memory allocations
+    QVector<QVector<double>> m_scaledDataBuffer;
+    QVector<int> m_channelIndexCache;
+    int m_lastNumChannels = 0;
+    int m_lastBufferSize = 0;
 };
 
 #endif // EEGBACKEND_H
