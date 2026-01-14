@@ -11,7 +11,7 @@ Rectangle {
     property int channelSpacing: 1
     property var selectedChannels: []
 
-    // Dynamicznie obliczany spacing bazujący na dostępnej wysokości
+    // Dynamically calculated spacing based on available height
     readonly property real availableHeight: height - 100
     readonly property real calculatedSpacing: selectedChannels.length > 1
         ? availableHeight / (selectedChannels.length - 1)
@@ -49,7 +49,7 @@ Rectangle {
         id: eegData
     }
 
-    // Connections do obsługi sygnału writePositionChanged
+    // Connections to handle writePositionChanged signal
     Connections {
         target: eegData
         function onWritePositionChanged() {

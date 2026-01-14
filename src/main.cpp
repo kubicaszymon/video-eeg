@@ -7,7 +7,7 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    // Ustaw Basic style aby customizacja działała
+    // Set Basic style for customization to work
     QQuickStyle::setStyle("Basic");
 
     QQmlApplicationEngine engine;

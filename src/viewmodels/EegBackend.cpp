@@ -32,7 +32,7 @@ void EegBackend::generateTestData()
 {
     if (!m_dataModel) return;
 
-    // Używamy dynamicznego spacingu z QML
+    // Use dynamic spacing from QML
     double channel_spacing = m_spacing;
 
     const int numChannels = m_channels.size();
@@ -49,10 +49,10 @@ void EegBackend::generateTestData()
         double time = i * 0.1;
 
         for (int ch = 0; ch < numChannels; ++ch) {
-            // Różne częstotliwości dla każdego kanału
+            // Different frequencies for each channel
             double value = qSin(time * (1.0 + ch * 0.3)) * (channel_spacing * 0.3);
 
-            // Offset - kanał 0 na górze, ostatni na dole
+            // Offset - channel 0 at the top, last at the bottom
             double offset = (numChannels - 1 - ch) * channel_spacing;
 
             testData[ch].append(value + offset);
@@ -72,10 +72,10 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
     int numSamples = chunk.size();
     int numSelectedChannels = m_channels.size();
 
-    // Używamy dynamicznego spacingu z QML (ustawianego przez EegGraph)
+    // Use dynamic spacing from QML (set by EegGraph)
     const double channelSpacing = m_spacing;
 
-    // KROK 1: Transpozycja i konwersja
+    // STEP 1: Transposition and conversion
     QVector<QVector<double>> transposedData(numSelectedChannels);
     for(int i = 0; i < numSelectedChannels; ++i)
     {
@@ -95,7 +95,7 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
         }
     }
 
-    // KROK 2: SKALOWANIE - używamy dynamicznego channelSpacing
+    // STEP 2: SCALING - use dynamic channelSpacing
     QVector<QVector<double>> scaledData(numSelectedChannels);
 
     for(int ch = 0; ch < numSelectedChannels; ++ch)
@@ -104,23 +104,23 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
 
         scaledData[ch].reserve(transposedData[ch].size());
 
-        // Offset dla tego kanału (od góry do dołu)
-        // Kanał 0 = najwyżej, kanał N-1 = najniżej
+        // Offset for this channel (from top to bottom)
+        // Channel 0 = highest, channel N-1 = lowest
         double offset = (numSelectedChannels - 1 - ch) * channelSpacing;
 
-        // Opcja A: Bez normalizacji, tylko offset
-        // Sygnał EEG jest zazwyczaj w mikrowoltach, więc może wymagać skalowania
+        // Option A: Without normalization, offset only
+        // EEG signal is usually in microvolts, so it may require scaling
         for(double val : transposedData[ch])
         {
             scaledData[ch].append(val + offset);
         }
 
-        /* Opcja B: Z normalizacją (odkomentuj jeśli sygnały są zbyt duże/małe)
+        /* Option B: With normalization (uncomment if signals are too large/small)
         double minVal = *std::min_element(transposedData[ch].begin(), transposedData[ch].end());
         double maxVal = *std::max_element(transposedData[ch].begin(), transposedData[ch].end());
         double range = maxVal - minVal;
 
-        // Amplituda to ~40% spacing żeby sygnały się nie nakładały
+        // Amplitude is ~40% spacing so signals don't overlap
         const double TARGET_AMPLITUDE = channelSpacing * 0.4;
 
         if(range > 0.001)

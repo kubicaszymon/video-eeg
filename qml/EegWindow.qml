@@ -111,7 +111,7 @@ ApplicationWindow {
                             }
 
                             Label {
-                                text: currentPatientName + " • " + channelCount + " kanałów"
+                                text: currentPatientName + " • " + channelCount + " channels"
                                 font.pixelSize: 11
                                 color: textSecondary
                             }
@@ -153,14 +153,14 @@ ApplicationWindow {
                                 spacing: 0
 
                                 Label {
-                                    text: isRecording ? (isPaused ? "⏸ PAUZA" : "⏺ NAGRYWANIE") : "⏹ PODGLĄD NA ŻYWO"
+                                    text: isRecording ? (isPaused ? "⏸ PAUSED" : "⏺ RECORDING") : "⏹ LIVE PREVIEW"
                                     font.pixelSize: 14
                                     font.bold: true
                                     color: "white"
                                 }
 
                                 Label {
-                                    text: isRecording ? formatTime(recordingTime) : "Nie zapisuję danych"
+                                    text: isRecording ? formatTime(recordingTime) : "Not saving data"
                                     font.pixelSize: 10
                                     color: "white"
                                 }
@@ -213,13 +213,13 @@ ApplicationWindow {
                                 anchors.bottomMargin: 15
                                 spacing: 15
 
-                                // KONTROLA NAGRYWANIA
+                                // RECORDING CONTROL
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     spacing: 10
 
                                     Label {
-                                        text: "⏺ Kontrola nagrywania"
+                                        text: "⏺ Recording Control"
                                         font.pixelSize: 13
                                         font.bold: true
                                         color: textColor
@@ -234,7 +234,7 @@ ApplicationWindow {
                                     Button {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 45
-                                        text: isRecording ? "⏹ Zatrzymaj" : "⏺ Rozpocznij nagrywanie"
+                                        text: isRecording ? "⏹ Stop" : "⏺ Start Recording"
                                         font.pixelSize: 12
                                         font.bold: true
                                         palette.button: isRecording ? dangerColor : successColor
@@ -256,7 +256,7 @@ ApplicationWindow {
                                     Button {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 40
-                                        text: isPaused ? "▶ Wznów" : "⏸ Pauza"
+                                        text: isPaused ? "▶ Resume" : "⏸ Pause"
                                         font.pixelSize: 11
                                         enabled: isRecording
                                         palette.button: warningColor
@@ -270,7 +270,7 @@ ApplicationWindow {
                                     Button {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 40
-                                        text: "🧪 Generuj dane testowe"
+                                        text: "🧪 Generate Test Data"
                                         font.pixelSize: 11
                                         palette.button: accentColor
                                         palette.buttonText: "white"
@@ -281,13 +281,13 @@ ApplicationWindow {
                                     }
                                 }
 
-                                // ZNACZNIKI
+                                // EVENT MARKERS
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     spacing: 10
 
                                     Label {
-                                        text: "🏷️ Znaczniki zdarzeń"
+                                        text: "🏷️ Event Markers"
                                         font.pixelSize: 13
                                         font.bold: true
                                         color: textColor
@@ -306,7 +306,7 @@ ApplicationWindow {
                                         rowSpacing: 8
 
                                         Button {
-                                            text: "👁️ Oczy otwarte"
+                                            text: "👁️ Eyes Open"
                                             font.pixelSize: 10
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 35
@@ -316,7 +316,7 @@ ApplicationWindow {
                                         }
 
                                         Button {
-                                            text: "😴 Oczy zamknięte"
+                                            text: "😴 Eyes Closed"
                                             font.pixelSize: 10
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 35
@@ -326,7 +326,7 @@ ApplicationWindow {
                                         }
 
                                         Button {
-                                            text: "⚡ Atak padaczkowy"
+                                            text: "⚡ Seizure"
                                             font.pixelSize: 10
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 35
@@ -336,7 +336,7 @@ ApplicationWindow {
                                         }
 
                                         Button {
-                                            text: "⚠️ Artefakt"
+                                            text: "⚠️ Artifact"
                                             font.pixelSize: 10
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 35
@@ -346,7 +346,7 @@ ApplicationWindow {
                                         }
 
                                         Button {
-                                            text: "✏️ Niestandardowy"
+                                            text: "✏️ Custom"
                                             font.pixelSize: 10
                                             Layout.fillWidth: true
                                             Layout.columnSpan: 2
@@ -358,13 +358,13 @@ ApplicationWindow {
                                     }
                                 }
 
-                                // PARAMETRY WYŚWIETLANIA
+                                // DISPLAY PARAMETERS
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     spacing: 10
 
                                     Label {
-                                        text: "⚙️ Parametry wyświetlania"
+                                        text: "⚙️ Display Parameters"
                                         font.pixelSize: 13
                                         font.bold: true
                                         color: textColor
@@ -384,7 +384,7 @@ ApplicationWindow {
                                             Layout.fillWidth: true
 
                                             Label {
-                                                text: "⏱️ Okno czasowe:"
+                                                text: "⏱️ Time Window:"
                                                 font.pixelSize: 11
                                                 color: textSecondary
                                                 Layout.fillWidth: true
@@ -416,7 +416,7 @@ ApplicationWindow {
                                             Layout.fillWidth: true
 
                                             Label {
-                                                text: "📈 Wzmocnienie (Gain):"
+                                                text: "📈 Gain:"
                                                 font.pixelSize: 11
                                                 color: textSecondary
                                                 Layout.fillWidth: true
@@ -448,7 +448,7 @@ ApplicationWindow {
                                             Layout.fillWidth: true
 
                                             Label {
-                                                text: "📏 Odstęp kanałów:"
+                                                text: "📏 Channel Spacing:"
                                                 font.pixelSize: 11
                                                 color: textSecondary
                                                 Layout.fillWidth: true
@@ -463,7 +463,7 @@ ApplicationWindow {
                                         }
 
                                         Label {
-                                            text: "Automatycznie dopasowany do " + channelCount + " kanałów"
+                                            text: "Automatically adjusted for " + channelCount + " channels"
                                             font.pixelSize: 9
                                             color: textSecondary
                                             Layout.fillWidth: true
@@ -471,7 +471,7 @@ ApplicationWindow {
                                     }
                                 }
 
-                                // AKCJE
+                                // ACTIONS
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     spacing: 8
@@ -484,7 +484,7 @@ ApplicationWindow {
 
                                     Button {
                                         Layout.fillWidth: true
-                                        text: "❌ Zakończ badanie"
+                                        text: "❌ End Examination"
                                         font.pixelSize: 11
                                         Layout.preferredHeight: 40
                                         palette.button: dangerColor
@@ -502,7 +502,7 @@ ApplicationWindow {
                     }
                 }
 
-                // CENTRAL - WYKRES EEG
+                // CENTRAL - EEG GRAPH
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -535,14 +535,14 @@ ApplicationWindow {
                             spacing: 5
 
                             Label {
-                                text: "ℹ️ Tryb podglądu na żywo"
+                                text: "ℹ️ Live Preview Mode"
                                 font.pixelSize: 12
                                 font.bold: true
                                 color: textColor
                             }
 
                             Label {
-                                text: "Dane nie są zapisywane.\nKliknij 'Rozpocznij nagrywanie'"
+                                text: "Data is not being saved.\nClick 'Start Recording'"
                                 font.pixelSize: 10
                                 color: textSecondary
                                 wrapMode: Text.WordWrap
@@ -566,7 +566,7 @@ ApplicationWindow {
                     spacing: 20
 
                     Label {
-                        text: "🔌 Wzmacniacz: " + (amplifierId || "Nieznany")
+                        text: "🔌 Amplifier: " + (amplifierId || "Unknown")
                         font.pixelSize: 10
                         color: textSecondary
                     }
@@ -578,7 +578,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "📊 Częstotliwość: 250 Hz"
+                        text: "📊 Frequency: 250 Hz"
                         font.pixelSize: 10
                         color: textSecondary
                     }
@@ -590,7 +590,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "💾 Bufor: 1000 sampli"
+                        text: "💾 Buffer: 1000 samples"
                         font.pixelSize: 10
                         color: textSecondary
                     }
@@ -624,7 +624,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "Połączono"
+                        text: "Connected"
                         font.pixelSize: 10
                         color: successColor
                         font.bold: true
