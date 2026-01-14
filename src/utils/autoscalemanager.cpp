@@ -66,7 +66,7 @@ void AutoScaleManager::processChunk(const std::vector<std::vector<float>>& chunk
 
         if (m_totalSamplesProcessed >= m_calibrationSamples)
         {
-            // Zakończ kalibrację
+            // Zakończ kalibrację - ustaw bazową skalę
             m_calibratedMin = m_globalMin;
             m_calibratedMax = m_globalMax;
             m_calibratedRange = m_calibratedMax - m_calibratedMin;
@@ -74,46 +74,21 @@ void AutoScaleManager::processChunk(const std::vector<std::vector<float>>& chunk
             // Wykryj jednostkę
             m_detectedUnit = detectUnit(m_calibratedMin, m_calibratedMax);
 
-            // Oblicz współczynnik skalowania
+            // Oblicz bazowy współczynnik skalowania
+            // Ten współczynnik NIE zmienia się automatycznie - użytkownik kontroluje przez Gain
             m_scaleFactor = calculateOptimalScaleFactor(m_calibratedRange, m_targetSpacing);
 
             m_calibrationState = CalibrationState::Calibrated;
 
             qDebug() << "[AutoScale] Calibration complete:"
                      << "range:" << m_calibratedMin << "to" << m_calibratedMax
+                     << "(" << dataRangeInMicrovolts() << "μV)"
                      << "unit:" << unitString()
-                     << "scaleFactor:" << m_scaleFactor;
+                     << "baseScaleFactor:" << m_scaleFactor;
         }
     }
-    else if (m_calibrationState == CalibrationState::Calibrated)
-    {
-        // Sprawdź czy potrzebna rekalibracja
-        if (needsRecalibration(m_globalMin, m_globalMax))
-        {
-            m_calibrationState = CalibrationState::Adapting;
-            qDebug() << "[AutoScale] Data out of range, adapting...";
-        }
-    }
-    else if (m_calibrationState == CalibrationState::Adapting)
-    {
-        // Dostosuj skalę płynnie
-        double currentRange = m_globalMax - m_globalMin;
-        double targetScale = calculateOptimalScaleFactor(currentRange, m_targetSpacing);
-        m_scaleFactor = smoothScaleTransition(m_scaleFactor, targetScale);
-
-        // Zaktualizuj skalibrowane wartości
-        m_calibratedMin = m_globalMin;
-        m_calibratedMax = m_globalMax;
-        m_calibratedRange = currentRange;
-
-        // Sprawdź czy możemy wrócić do stabilnego stanu
-        // (gdy skala się ustabilizowała)
-        if (std::abs(m_scaleFactor - targetScale) / targetScale < 0.05)
-        {
-            m_calibrationState = CalibrationState::Calibrated;
-            qDebug() << "[AutoScale] Adaptation complete, new scale:" << m_scaleFactor;
-        }
-    }
+    // Po kalibracji NIE zmieniamy skali automatycznie
+    // Użytkownik kontroluje wzmocnienie przez suwak Gain
 
     // Emituj sygnały o zmianach
     if (previousState != m_calibrationState)
@@ -197,41 +172,46 @@ void AutoScaleManager::updateStatistics(const std::vector<std::vector<float>>& c
 AutoScaleManager::DataUnit AutoScaleManager::detectUnit(double minVal, double maxVal) const
 {
     // Zakres wartości
-    double range = maxVal - minVal;
     double absMax = std::max(std::abs(minVal), std::abs(maxVal));
 
-    // Wykrywanie na podstawie typowych zakresów EEG:
+    // Wykrywanie na podstawie parametrów wzmacniacza i typowych zakresów EEG:
     //
-    // Mikrowolty (μV): sygnał EEG typowo ±50-200 μV
-    // - Jeśli urządzenie podaje μV wprost: wartości ±50 do ±200
+    // Wzmacniacz ma:
+    // - Zakres pomiarowy: ±341 mV
+    // - Rozdzielczość: 24 bity (40 nV/bit)
+    // - Typowy sygnał EEG: 10-100 μV = 0.01-0.1 mV
     //
-    // Miliwolty (mV): niektóre urządzenia skalują do mV
-    // - Wartości ±0.05 do ±0.2 (czyli μV / 1000)
+    // Jeśli dane są w mV (zakres wzmacniacza):
+    // - absMax będzie < 341 (ale typowo << 1 dla EEG)
     //
-    // Wolty (V): rzadko używane
-    // - Wartości bardzo małe: ±0.00005 do ±0.0002
+    // Jeśli dane są w μV:
+    // - absMax będzie typowo 10-200 dla EEG
     //
-    // Raw ADC: surowe wartości przetwornika
-    // - Mogą być 12-bit (0-4095), 16-bit (0-65535), lub signed
+    // Jeśli dane są w V:
+    // - absMax będzie bardzo małe (< 0.001)
 
-    if (absMax < 0.0001)
+    if (absMax < 0.001)
     {
         // Bardzo małe wartości - prawdopodobnie wolty
+        // (typowy EEG w V: 0.00001-0.0001)
         return DataUnit::Volts;
     }
-    else if (absMax < 0.01)
+    else if (absMax < 1.0)
     {
-        // Małe wartości - prawdopodobnie miliwolty
+        // Wartości < 1 - prawdopodobnie miliwolty
+        // (typowy EEG w mV: 0.01-0.1, zakres wzmacniacza: ±341 mV)
         return DataUnit::Millivolts;
     }
     else if (absMax < 1000)
     {
-        // Umiarkowane wartości - prawdopodobnie mikrowolty
+        // Wartości 1-1000 - prawdopodobnie mikrowolty
+        // (typowy EEG w μV: 10-200)
         return DataUnit::Microvolts;
     }
-    else if (absMax < 100000)
+    else if (absMax < 1000000)
     {
         // Duże wartości - prawdopodobnie raw ADC
+        // (24-bit ADC: ±8388608)
         return DataUnit::RawADC;
     }
     else
@@ -293,48 +273,103 @@ double AutoScaleManager::calculateOptimalScaleFactor(double dataRange, double ta
 
     // Ogranicz do rozsądnych wartości
     const double MIN_SCALE = 0.0001;
-    const double MAX_SCALE = 10000.0;
+    const double MAX_SCALE = 100000.0;
 
     scale = std::clamp(scale, MIN_SCALE, MAX_SCALE);
 
     return scale;
 }
 
-bool AutoScaleManager::needsRecalibration(double newMin, double newMax) const
+double AutoScaleManager::dataRangeInMicrovolts() const
 {
-    if (m_calibratedRange <= 0)
+    double range = m_calibratedRange;
+    if (range <= 0) range = m_globalMax - m_globalMin;
+    if (!std::isfinite(range) || range <= 0) return 0.0;
+
+    // Konwertuj do μV w zależności od wykrytej jednostki
+    switch (m_detectedUnit)
     {
-        return true;
+    case DataUnit::Millivolts:
+        return range * 1000.0;  // mV -> μV
+    case DataUnit::Volts:
+        return range * 1000000.0;  // V -> μV
+    case DataUnit::Microvolts:
+        return range;  // już w μV
+    default:
+        return range;  // raw lub unknown - zwróć jak jest
     }
-
-    // Sprawdź czy dane wyszły poza zakres o więcej niż próg histerezy
-    double exceedance = 0.0;
-
-    if (newMin < m_calibratedMin)
-    {
-        exceedance = std::max(exceedance, (m_calibratedMin - newMin) / m_calibratedRange);
-    }
-    if (newMax > m_calibratedMax)
-    {
-        exceedance = std::max(exceedance, (newMax - m_calibratedMax) / m_calibratedRange);
-    }
-
-    // Sprawdź też czy zakres znacząco się zmniejszył
-    double currentRange = newMax - newMin;
-    double rangeChange = std::abs(currentRange - m_calibratedRange) / m_calibratedRange;
-
-    return (exceedance > m_hysteresisThreshold) || (rangeChange > m_hysteresisThreshold * 2);
 }
 
-double AutoScaleManager::smoothScaleTransition(double currentScale, double targetScale) const
+double AutoScaleManager::suggestedScaleBarValue() const
 {
-    // Wygładzanie eksponencjalne
-    return currentScale + m_smoothingFactor * (targetScale - currentScale);
+    // Sugerowana wartość scale bar powinna być "ładną" liczbą
+    // np. 10, 20, 50, 100, 200, 500 μV
+
+    double rangeUV = dataRangeInMicrovolts();
+    if (rangeUV <= 0) return 50.0;  // domyślnie 50 μV
+
+    // Chcemy żeby scale bar zajmował około 10-20% zakresu
+    double targetValue = rangeUV * 0.15;
+
+    // Znajdź najbliższą "ładną" wartość
+    static const double niceValues[] = {1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000};
+    static const int numNice = sizeof(niceValues) / sizeof(niceValues[0]);
+
+    double bestValue = niceValues[0];
+    double bestDiff = std::abs(targetValue - bestValue);
+
+    for (int i = 1; i < numNice; ++i)
+    {
+        double diff = std::abs(targetValue - niceValues[i]);
+        if (diff < bestDiff)
+        {
+            bestDiff = diff;
+            bestValue = niceValues[i];
+        }
+    }
+
+    return bestValue;
+}
+
+double AutoScaleManager::calculateScaleBarHeight(double valueInOriginalUnits, double gain) const
+{
+    // valueInOriginalUnits jest w μV
+    // Musimy obliczyć jak wysoki będzie słupek na wykresie
+
+    if (m_scaleFactor <= 0 || !std::isfinite(m_scaleFactor))
+    {
+        return 0.0;
+    }
+
+    // Konwertuj wartość z μV do jednostek danych (mV, V, etc.)
+    double valueInDataUnits = valueInOriginalUnits;
+
+    switch (m_detectedUnit)
+    {
+    case DataUnit::Millivolts:
+        valueInDataUnits = valueInOriginalUnits / 1000.0;  // μV -> mV
+        break;
+    case DataUnit::Volts:
+        valueInDataUnits = valueInOriginalUnits / 1000000.0;  // μV -> V
+        break;
+    case DataUnit::Microvolts:
+        valueInDataUnits = valueInOriginalUnits;  // już w μV
+        break;
+    default:
+        // Dla raw/unknown - zakładamy że to μV
+        break;
+    }
+
+    // Wysokość = wartość * bazowy współczynnik * gain
+    double height = valueInDataUnits * m_scaleFactor * gain;
+
+    return height;
 }
 
 QVector<QVector<double>> AutoScaleManager::scaleChunk(const std::vector<std::vector<float>>& chunk,
                                                       const QVector<int>& selectedChannelIndices,
-                                                      double channelSpacing) const
+                                                      double channelSpacing,
+                                                      double gain) const
 {
     const int numSamples = static_cast<int>(chunk.size());
     const int numChannels = selectedChannelIndices.size();
@@ -365,6 +400,9 @@ QVector<QVector<double>> AutoScaleManager::scaleChunk(const std::vector<std::vec
         }
     }
 
+    // Całkowity współczynnik skalowania = bazowy * gain (użytkownik)
+    const double totalScale = m_scaleFactor * gain;
+
     // Przetwórz wszystkie kanały i próbki
     for (int ch = 0; ch < numChannels; ++ch)
     {
@@ -390,8 +428,9 @@ QVector<QVector<double>> AutoScaleManager::scaleChunk(const std::vector<std::vec
             // 1. Wycentruj dane (odejmij środek zakresu)
             double centered = rawValue - dataCenter;
 
-            // 2. Przeskaluj tym samym współczynnikiem dla wszystkich kanałów
-            double scaled = centered * m_scaleFactor;
+            // 2. Przeskaluj: bazowy współczynnik * gain (użytkownik)
+            //    Ten sam współczynnik dla WSZYSTKICH kanałów!
+            double scaled = centered * totalScale;
 
             // 3. Dodaj offset dla separacji kanałów
             double final = scaled + offset;

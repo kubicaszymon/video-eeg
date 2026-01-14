@@ -1,6 +1,7 @@
 #include "EegBackend.h"
 
 #include <qtimer.h>
+#include <algorithm>
 
 EegBackend::EegBackend(QObject *parent)
     : QObject{parent}, amplifier_manager_{AmplifierManager::instance()}
@@ -148,15 +149,17 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
         m_autoScaleManager->processChunk(chunk, m_channelIndexCache);
 
         // Get scaled data with proper offsets
-        // AutoScaleManager applies the SAME scale factor to ALL channels
+        // AutoScaleManager applies: baseScale * gain (user controlled)
+        // The SAME factor for ALL channels!
         QVector<QVector<double>> scaledData = m_autoScaleManager->scaleChunk(
-            chunk, m_channelIndexCache, channelSpacing);
+            chunk, m_channelIndexCache, channelSpacing, m_gain);
 
         // Send to data model
         m_dataModel->updateAllData(scaledData);
 
         // Emit data range changed for UI updates
         emit dataRangeChanged();
+        emit scaleBarChanged();
     }
     else
     {
@@ -402,7 +405,57 @@ void EegBackend::resetAutoScale()
         emit calibrationProgressChanged();
         emit scaleFactorChanged();
         emit dataRangeChanged();
+        emit scaleBarChanged();
 
         qDebug() << "[EegBackend] Auto-scale reset";
     }
+}
+
+// Gain control
+
+double EegBackend::gain() const
+{
+    return m_gain;
+}
+
+void EegBackend::setGain(double newGain)
+{
+    // Clamp to reasonable range
+    newGain = std::clamp(newGain, 0.01, 100.0);
+
+    if (qFuzzyCompare(m_gain, newGain))
+        return;
+
+    m_gain = newGain;
+    emit gainChanged();
+    emit scaleBarChanged();
+
+    qDebug() << "[EegBackend] Gain changed to:" << m_gain;
+}
+
+// Scale bar
+
+double EegBackend::scaleBarValue() const
+{
+    if (!m_autoScaleManager)
+        return 50.0;  // Default 50 μV
+
+    return m_autoScaleManager->suggestedScaleBarValue();
+}
+
+double EegBackend::scaleBarHeight() const
+{
+    if (!m_autoScaleManager)
+        return 0.0;
+
+    double value = m_autoScaleManager->suggestedScaleBarValue();
+    return m_autoScaleManager->calculateScaleBarHeight(value, m_gain);
+}
+
+double EegBackend::dataRangeInMicrovolts() const
+{
+    if (!m_autoScaleManager)
+        return 0.0;
+
+    return m_autoScaleManager->dataRangeInMicrovolts();
 }

@@ -9,13 +9,18 @@
 #include <cmath>
 
 /**
- * @brief AutoScaleManager - Inteligentny system automatycznego wykrywania i skalowania danych EEG
+ * @brief AutoScaleManager - Inteligentny system wykrywania i skalowania danych EEG
  *
  * Kluczowe założenia:
  * 1. WSZYSTKIE kanały są skalowane tym samym współczynnikiem (nigdy osobno!)
- * 2. System wykrywa skalę danych (μV, mV, V) na podstawie ich zakresu
- * 3. Skalowanie jest stabilne - nie zmienia się przy małych wahaniach
- * 4. Adaptuje się gdy dane znacząco wyjdą poza przewidywany zakres
+ * 2. System wykrywa skalę danych (μV, mV) na podstawie ich zakresu
+ * 3. Kalibracja na początku ustala bazową skalę - potem NIE zmienia się automatycznie
+ * 4. Użytkownik kontroluje wzmocnienie przez suwak Gain (mnożnik bazowej skali)
+ *
+ * Parametry wzmacniacza (dokumentacja):
+ * - Zakres pomiarowy: ±341 mV
+ * - Rozdzielczość: 24 bity (40 nV/bit)
+ * - Typowy sygnał EEG: 10-100 μV = 0.01-0.1 mV
  */
 class AutoScaleManager : public QObject
 {
@@ -41,8 +46,7 @@ public:
     enum class CalibrationState {
         NotStarted,    // Brak danych
         Collecting,    // Zbieranie próbek do kalibracji
-        Calibrated,    // Skalibrowany, stabilna praca
-        Adapting       // Dostosowywanie do nowych danych
+        Calibrated     // Skalibrowany, stabilna praca (NIE zmienia się automatycznie)
     };
     Q_ENUM(CalibrationState)
 
@@ -57,15 +61,17 @@ public:
                       const QVector<int>& selectedChannelIndices);
 
     /**
-     * @brief Skaluje chunk danych używając obliczonego współczynnika
+     * @brief Skaluje chunk danych używając obliczonego współczynnika i gain
      * @param chunk Surowe dane do przeskalowania
      * @param selectedChannelIndices Indeksy wybranych kanałów
      * @param channelSpacing Odstęp między kanałami (dla obliczenia offsetów)
+     * @param gain Mnożnik wzmocnienia ustawiony przez użytkownika (1.0 = neutralny)
      * @return Przeskalowane dane z offsetami [channel][sample]
      */
     QVector<QVector<double>> scaleChunk(const std::vector<std::vector<float>>& chunk,
                                         const QVector<int>& selectedChannelIndices,
-                                        double channelSpacing) const;
+                                        double channelSpacing,
+                                        double gain = 1.0) const;
 
     /**
      * @brief Resetuje wszystkie statystyki i kalibrację
@@ -87,6 +93,25 @@ public:
      * @brief Formatuje wartość z odpowiednią jednostką
      */
     QString formatValue(double value) const;
+
+    /**
+     * @brief Oblicza wysokość scale bar w pikselach (jednostkach wykresu)
+     * @param valueInOriginalUnits Wartość w oryginalnych jednostkach (np. 50 μV)
+     * @param gain Aktualny mnożnik gain
+     * @return Wysokość w jednostkach wykresu
+     */
+    double calculateScaleBarHeight(double valueInOriginalUnits, double gain = 1.0) const;
+
+    /**
+     * @brief Zwraca sugerowaną wartość dla scale bar (np. 50 μV, 100 μV)
+     * @return Wartość w oryginalnych jednostkach
+     */
+    double suggestedScaleBarValue() const;
+
+    /**
+     * @brief Zwraca zakres danych w μV (konwertuje jeśli dane są w mV)
+     */
+    double dataRangeInMicrovolts() const;
 
     // Konfiguracja
     void setCalibrationSamples(int samples) { m_calibrationSamples = samples; }
@@ -115,16 +140,6 @@ private:
      * @brief Oblicza optymalny współczynnik skalowania
      */
     double calculateOptimalScaleFactor(double dataRange, double targetSpacing) const;
-
-    /**
-     * @brief Sprawdza czy potrzebna jest rekalibracja
-     */
-    bool needsRecalibration(double newMin, double newMax) const;
-
-    /**
-     * @brief Wygładza zmianę współczynnika skalowania
-     */
-    double smoothScaleTransition(double currentScale, double targetScale) const;
 
     // Statystyki globalne - dla WSZYSTKICH kanałów razem
     double m_globalMin = std::numeric_limits<double>::infinity();

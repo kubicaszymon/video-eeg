@@ -428,7 +428,7 @@ ApplicationWindow {
                                             }
 
                                             Label {
-                                                text: amplitudeSlider.value.toFixed(2)
+                                                text: amplitudeSlider.value.toFixed(2) + "x"
                                                 font.pixelSize: 11
                                                 font.bold: true
                                                 color: accentColor
@@ -438,10 +438,21 @@ ApplicationWindow {
                                         Slider {
                                             id: amplitudeSlider
                                             Layout.fillWidth: true
-                                            from: 0.05
-                                            to: 2
-                                            value: 0.5
-                                            stepSize: 0.05
+                                            from: 0.1
+                                            to: 5.0
+                                            value: backend.gain
+                                            stepSize: 0.1
+
+                                            onValueChanged: {
+                                                backend.gain = value
+                                            }
+                                        }
+
+                                        Label {
+                                            text: "Increases/decreases signal amplitude"
+                                            font.pixelSize: 9
+                                            color: textSecondary
+                                            Layout.fillWidth: true
                                         }
                                     }
 
@@ -569,17 +580,17 @@ ApplicationWindow {
                                                 }
                                             }
 
-                                            // Scale factor info
+                                            // Data range in μV
                                             Label {
-                                                text: "Scale: " + backend.scaleFactor.toFixed(2) + "x"
+                                                text: "Range: " + backend.dataRangeInMicrovolts.toFixed(0) + " μV"
                                                 font.pixelSize: 10
                                                 color: textSecondary
                                                 visible: backend.scaleCalibrated
                                             }
 
-                                            // Data range
+                                            // Scale bar info
                                             Label {
-                                                text: "Range: " + backend.dataRangeMin.toFixed(1) + " to " + backend.dataRangeMax.toFixed(1)
+                                                text: "Scale bar: " + backend.scaleBarValue.toFixed(0) + " μV"
                                                 font.pixelSize: 9
                                                 color: textSecondary
                                                 visible: backend.scaleCalibrated
@@ -646,6 +657,63 @@ ApplicationWindow {
                         anchors.margins: 10
                         timeWindowSeconds: timeSlider.value
                         channelNames: backend.channelNames
+                    }
+
+                    // Scale Bar - pokazuje rzeczywistą skalę sygnału
+                    Rectangle {
+                        id: scaleBarContainer
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.margins: 30
+                        width: 80
+                        height: Math.max(backend.scaleBarHeight, 20) + 40
+                        color: "#1a2332"
+                        radius: 6
+                        border.color: "#2d3e50"
+                        border.width: 1
+                        opacity: 0.95
+                        visible: backend.autoScaleEnabled && backend.scaleCalibrated
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            // Scale bar (pionowa kreska)
+                            Rectangle {
+                                id: scaleBarLine
+                                width: 3
+                                height: Math.max(backend.scaleBarHeight, 20)
+                                color: accentColor
+                                anchors.horizontalCenter: parent.horizontalCenter
+
+                                // Górna poprzeczka
+                                Rectangle {
+                                    width: 12
+                                    height: 2
+                                    color: accentColor
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.top: parent.top
+                                }
+
+                                // Dolna poprzeczka
+                                Rectangle {
+                                    width: 12
+                                    height: 2
+                                    color: accentColor
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.bottom: parent.bottom
+                                }
+                            }
+
+                            // Etykieta wartości
+                            Label {
+                                text: backend.scaleBarValue.toFixed(0) + " μV"
+                                font.pixelSize: 11
+                                font.bold: true
+                                color: textColor
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+                        }
                     }
 
                     Rectangle {
@@ -749,7 +817,9 @@ ApplicationWindow {
 
                     Label {
                         text: backend.autoScaleEnabled
-                            ? ("🔬 Scale: " + backend.scaleFactor.toFixed(1) + "x [" + backend.scaleUnit + "]")
+                            ? (backend.scaleCalibrated
+                                ? ("🔬 " + backend.dataRangeInMicrovolts.toFixed(0) + " μV | Gain: " + backend.gain.toFixed(1) + "x")
+                                : "🔬 Calibrating...")
                             : "🔬 Auto-scale off"
                         font.pixelSize: 10
                         color: backend.scaleCalibrated ? accentColor : textSecondary

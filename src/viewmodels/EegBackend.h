@@ -40,6 +40,14 @@ class EegBackend : public QObject
     Q_PROPERTY(double dataRangeMax READ dataRangeMax NOTIFY dataRangeChanged FINAL)
     Q_PROPERTY(bool autoScaleEnabled READ autoScaleEnabled WRITE setAutoScaleEnabled NOTIFY autoScaleEnabledChanged FINAL)
 
+    // Gain - mnożnik wzmocnienia kontrolowany przez użytkownika (suwak)
+    Q_PROPERTY(double gain READ gain WRITE setGain NOTIFY gainChanged FINAL)
+
+    // Scale bar properties - do wyświetlenia wskaźnika skali na wykresie
+    Q_PROPERTY(double scaleBarValue READ scaleBarValue NOTIFY scaleBarChanged FINAL)
+    Q_PROPERTY(double scaleBarHeight READ scaleBarHeight NOTIFY scaleBarChanged FINAL)
+    Q_PROPERTY(double dataRangeInMicrovolts READ dataRangeInMicrovolts NOTIFY dataRangeChanged FINAL)
+
 public:
     explicit EegBackend(QObject *parent = nullptr);
     ~EegBackend();
@@ -80,6 +88,15 @@ public:
     void setAutoScaleEnabled(bool enabled);
     Q_INVOKABLE void resetAutoScale();
 
+    // Gain control
+    double gain() const;
+    void setGain(double newGain);
+
+    // Scale bar
+    double scaleBarValue() const;
+    double scaleBarHeight() const;
+    double dataRangeInMicrovolts() const;
+
 public slots:
     void onSamplingRateDetected(double samplingRate);
     void DataReceived(const std::vector<std::vector<float>>& chunk);
@@ -106,6 +123,8 @@ signals:
     void calibrationProgressChanged();
     void dataRangeChanged();
     void autoScaleEnabledChanged();
+    void gainChanged();
+    void scaleBarChanged();
 
 private:
     void initializeBuffers(int numChannels, int numSamples);
@@ -131,6 +150,9 @@ private:
     AutoScaleManager* m_autoScaleManager = nullptr;
     bool m_autoScaleEnabled = true;
     int m_calibrationProgress = 0;
+
+    // Gain - mnożnik kontrolowany przez użytkownika (1.0 = neutralny)
+    double m_gain = 1.0;
 };
 
 #endif // EEGBACKEND_H
