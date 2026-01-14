@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 import QtGraphs
 import videoEeg
 
@@ -10,13 +11,21 @@ Rectangle {
     property alias dataModel: eegData
     property int channelSpacing: 1
     property var selectedChannels: []
-    property var channelNames: []  // Names of channels for Y-axis labels
+    property var channelNames: []
 
     // Time window in seconds (X-axis range)
     property real timeWindowSeconds: 10.0
 
+    // Channel colors - shared between legend and graph
+    readonly property var channelColors: [
+        "#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4",
+        "#42d4f4", "#f032e6", "#bfef45", "#fabed4", "#469990",
+        "#dcbeff", "#9A6324", "#fffac8", "#800000", "#aaffc3",
+        "#808000", "#ffd8b1", "#000075", "#a9a9a9", "#ffffff"
+    ]
+
     // Dynamically calculated spacing based on available height
-    readonly property real availableHeight: height - 100
+    readonly property real availableHeight: graphArea.height - 60
     readonly property real calculatedSpacing: selectedChannels.length > 1
         ? availableHeight / (selectedChannels.length - 1)
         : availableHeight
@@ -47,123 +56,177 @@ Rectangle {
         yAxis.max = (numChannels - 1) * spacing + margin
     }
 
+    function getChannelName(index) {
+        if (channelNames[index] !== undefined) {
+            return channelNames[index]
+        }
+        return "Ch " + selectedChannels[index]
+    }
+
+    function getChannelColor(index) {
+        return channelColors[index % channelColors.length]
+    }
+
     EegDataModel {
         id: eegData
     }
 
-    Item {
+    RowLayout {
         anchors.fill: parent
+        spacing: 0
 
-        GraphsView {
-            id: eegGraph
-            anchors.fill: parent
-            anchors.margins: 16
+        // Left panel: Channel legend
+        Rectangle {
+            Layout.preferredWidth: 160
+            Layout.fillHeight: true
+            color: "#141a24"
+            border.color: "#2d3e50"
+            border.width: 1
 
-            theme: GraphsTheme {
-                grid.mainColor: "#2d3e50"
-                grid.subColor: "#1a2332"
-                labelTextColor: "#8a9cb5"
-                plotAreaBackgroundColor: "#0d0f12"
-                backgroundColor: "#0d0f12"
-                colorScheme: Qt.Dark
-            }
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 4
 
-            axisX: ValueAxis {
-                id: xAxis
-                min: 0
-                max: timeWindowSeconds
-                tickInterval: 1
-                subTickCount: 9
-                labelDecimals: 0
-                gridVisible: true
-            }
-
-            axisY: ValueAxis {
-                id: yAxis
-                min: -50
-                max: 1050
-                labelsVisible: false
-                gridVisible: true
-            }
-
-            property var activeSeries: []
-
-            function createAllSeries(channelList) {
-                for (var i = 0; i < activeSeries.length; i++){
-                    eegGraph.removeSeries(activeSeries[i])
-                    activeSeries[i].destroy()
+                // Header
+                Label {
+                    text: "Channels"
+                    font.pixelSize: 11
+                    font.bold: true
+                    color: "#8a9cb5"
+                    Layout.fillWidth: true
                 }
-                activeSeries = []
 
-                var count = channelList.length
-                var colors = ["#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4",
-                              "#42d4f4", "#f032e6", "#bfef45", "#fabed4", "#469990",
-                              "#dcbeff", "#9A6324", "#fffac8", "#800000", "#aaffc3",
-                              "#808000", "#ffd8b1", "#000075", "#a9a9a9", "#ffffff"]
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: "#2d3e50"
+                }
 
-                for (var j = 0; j < count; j++){
-                    var series = seriesComponent.createObject(eegGraph, {
-                        "name": channelNames[j] !== undefined ? channelNames[j] : ("Ch " + channelList[j]),
-                        "color": colors[j % colors.length]
-                    })
+                // Scrollable channel list
+                ScrollView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
 
-                    var mapper = mapperComponent.createObject(series, {
-                        "model": eegData,
-                        "series": series,
-                        "xSection": 0,
-                        "ySection": j + 1
-                    })
+                    ListView {
+                        id: channelListView
+                        model: selectedChannels.length
+                        spacing: 2
 
-                    eegGraph.addSeries(series)
-                    activeSeries.push(series)
+                        delegate: Rectangle {
+                            width: channelListView.width - 4
+                            height: 24
+                            radius: 4
+                            color: "#1a2332"
+                            border.color: "#2d3e50"
+                            border.width: 1
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 6
+                                anchors.rightMargin: 6
+                                spacing: 8
+
+                                // Color indicator
+                                Rectangle {
+                                    Layout.preferredWidth: 14
+                                    Layout.preferredHeight: 14
+                                    radius: 3
+                                    color: getChannelColor(index)
+                                    border.color: Qt.lighter(getChannelColor(index), 1.3)
+                                    border.width: 1
+                                }
+
+                                // Channel name
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: getChannelName(index)
+                                    color: "#e8eef5"
+                                    font.pixelSize: 10
+                                    font.family: "monospace"
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Channel count footer
+                Label {
+                    text: selectedChannels.length + " channels"
+                    font.pixelSize: 9
+                    color: "#5a6a7a"
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignRight
                 }
             }
         }
 
-        // Channel labels - use Column with uniform distribution matching the graph's plot area
+        // Right side: Graph
         Item {
-            id: labelsContainer
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            anchors.topMargin: 16      // Same as GraphsView margins
-            anchors.bottomMargin: 41   // 16 margin + ~25 for X-axis labels
-            anchors.leftMargin: 20
-            width: 140
+            id: graphArea
+            Layout.fillWidth: true
+            Layout.fillHeight: true
 
-            // Position each label using the actual available space
-            Repeater {
-                model: selectedChannels.length
+            GraphsView {
+                id: eegGraph
+                anchors.fill: parent
+                anchors.margins: 16
 
-                Rectangle {
-                    width: 130
-                    height: 18
-                    radius: 3
-                    color: "#ee1a2332"
-                    border.color: "#2d3e50"
-                    border.width: 1
+                theme: GraphsTheme {
+                    grid.mainColor: "#2d3e50"
+                    grid.subColor: "#1a2332"
+                    labelTextColor: "#8a9cb5"
+                    plotAreaBackgroundColor: "#0d0f12"
+                    backgroundColor: "#0d0f12"
+                    colorScheme: Qt.Dark
+                }
 
-                    // Calculate position: divide available height evenly among channels
-                    // First channel at top, last at bottom
-                    property real availableSpace: labelsContainer.height
-                    property real stepSize: selectedChannels.length > 1
-                        ? availableSpace / (selectedChannels.length - 1)
-                        : 0
+                axisX: ValueAxis {
+                    id: xAxis
+                    min: 0
+                    max: timeWindowSeconds
+                    tickInterval: 1
+                    subTickCount: 9
+                    labelDecimals: 0
+                    gridVisible: true
+                }
 
-                    x: 0
-                    y: (index * stepSize) - height / 2
+                axisY: ValueAxis {
+                    id: yAxis
+                    min: -50
+                    max: 1050
+                    labelsVisible: false
+                    gridVisible: true
+                }
 
-                    Text {
-                        anchors.fill: parent
-                        anchors.leftMargin: 6
-                        anchors.rightMargin: 6
-                        verticalAlignment: Text.AlignVCenter
-                        horizontalAlignment: Text.AlignLeft
-                        text: channelNames[index] !== undefined ? channelNames[index] : ("Ch " + selectedChannels[index])
-                        color: "#e8eef5"
-                        font.pixelSize: 10
-                        font.family: "monospace"
-                        elide: Text.ElideRight
+                property var activeSeries: []
+
+                function createAllSeries(channelList) {
+                    for (var i = 0; i < activeSeries.length; i++){
+                        eegGraph.removeSeries(activeSeries[i])
+                        activeSeries[i].destroy()
+                    }
+                    activeSeries = []
+
+                    var count = channelList.length
+
+                    for (var j = 0; j < count; j++){
+                        var series = seriesComponent.createObject(eegGraph, {
+                            "name": getChannelName(j),
+                            "color": getChannelColor(j)
+                        })
+
+                        var mapper = mapperComponent.createObject(series, {
+                            "model": eegData,
+                            "series": series,
+                            "xSection": 0,
+                            "ySection": j + 1
+                        })
+
+                        eegGraph.addSeries(series)
+                        activeSeries.push(series)
                     }
                 }
             }
