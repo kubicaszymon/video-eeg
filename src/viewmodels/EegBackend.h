@@ -18,7 +18,8 @@ class EegBackend : public QObject
     Q_PROPERTY(int amplifierIdx READ amplifierIdx WRITE setAmplifierIdx NOTIFY amplifierIdxChanged FINAL)
     Q_PROPERTY(QString amplifierId READ amplifierId WRITE setAmplifierId NOTIFY amplifierIdChanged FINAL)
 
-    Q_PROPERTY(int spacing READ spacing WRITE setSpacing FINAL)
+    // Zmieniony na double żeby obsłużyć dynamiczne wartości z QML
+    Q_PROPERTY(double spacing READ spacing WRITE setSpacing NOTIFY spacingChanged FINAL)
 
 public:
     explicit EegBackend(QObject *parent = nullptr);
@@ -26,6 +27,8 @@ public:
 
     Q_INVOKABLE void registerDataModel(EegDataModel* dataModel);
     Q_INVOKABLE void startStream();
+
+    Q_INVOKABLE void generateTestData();
 
     QVariantList GetChannelNames() const;
     QVariantList channels() const;
@@ -35,8 +38,8 @@ public:
     int amplifierIdx() const;
     void setAmplifierIdx(int newAmplifierIdx);
 
-    int spacing() const;
-    void setSpacing(int newSpacing);
+    double spacing() const;
+    void setSpacing(double newSpacing);
 
     QString amplifierId() const;
     void setAmplifierId(const QString &newAmplifierId);
@@ -53,14 +56,16 @@ signals:
 
     void amplifierIdChanged();
 
+    void spacingChanged();
+
 private:
     Amplifier* amplifier_ = nullptr;
     AmplifierManager* amplifier_manager_ = nullptr;
     QVariantList m_channels;
-    int m_amplifierIdx;
+    int m_amplifierIdx = 0;
 
     EegDataModel* m_dataModel = nullptr;
-    int m_spacing = 5;
+    double m_spacing = 100.0;  // Domyślna wartość, będzie nadpisana przez QML
     QString m_amplifierId;
 };
 

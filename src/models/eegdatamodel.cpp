@@ -55,7 +55,6 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
 
     beginResetModel();
 
-    // Inicjalizacja bufora
     if (m_data.isEmpty())
     {
         m_data.resize(numChannels + 1);
@@ -70,7 +69,6 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
         m_currentIndex = 0;
     }
 
-    // Zapisz nowe dane
     for (int s = 0; s < newSamples; ++s)
     {
         int writeIndex = m_currentIndex % MAX_SAMPLES;
@@ -84,12 +82,8 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
         m_currentIndex++;
     }
 
-    // Po zapisie: m_currentIndex wskazuje na NASTĘPNĄ pozycję do zapisu
-    // Ostatni zapisany sample jest na (m_currentIndex - 1) % MAX_SAMPLES
-
     int lastWritten = (m_currentIndex - 1 + MAX_SAMPLES) % MAX_SAMPLES;
 
-    // Wyczyść gap ZA ostatnim zapisanym
     for (int g = 1; g <= GAP_SIZE; ++g)
     {
         int gapIndex = (lastWritten + g) % MAX_SAMPLES;
@@ -99,13 +93,6 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
         }
     }
 
-    // KLUCZOWE: writePosition = indeks OSTATNIEGO ZAPISANEGO sample'a
-    // To jest pozycja X na wykresie gdzie kończy się nowa linia danych
-    m_writePosition = lastWritten;
-
-    qInfo() << "Head at X =" << m_writePosition << "(last written sample)";
-
-    emit writePositionChanged();
     endResetModel();
 }
 
@@ -129,9 +116,4 @@ double EegDataModel::maxValue() const
         }
     }
     return max;
-}
-
-int EegDataModel::writePosition() const
-{
-    return m_writePosition;
 }

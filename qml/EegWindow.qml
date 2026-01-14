@@ -16,13 +16,11 @@ ApplicationWindow {
     property var channels: []
     property int channelCount: channels.length
 
-    // Stan nagrywania
     property bool isRecording: false
     property bool isPaused: false
     property int recordingTime: 0
     property string currentPatientName: "Jan Kowalski"
 
-    // Kolory - profesjonalne medyczne
     readonly property color bgColor: "#0e1419"
     readonly property color panelColor: "#1a2332"
     readonly property color accentColor: "#4a90e2"
@@ -36,6 +34,7 @@ ApplicationWindow {
         id: backend
         amplifierId: eegWindow.amplifierId
         channels: eegWindow.channels
+        spacing: eegGraph.dynamicChannelSpacing
 
         onChannelsChanged: {
             eegGraph.selectedChannels = channels
@@ -56,6 +55,7 @@ ApplicationWindow {
         console.log("Amplifier ID:", amplifierId)
 
         backend.registerDataModel(eegGraph.dataModel)
+        eegGraph.selectedChannels = channels
         backend.startStream()
     }
 
@@ -70,7 +70,6 @@ ApplicationWindow {
 
     function addMarker(type) {
         console.log("Marker added:", type, "at time:", recordingTime)
-        // TODO: Implementacja dodawania znacznika
     }
 
     Rectangle {
@@ -93,7 +92,6 @@ ApplicationWindow {
                     anchors.margins: 15
                     spacing: 20
 
-                    // Logo i tytuł
                     RowLayout {
                         spacing: 12
 
@@ -122,7 +120,6 @@ ApplicationWindow {
 
                     Item { Layout.fillWidth: true }
 
-                    // STATUS NAGRYWANIA - DUŻY I WYRAŹNY
                     Rectangle {
                         Layout.preferredWidth: 300
                         Layout.preferredHeight: 50
@@ -171,7 +168,6 @@ ApplicationWindow {
                         }
                     }
 
-                    // Czas systemowy
                     Label {
                         text: Qt.formatDateTime(new Date(), "dd.MM.yyyy  hh:mm:ss")
                         font.pixelSize: 11
@@ -193,7 +189,7 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 spacing: 0
 
-                // LEFT PANEL - KONTROLKI
+                // LEFT PANEL
                 Rectangle {
                     Layout.preferredWidth: 280
                     Layout.fillHeight: true
@@ -217,283 +213,290 @@ ApplicationWindow {
                                 anchors.bottomMargin: 15
                                 spacing: 15
 
-                            // KONTROLA NAGRYWANIA
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 10
-
-                                Label {
-                                    text: "⏺ Kontrola nagrywania"
-                                    font.pixelSize: 13
-                                    font.bold: true
-                                    color: textColor
-                                }
-
-                                Rectangle {
+                                // KONTROLA NAGRYWANIA
+                                ColumnLayout {
                                     Layout.fillWidth: true
-                                    height: 1
-                                    color: "#2d3e50"
-                                }
+                                    spacing: 10
 
-                                Button {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 45
-                                    text: isRecording ? "⏹ Zatrzymaj" : "⏺ Rozpocznij nagrywanie"
-                                    font.pixelSize: 12
-                                    font.bold: true
-                                    palette.button: isRecording ? dangerColor : successColor
-                                    palette.buttonText: "white"
+                                    Label {
+                                        text: "⏺ Kontrola nagrywania"
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        color: textColor
+                                    }
 
-                                    onClicked: {
-                                        if (isRecording) {
-                                            isRecording = false
-                                            isPaused = false
-                                            recordingTime = 0
-                                        } else {
-                                            isRecording = true
-                                            isPaused = false
-                                            recordingTime = 0
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        height: 1
+                                        color: "#2d3e50"
+                                    }
+
+                                    Button {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 45
+                                        text: isRecording ? "⏹ Zatrzymaj" : "⏺ Rozpocznij nagrywanie"
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                        palette.button: isRecording ? dangerColor : successColor
+                                        palette.buttonText: "white"
+
+                                        onClicked: {
+                                            if (isRecording) {
+                                                isRecording = false
+                                                isPaused = false
+                                                recordingTime = 0
+                                            } else {
+                                                isRecording = true
+                                                isPaused = false
+                                                recordingTime = 0
+                                            }
+                                        }
+                                    }
+
+                                    Button {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 40
+                                        text: isPaused ? "▶ Wznów" : "⏸ Pauza"
+                                        font.pixelSize: 11
+                                        enabled: isRecording
+                                        palette.button: warningColor
+                                        palette.buttonText: "white"
+
+                                        onClicked: {
+                                            isPaused = !isPaused
+                                        }
+                                    }
+
+                                    Button {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 40
+                                        text: "🧪 Generuj dane testowe"
+                                        font.pixelSize: 11
+                                        palette.button: accentColor
+                                        palette.buttonText: "white"
+
+                                        onClicked: {
+                                            backend.generateTestData()
                                         }
                                     }
                                 }
 
-                                Button {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    text: isPaused ? "▶ Wznów" : "⏸ Pauza"
-                                    font.pixelSize: 11
-                                    enabled: isRecording
-                                    palette.button: warningColor
-                                    palette.buttonText: "white"
-
-                                    onClicked: {
-                                        isPaused = !isPaused
-                                    }
-                                }
-                            }
-
-                            // ZNACZNIKI
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 10
-
-                                Label {
-                                    text: "🏷️ Znaczniki zdarzeń"
-                                    font.pixelSize: 13
-                                    font.bold: true
-                                    color: textColor
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-                                    color: "#2d3e50"
-                                }
-
-                                GridLayout {
-                                    Layout.fillWidth: true
-                                    columns: 2
-                                    columnSpacing: 8
-                                    rowSpacing: 8
-
-                                    Button {
-                                        text: "👁️ Oczy otwarte"
-                                        font.pixelSize: 10
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 35
-                                        palette.button: "#2c4a6e"
-                                        palette.buttonText: "white"
-                                        onClicked: addMarker("eyes_open")
-                                    }
-
-                                    Button {
-                                        text: "😴 Oczy zamknięte"
-                                        font.pixelSize: 10
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 35
-                                        palette.button: "#3d5a80"
-                                        palette.buttonText: "white"
-                                        onClicked: addMarker("eyes_closed")
-                                    }
-
-                                    Button {
-                                        text: "⚡ Atak padaczkowy"
-                                        font.pixelSize: 10
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 35
-                                        palette.button: "#c0392b"
-                                        palette.buttonText: "white"
-                                        onClicked: addMarker("seizure")
-                                    }
-
-                                    Button {
-                                        text: "⚠️ Artefakt"
-                                        font.pixelSize: 10
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 35
-                                        palette.button: "#7f8c8d"
-                                        palette.buttonText: "white"
-                                        onClicked: addMarker("artifact")
-                                    }
-
-                                    Button {
-                                        text: "✏️ Niestandardowy"
-                                        font.pixelSize: 10
-                                        Layout.fillWidth: true
-                                        Layout.columnSpan: 2
-                                        Layout.preferredHeight: 35
-                                        palette.button: "#526d82"
-                                        palette.buttonText: "white"
-                                        onClicked: addMarker("custom")
-                                    }
-                                }
-                            }
-
-                            // PARAMETRY WYŚWIETLANIA
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 10
-
-                                Label {
-                                    text: "⚙️ Parametry wyświetlania"
-                                    font.pixelSize: 13
-                                    font.bold: true
-                                    color: textColor
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-                                    color: "#2d3e50"
-                                }
-
-                                // Time Window
+                                // ZNACZNIKI
                                 ColumnLayout {
                                     Layout.fillWidth: true
-                                    spacing: 5
+                                    spacing: 10
 
-                                    RowLayout {
+                                    Label {
+                                        text: "🏷️ Znaczniki zdarzeń"
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        color: textColor
+                                    }
+
+                                    Rectangle {
                                         Layout.fillWidth: true
+                                        height: 1
+                                        color: "#2d3e50"
+                                    }
+
+                                    GridLayout {
+                                        Layout.fillWidth: true
+                                        columns: 2
+                                        columnSpacing: 8
+                                        rowSpacing: 8
+
+                                        Button {
+                                            text: "👁️ Oczy otwarte"
+                                            font.pixelSize: 10
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 35
+                                            palette.button: "#2c4a6e"
+                                            palette.buttonText: "white"
+                                            onClicked: addMarker("eyes_open")
+                                        }
+
+                                        Button {
+                                            text: "😴 Oczy zamknięte"
+                                            font.pixelSize: 10
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 35
+                                            palette.button: "#3d5a80"
+                                            palette.buttonText: "white"
+                                            onClicked: addMarker("eyes_closed")
+                                        }
+
+                                        Button {
+                                            text: "⚡ Atak padaczkowy"
+                                            font.pixelSize: 10
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 35
+                                            palette.button: "#c0392b"
+                                            palette.buttonText: "white"
+                                            onClicked: addMarker("seizure")
+                                        }
+
+                                        Button {
+                                            text: "⚠️ Artefakt"
+                                            font.pixelSize: 10
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 35
+                                            palette.button: "#7f8c8d"
+                                            palette.buttonText: "white"
+                                            onClicked: addMarker("artifact")
+                                        }
+
+                                        Button {
+                                            text: "✏️ Niestandardowy"
+                                            font.pixelSize: 10
+                                            Layout.fillWidth: true
+                                            Layout.columnSpan: 2
+                                            Layout.preferredHeight: 35
+                                            palette.button: "#526d82"
+                                            palette.buttonText: "white"
+                                            onClicked: addMarker("custom")
+                                        }
+                                    }
+                                }
+
+                                // PARAMETRY WYŚWIETLANIA
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+
+                                    Label {
+                                        text: "⚙️ Parametry wyświetlania"
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        color: textColor
+                                    }
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        height: 1
+                                        color: "#2d3e50"
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 5
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+
+                                            Label {
+                                                text: "⏱️ Okno czasowe:"
+                                                font.pixelSize: 11
+                                                color: textSecondary
+                                                Layout.fillWidth: true
+                                            }
+
+                                            Label {
+                                                text: timeSlider.value.toFixed(0) + "s"
+                                                font.pixelSize: 11
+                                                font.bold: true
+                                                color: accentColor
+                                            }
+                                        }
+
+                                        Slider {
+                                            id: timeSlider
+                                            Layout.fillWidth: true
+                                            from: 5
+                                            to: 30
+                                            value: 10
+                                            stepSize: 1
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 5
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+
+                                            Label {
+                                                text: "📈 Wzmocnienie (Gain):"
+                                                font.pixelSize: 11
+                                                color: textSecondary
+                                                Layout.fillWidth: true
+                                            }
+
+                                            Label {
+                                                text: amplitudeSlider.value.toFixed(2)
+                                                font.pixelSize: 11
+                                                font.bold: true
+                                                color: accentColor
+                                            }
+                                        }
+
+                                        Slider {
+                                            id: amplitudeSlider
+                                            Layout.fillWidth: true
+                                            from: 0.05
+                                            to: 2
+                                            value: 0.5
+                                            stepSize: 0.05
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 5
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+
+                                            Label {
+                                                text: "📏 Odstęp kanałów:"
+                                                font.pixelSize: 11
+                                                color: textSecondary
+                                                Layout.fillWidth: true
+                                            }
+
+                                            Label {
+                                                text: eegGraph.dynamicChannelSpacing.toFixed(0) + " (auto)"
+                                                font.pixelSize: 11
+                                                font.bold: true
+                                                color: accentColor
+                                            }
+                                        }
 
                                         Label {
-                                            text: "⏱️ Okno czasowe:"
-                                            font.pixelSize: 11
+                                            text: "Automatycznie dopasowany do " + channelCount + " kanałów"
+                                            font.pixelSize: 9
                                             color: textSecondary
                                             Layout.fillWidth: true
                                         }
-
-                                        Label {
-                                            text: timeSlider.value.toFixed(0) + "s"
-                                            font.pixelSize: 11
-                                            font.bold: true
-                                            color: accentColor
-                                        }
-                                    }
-
-                                    Slider {
-                                        id: timeSlider
-                                        Layout.fillWidth: true
-                                        from: 5
-                                        to: 30
-                                        value: 10
-                                        stepSize: 1
                                     }
                                 }
 
-                                // Gain
+                                // AKCJE
                                 ColumnLayout {
                                     Layout.fillWidth: true
-                                    spacing: 5
+                                    spacing: 8
 
-                                    RowLayout {
+                                    Rectangle {
                                         Layout.fillWidth: true
-
-                                        Label {
-                                            text: "📈 Wzmocnienie (Gain):"
-                                            font.pixelSize: 11
-                                            color: textSecondary
-                                            Layout.fillWidth: true
-                                        }
-
-                                        Label {
-                                            text: amplitudeSlider.value.toFixed(2)
-                                            font.pixelSize: 11
-                                            font.bold: true
-                                            color: accentColor
-                                        }
+                                        height: 1
+                                        color: "#2d3e50"
                                     }
 
-                                    Slider {
-                                        id: amplitudeSlider
+                                    Button {
                                         Layout.fillWidth: true
-                                        from: 0.05
-                                        to: 2
-                                        value: 0.5
-                                        stepSize: 0.05
+                                        text: "❌ Zakończ badanie"
+                                        font.pixelSize: 11
+                                        Layout.preferredHeight: 40
+                                        palette.button: dangerColor
+                                        palette.buttonText: "white"
+
+                                        onClicked: {
+                                            eegWindow.close()
+                                        }
                                     }
                                 }
 
-                                // Spacing
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 5
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-
-                                        Label {
-                                            text: "📏 Odstęp kanałów:"
-                                            font.pixelSize: 11
-                                            color: textSecondary
-                                            Layout.fillWidth: true
-                                        }
-
-                                        Label {
-                                            text: spacingSlider.value.toFixed(0)
-                                            font.pixelSize: 11
-                                            font.bold: true
-                                            color: accentColor
-                                        }
-                                    }
-
-                                    Slider {
-                                        id: spacingSlider
-                                        Layout.fillWidth: true
-                                        from: 1
-                                        to: 20
-                                        value: backend.spacing
-                                        onMoved: backend.spacing = value
-                                        stepSize: 1
-                                    }
-                                }
-                            }
-
-                            // AKCJE
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-                                    color: "#2d3e50"
-                                }
-
-                                Button {
-                                    Layout.fillWidth: true
-                                    text: "❌ Zakończ badanie"
-                                    font.pixelSize: 11
-                                    Layout.preferredHeight: 40
-                                    palette.button: dangerColor
-                                    palette.buttonText: "white"
-
-                                    onClicked: {
-                                        eegWindow.close()
-                                    }
-                                }
-                            }
-
-                            Item { Layout.fillHeight: true }
+                                Item { Layout.fillHeight: true }
                             }
                         }
                     }
@@ -509,10 +512,8 @@ ApplicationWindow {
                         id: eegGraph
                         anchors.fill: parent
                         anchors.margins: 10
-                        channelSpacing: spacingSlider.value
                     }
 
-                    // Overlay gdy nie nagrywa
                     Rectangle {
                         anchors.top: parent.top
                         anchors.right: parent.right
@@ -577,7 +578,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "📊 Częstotliwość próbkowania: 250 Hz"
+                        text: "📊 Częstotliwość: 250 Hz"
                         font.pixelSize: 10
                         color: textSecondary
                     }
@@ -590,6 +591,18 @@ ApplicationWindow {
 
                     Label {
                         text: "💾 Bufor: 1000 sampli"
+                        font.pixelSize: 10
+                        color: textSecondary
+                    }
+
+                    Rectangle {
+                        width: 1
+                        height: 20
+                        color: "#2d3e50"
+                    }
+
+                    Label {
+                        text: "📏 Spacing: " + eegGraph.dynamicChannelSpacing.toFixed(0)
                         font.pixelSize: 10
                         color: textSecondary
                     }

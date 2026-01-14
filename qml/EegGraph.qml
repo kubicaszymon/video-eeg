@@ -5,145 +5,162 @@ import videoEeg
 
 Rectangle {
     id: eegGraphContainer
-    color: "white"
+    color: "#0d0f12"
 
     property alias dataModel: eegData
     property int channelSpacing: 1
     property var selectedChannels: []
 
+    // Dynamicznie obliczany spacing bazujący na dostępnej wysokości
+    readonly property real availableHeight: height - 100
+    readonly property real calculatedSpacing: selectedChannels.length > 1
+        ? availableHeight / (selectedChannels.length - 1)
+        : availableHeight
+
+    property real dynamicChannelSpacing: Math.max(calculatedSpacing, 20)
+
     onSelectedChannelsChanged: {
         if(selectedChannels.length > 0) {
+            updateAxisY()
             eegGraph.createAllSeries(selectedChannels)
         }
     }
 
+    onHeightChanged: {
+        if(selectedChannels.length > 0) {
+            updateAxisY()
+        }
+    }
+
+    function updateAxisY() {
+        if (selectedChannels.length === 0) return
+
+        var numChannels = selectedChannels.length
+        var spacing = dynamicChannelSpacing
+        var margin = spacing * 0.5
+
+        yAxis.min = -margin
+        yAxis.max = (numChannels - 1) * spacing + margin
+
+        console.log("Updated Y axis for " + numChannels + " channels, spacing: " + spacing)
+    }
+
     EegDataModel {
         id: eegData
+    }
 
-        onWritePositionChanged: {
-            // Wymuszamy przeliczenie pozycji linii
+    // Connections do obsługi sygnału writePositionChanged
+    Connections {
+        target: eegData
+        function onWritePositionChanged() {
             cursorLine.updatePosition()
         }
     }
 
-    ScrollView {
+    Item {
         anchors.fill: parent
-        clip: true
 
-        Item {
-            width: eegGraphContainer.width
-            height: Math.max(eegGraphContainer.height, selectedChannels.length * 150)
+        GraphsView {
+            id: eegGraph
+            anchors.fill: parent
+            anchors.margins: 16
 
-            GraphsView {
-                id: eegGraph
-                anchors.fill: parent
-                anchors.margins: 16
+            theme: GraphsTheme {
+                grid.mainColor: "#2d3e50"
+                grid.subColor: "#1a2332"
+                labelTextColor: "#8a9cb5"
+                plotAreaBackgroundColor: "#0d0f12"
+                backgroundColor: "#0d0f12"
+                colorScheme: Qt.Dark
+            }
 
-                theme: GraphsTheme {
-                    grid.mainColor: "darkgrey"
-                    grid.subColor: "lightgrey"
-                    labelTextColor: "black"
-                    plotAreaBackgroundColor: "white"
-                    backgroundColor: "white"
-                    colorScheme: Qt.Light
+            axisX: ValueAxis {
+                id: xAxis
+                min: 0
+                max: 1000
+                tickInterval: 100
+                subTickCount: 9
+                labelDecimals: 0
+                gridVisible: true
+            }
+
+            axisY: ValueAxis {
+                id: yAxis
+                min: -50
+                max: 1050
+                labelsVisible: true
+                gridVisible: true
+            }
+
+            property var activeSeries: []
+
+            function createAllSeries(channelList) {
+                for (var i = 0; i < activeSeries.length; i++){
+                    eegGraph.removeSeries(activeSeries[i])
+                    activeSeries[i].destroy()
                 }
+                activeSeries = []
 
-                axisX: ValueAxis {
-                    id: xAxis
-                    min: 0
-                    max: 1000
-                    tickInterval: 100
-                    subTickCount: 9
-                    labelDecimals: 0
-                    gridVisible: true
-                }
+                var count = channelList.length
+                var colors = ["#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4",
+                              "#42d4f4", "#f032e6", "#bfef45", "#fabed4", "#469990",
+                              "#dcbeff", "#9A6324", "#fffac8", "#800000", "#aaffc3",
+                              "#808000", "#ffd8b1", "#000075", "#a9a9a9", "#ffffff"]
 
-                axisY: ValueAxis {
-                    id: yAxis
-                    min: -150
-                    max: selectedChannels.length * 100 + 150
-                    labelsVisible: true
-                    gridVisible: true
-                }
+                for (var j = 0; j < count; j++){
+                    var series = seriesComponent.createObject(eegGraph, {
+                        "name": "Ch " + channelList[j],
+                        "color": colors[j % colors.length]
+                    })
 
-                property var activeSeries: []
+                    var mapper = mapperComponent.createObject(series, {
+                        "model": eegData,
+                        "series": series,
+                        "xSection": 0,
+                        "ySection": j + 1
+                    })
 
-                function createAllSeries(channelList) {
-                    for (var i = 0; i < activeSeries.length; i++){
-                        eegGraph.removeSeries(activeSeries[i])
-                        activeSeries[i].destroy()
-                    }
-                    activeSeries = []
-
-                    var count = channelList.length;
-                    var colors = ["#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4",
-                                  "#42d4f4", "#f032e6", "#bfef45", "#fabed4", "#469990"]
-
-                    for (var j = 0; j < count; j++){
-                        var series = seriesComponent.createObject(eegGraph, {
-                            "name": "Ch " + channelList[j],
-                            "color": colors[j % colors.length]
-                        })
-
-                        var mapper = mapperComponent.createObject(series, {
-                            "model": eegData,
-                            "series": series,
-                            "xSection": 0,
-                            "ySection": j + 1
-                        })
-
-                        eegGraph.addSeries(series)
-                        activeSeries.push(series)
-                    }
-                }
-
-                onPlotAreaChanged: {
-                    cursorLine.updatePosition()
+                    eegGraph.addSeries(series)
+                    activeSeries.push(series)
                 }
             }
 
-            // Prosta czarna linia znacznika pozycji głowicy
-            Rectangle {
-                id: cursorLine
-                width: 2
-                color: "black"
-                opacity: 0.9
-                z: 1000
+            onPlotAreaChanged: {
+                cursorLine.updatePosition()
+            }
+        }
 
-                visible: eegGraph.plotArea && eegGraph.plotArea.width > 0
+        Rectangle {
+            id: cursorLine
+            width: 2
+            color: "#ff4444"
+            opacity: 0.9
+            z: 1000
 
-                y: eegGraph.plotArea ? eegGraph.plotArea.y : 0
-                height: eegGraph.plotArea ? eegGraph.plotArea.height : 0
+            visible: eegGraph.plotArea && eegGraph.plotArea.width > 0
 
-                property real cachedX: 0
-                x: cachedX
+            y: eegGraph.plotArea ? eegGraph.plotArea.y : 0
+            height: eegGraph.plotArea ? eegGraph.plotArea.height : 0
 
-                function updatePosition() {
-                    if (!eegGraph.plotArea || eegGraph.plotArea.width <= 0) {
-                        return
-                    }
+            property real cachedX: 0
+            x: cachedX
 
-                    var plotArea = eegGraph.plotArea
-                    var headX = eegData.writePosition  // Indeks ostatniego zapisanego sample'a (0-999)
-
-                    // Oś X: min=0, max=1000
-                    // Sample o indeksie headX ma współrzędną X = headX na wykresie
-                    // Musimy to przeliczyć na piksele
-
-                    var xMin = xAxis.min  // 0
-                    var xMax = xAxis.max  // 1000
-                    var xRange = xMax - xMin  // 1000
-
-                    // Normalizuj pozycję do zakresu 0-1
-                    var normalizedX = (headX - xMin) / xRange
-
-                    // Przelicz na piksele
-                    var pixelX = plotArea.x + normalizedX * plotArea.width
-
-                    console.log("Cursor: headX=" + headX + ", normalized=" + normalizedX.toFixed(3) + ", pixelX=" + pixelX.toFixed(0))
-
-                    cachedX = pixelX
+            function updatePosition() {
+                if (!eegGraph.plotArea || eegGraph.plotArea.width <= 0) {
+                    return
                 }
+
+                var plotArea = eegGraph.plotArea
+                var headX = eegData.writePosition
+
+                var xMin = xAxis.min
+                var xMax = xAxis.max
+                var xRange = xMax - xMin
+
+                var normalizedX = (headX - xMin) / xRange
+                var pixelX = plotArea.x + normalizedX * plotArea.width
+
+                cachedX = pixelX
             }
         }
     }
