@@ -15,7 +15,7 @@ int EegDataModel::rowCount(const QModelIndex &parent) const
     {
         return 0;
     }
-    return MAX_SAMPLES;
+    return m_maxSamples;
 }
 
 int EegDataModel::columnCount(const QModelIndex &parent) const
@@ -43,7 +43,7 @@ QVariant EegDataModel::data(const QModelIndex &index, int role) const
 
 void EegDataModel::initializeBuffer(int numChannels)
 {
-    if (m_bufferInitialized && m_numChannels == numChannels)
+    if (m_bufferInitialized && m_numChannels == numChannels && !m_data.empty() && m_data[0].size() == m_maxSamples)
     {
         return;
     }
@@ -57,13 +57,14 @@ void EegDataModel::initializeBuffer(int numChannels)
     // Pre-allocate all vectors with exact size
     for (int col = 0; col <= numChannels; ++col)
     {
-        m_data[col].resize(MAX_SAMPLES);
+        m_data[col].resize(m_maxSamples);
     }
 
-    // Initialize X-axis column and set gap values
-    for (int i = 0; i < MAX_SAMPLES; ++i)
+    // Initialize X-axis column with time in SECONDS and set gap values for channels
+    // X-axis: sample_index / sampling_rate = time in seconds
+    for (int i = 0; i < m_maxSamples; ++i)
     {
-        m_data[0][i] = i;
+        m_data[0][i] = static_cast<double>(i) / m_samplingRate;  // Time in seconds
         for (int ch = 0; ch < numChannels; ++ch)
         {
             m_data[ch + 1][i] = GAP_VALUE;
@@ -78,7 +79,9 @@ void EegDataModel::initializeBuffer(int numChannels)
 
     endResetModel();
 
-    qInfo() << "EegDataModel buffer initialized for" << numChannels << "channels";
+    qInfo() << "EegDataModel buffer initialized for" << numChannels << "channels,"
+            << m_maxSamples << "samples," << m_samplingRate << "Hz,"
+            << m_timeWindowSeconds << "seconds window";
 }
 
 void EegDataModel::emitDataChanged(int startRow, int endRow)
@@ -157,14 +160,15 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
         initializeBuffer(numChannels);
     }
 
-    int startWriteIndex = m_currentIndex % MAX_SAMPLES;
+    int startWriteIndex = m_currentIndex % m_maxSamples;
 
     // Write incoming data to circular buffer
     for (int s = 0; s < newSamples; ++s)
     {
-        int writeIndex = m_currentIndex % MAX_SAMPLES;
+        int writeIndex = m_currentIndex % m_maxSamples;
 
-        m_data[0][writeIndex] = writeIndex;
+        // X-axis: time in seconds (writeIndex / samplingRate)
+        m_data[0][writeIndex] = static_cast<double>(writeIndex) / m_samplingRate;
         for (int ch = 0; ch < numChannels; ++ch)
         {
             double value = incomingData[ch][s];
@@ -177,7 +181,7 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
         m_currentIndex++;
     }
 
-    int endWriteIndex = (m_currentIndex - 1 + MAX_SAMPLES) % MAX_SAMPLES;
+    int endWriteIndex = (m_currentIndex - 1 + m_maxSamples) % m_maxSamples;
 
     // Update write position for cursor
     m_writePosition = endWriteIndex;
@@ -185,7 +189,7 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
     // Create gap after write position (clear ahead)
     for (int g = 1; g <= GAP_SIZE; ++g)
     {
-        int gapIndex = (endWriteIndex + g) % MAX_SAMPLES;
+        int gapIndex = (endWriteIndex + g) % m_maxSamples;
         for (int ch = 0; ch < numChannels; ++ch)
         {
             m_data[ch + 1][gapIndex] = GAP_VALUE;
@@ -199,14 +203,14 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
     {
         // No wraparound - simple case
         changedStart = startWriteIndex;
-        changedEnd = std::min(endWriteIndex + GAP_SIZE, MAX_SAMPLES - 1);
+        changedEnd = std::min(endWriteIndex + GAP_SIZE, m_maxSamples - 1);
     }
     else
     {
         // Wraparound occurred - update whole buffer
         // This happens rarely, only when we cross the buffer boundary
         changedStart = 0;
-        changedEnd = MAX_SAMPLES - 1;
+        changedEnd = m_maxSamples - 1;
     }
 
     // Emit incremental update with rate limiting
@@ -234,4 +238,70 @@ double EegDataModel::maxValue() const
 int EegDataModel::writePosition() const
 {
     return m_writePosition;
+}
+
+double EegDataModel::samplingRate() const
+{
+    return m_samplingRate;
+}
+
+void EegDataModel::setSamplingRate(double newSamplingRate)
+{
+    if (newSamplingRate <= 0 || qFuzzyCompare(m_samplingRate, newSamplingRate))
+        return;
+
+    m_samplingRate = newSamplingRate;
+    emit samplingRateChanged();
+
+    recalculateMaxSamples();
+}
+
+double EegDataModel::timeWindowSeconds() const
+{
+    return m_timeWindowSeconds;
+}
+
+void EegDataModel::setTimeWindowSeconds(double newTimeWindowSeconds)
+{
+    if (newTimeWindowSeconds <= 0 || qFuzzyCompare(m_timeWindowSeconds, newTimeWindowSeconds))
+        return;
+
+    m_timeWindowSeconds = newTimeWindowSeconds;
+    emit timeWindowSecondsChanged();
+
+    recalculateMaxSamples();
+}
+
+int EegDataModel::maxSamples() const
+{
+    return m_maxSamples;
+}
+
+void EegDataModel::recalculateMaxSamples()
+{
+    int newMaxSamples = static_cast<int>(m_samplingRate * m_timeWindowSeconds);
+
+    // Ensure minimum buffer size
+    if (newMaxSamples < 100)
+    {
+        newMaxSamples = 100;
+    }
+
+    if (m_maxSamples != newMaxSamples)
+    {
+        qInfo() << "EegDataModel: recalculating maxSamples from" << m_maxSamples
+                << "to" << newMaxSamples
+                << "(samplingRate:" << m_samplingRate << "Hz,"
+                << "timeWindow:" << m_timeWindowSeconds << "s)";
+
+        m_maxSamples = newMaxSamples;
+        emit maxSamplesChanged();
+
+        // Force buffer reinitialization with new size
+        if (m_bufferInitialized && m_numChannels > 0)
+        {
+            m_bufferInitialized = false;  // Force reinitialize
+            initializeBuffer(m_numChannels);
+        }
+    }
 }

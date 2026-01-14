@@ -32,9 +32,13 @@ void LSLStreamReader::onStartReading()
             return;
         }
 
-        auto hej = results[0].as_xml();
-        inlet_ = new lsl::stream_inlet(results[0]);
+        lsl::stream_info info = results[0];
+        double samplingRate = info.nominal_srate();
+        qDebug() << "LSL stream sampling rate:" << samplingRate << "Hz";
+
+        inlet_ = new lsl::stream_inlet(info);
         qDebug() << "Connected to LSL stream";
+        emit SamplingRateDetected(samplingRate);
         emit StreamConnected();
 
         is_running_ = true;

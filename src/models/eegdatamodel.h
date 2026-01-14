@@ -18,6 +18,15 @@ class EegDataModel : public QAbstractTableModel
     Q_PROPERTY(double maxValue READ maxValue NOTIFY minMaxChanged)
     Q_PROPERTY(int writePosition READ writePosition NOTIFY writePositionChanged)
 
+    // Sampling rate from LSL stream (samples per second)
+    Q_PROPERTY(double samplingRate READ samplingRate WRITE setSamplingRate NOTIFY samplingRateChanged)
+
+    // Time window in seconds (how many seconds of data to display)
+    Q_PROPERTY(double timeWindowSeconds READ timeWindowSeconds WRITE setTimeWindowSeconds NOTIFY timeWindowSecondsChanged)
+
+    // Calculated max samples (samplingRate * timeWindowSeconds) - read only
+    Q_PROPERTY(int maxSamples READ maxSamples NOTIFY maxSamplesChanged)
+
 public:
     EegDataModel();
 
@@ -35,15 +44,27 @@ public:
     double maxValue() const;
     int writePosition() const;
 
+    double samplingRate() const;
+    void setSamplingRate(double newSamplingRate);
+
+    double timeWindowSeconds() const;
+    void setTimeWindowSeconds(double newTimeWindowSeconds);
+
+    int maxSamples() const;
+
 signals:
     void channelCountChanged();
     void minMaxChanged();
     void writePositionChanged();
+    void samplingRateChanged();
+    void timeWindowSecondsChanged();
+    void maxSamplesChanged();
 
 private:
     void initializeBuffer(int numChannels);
     void emitDataChanged(int startRow, int endRow);
     void updateMinMaxCache(double value);
+    void recalculateMaxSamples();
 
     // Data storage
     QVector<QVector<double>> m_data;
@@ -52,10 +73,15 @@ private:
     int m_totalSamples = 0;
     int m_writePosition = 0;
 
+    // Sampling configuration
+    double m_samplingRate = 256.0;       // Default fallback sampling rate (Hz)
+    double m_timeWindowSeconds = 10.0;   // Default 10 second window
+    int m_maxSamples = 2560;             // samplingRate * timeWindowSeconds
+
     // Constants
-    static constexpr int MAX_SAMPLES = 1000;
     static constexpr int GAP_SIZE = 50;
     static constexpr double GAP_VALUE = 1e9;
+    static constexpr int DEFAULT_MAX_SAMPLES = 2560;  // Fallback before sampling rate is known
 
     // Cached min/max values
     double m_cachedMin = std::numeric_limits<double>::infinity();

@@ -83,6 +83,7 @@ void AmplifierManager::StartStream(const QString amplifier_id)
         lsl_reader_->moveToThread(lsl_thread_);
 
         connect(lsl_reader_.get(), &LSLStreamReader::DataReceived, this, &AmplifierManager::onProcessData);
+        connect(lsl_reader_.get(), &LSLStreamReader::SamplingRateDetected, this, &AmplifierManager::onSamplingRateDetected);
         connect(this, &AmplifierManager::StartLSLReading, lsl_reader_.get(), &LSLStreamReader::onStartReading);
         connect(this, &AmplifierManager::StopLSLReading, lsl_reader_.get(), &LSLStreamReader::onStopReading);
 
@@ -156,6 +157,12 @@ void AmplifierManager::onProcessData(const std::vector<std::vector<float>>& chun
 {
     // we get new chunk, we want to process it and send nice data to viewmodel
     emit DataReceived(chunk);
+}
+
+void AmplifierManager::onSamplingRateDetected(double samplingRate)
+{
+    qDebug() << "AmplifierManager: Sampling rate detected:" << samplingRate << "Hz";
+    emit SamplingRateDetected(samplingRate);
 }
 
 QList<Amplifier> AmplifierManager::ParseRawOutputToAmplifiers(const QByteArray& output)

@@ -21,6 +21,12 @@ class EegBackend : public QObject
     // Changed to double to handle dynamic values from QML
     Q_PROPERTY(double spacing READ spacing WRITE setSpacing NOTIFY spacingChanged FINAL)
 
+    // Sampling rate from LSL stream (read-only, set automatically)
+    Q_PROPERTY(double samplingRate READ samplingRate NOTIFY samplingRateChanged FINAL)
+
+    // Time window in seconds (default 10)
+    Q_PROPERTY(double timeWindowSeconds READ timeWindowSeconds WRITE setTimeWindowSeconds NOTIFY timeWindowSecondsChanged FINAL)
+
 public:
     explicit EegBackend(QObject *parent = nullptr);
     ~EegBackend();
@@ -44,7 +50,13 @@ public:
     QString amplifierId() const;
     void setAmplifierId(const QString &newAmplifierId);
 
+    double samplingRate() const;
+
+    double timeWindowSeconds() const;
+    void setTimeWindowSeconds(double newTimeWindowSeconds);
+
 public slots:
+    void onSamplingRateDetected(double samplingRate);
     void DataReceived(const std::vector<std::vector<float>>& chunk);
 
 signals:
@@ -58,6 +70,10 @@ signals:
 
     void spacingChanged();
 
+    void samplingRateChanged();
+
+    void timeWindowSecondsChanged();
+
 private:
     void initializeBuffers(int numChannels, int numSamples);
 
@@ -69,6 +85,8 @@ private:
     EegDataModel* m_dataModel = nullptr;
     double m_spacing = 100.0;  // Default value, will be overwritten by QML
     QString m_amplifierId;
+    double m_samplingRate = 0.0;  // Will be set from LSL stream info
+    double m_timeWindowSeconds = 10.0;  // Default 10 second window
 
     // Pre-allocated buffers to avoid runtime memory allocations
     QVector<QVector<double>> m_scaledDataBuffer;

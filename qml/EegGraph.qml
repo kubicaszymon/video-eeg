@@ -11,6 +11,9 @@ Rectangle {
     property int channelSpacing: 1
     property var selectedChannels: []
 
+    // Time window in seconds (X-axis range)
+    property real timeWindowSeconds: 10.0
+
     // Dynamically calculated spacing based on available height
     readonly property real availableHeight: height - 100
     readonly property real calculatedSpacing: selectedChannels.length > 1
@@ -69,10 +72,10 @@ Rectangle {
             axisX: ValueAxis {
                 id: xAxis
                 min: 0
-                max: 1000
-                tickInterval: 100
-                subTickCount: 9
-                labelDecimals: 0
+                max: timeWindowSeconds  // X-axis in seconds (e.g., 0-10 for 10 second window)
+                tickInterval: 1         // Major tick every 1 second
+                subTickCount: 9         // Minor ticks for 0.1 second intervals
+                labelDecimals: 0        // Show whole seconds
                 gridVisible: true
             }
 
