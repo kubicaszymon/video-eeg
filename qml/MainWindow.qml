@@ -5,7 +5,7 @@ import QtQuick.Layouts
 Item {
     signal eegWindowOpen(amplifierId: string, channels: var)
 
-    // Kolory szpitalne
+    // Hospital colors
     readonly property color bgColor: "#f5f7fa"
     readonly property color sidebarColor: "#2c3e50"
     readonly property color cardColor: "#ffffff"
@@ -23,7 +23,7 @@ Item {
             anchors.margins: 0
             spacing: 0
 
-            // LEWA SEKCJA - PACJENCI
+            // LEFT SECTION - PATIENTS
             Rectangle {
                 Layout.fillHeight: true
                 Layout.preferredWidth: parent.width * 0.35
@@ -37,7 +37,7 @@ Item {
                     anchors.margins: 0
                     spacing: 0
 
-                    // Header pacjentów
+                    // Patient header
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 60
@@ -49,7 +49,7 @@ Item {
                             spacing: 10
 
                             Label {
-                                text: "👤 Pacjenci"
+                                text: "👤 Patients"
                                 font.pixelSize: 18
                                 font.bold: true
                                 color: "white"
@@ -57,7 +57,7 @@ Item {
                             }
 
                             Button {
-                                text: "+ Nowy"
+                                text: "+ New"
                                 font.pixelSize: 12
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 35
@@ -87,13 +87,13 @@ Item {
 
                             TextField {
                                 Layout.fillWidth: true
-                                placeholderText: "Szukaj pacjenta (PESEL, nazwisko...)"
+                                placeholderText: "Search patient (ID, surname...)"
                                 font.pixelSize: 12
                             }
                         }
                     }
 
-                    // Lista pacjentów
+                    // Patient list
                     ScrollView {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
@@ -130,13 +130,13 @@ Item {
                                     }
 
                                     Label {
-                                        text: "PESEL: 85010112345"
+                                        text: "ID: 85010112345"
                                         font.pixelSize: 11
                                         color: "#7f8c8d"
                                     }
 
                                     Label {
-                                        text: "Ostatnie badanie: 10.01.2025"
+                                        text: "Last examination: 10.01.2025"
                                         font.pixelSize: 11
                                         color: "#7f8c8d"
                                     }
@@ -147,7 +147,7 @@ Item {
                 }
             }
 
-            // PRAWA SEKCJA - BADANIA
+            // RIGHT SECTION - EXAMINATIONS
             Rectangle {
                 Layout.fillHeight: true
                 Layout.fillWidth: true
@@ -158,7 +158,7 @@ Item {
                     anchors.margins: 0
                     spacing: 0
 
-                    // Header badań
+                    // Examinations header
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 60
@@ -170,7 +170,7 @@ Item {
                             spacing: 10
 
                             Label {
-                                text: "📊 Badania EEG"
+                                text: "📊 EEG Examinations"
                                 font.pixelSize: 18
                                 font.bold: true
                                 color: "white"
@@ -178,7 +178,7 @@ Item {
                             }
 
                             Button {
-                                text: "⚡ Nowe badanie EEG"
+                                text: "⚡ New EEG Examination"
                                 font.pixelSize: 12
                                 font.bold: true
                                 Layout.preferredWidth: 180
@@ -208,7 +208,7 @@ Item {
                             spacing: 15
 
                             Label {
-                                text: "Filtruj:"
+                                text: "Filter:"
                                 font.pixelSize: 12
                                 color: textColor
                             }
@@ -216,21 +216,21 @@ Item {
                             ComboBox {
                                 Layout.preferredWidth: 150
                                 Layout.preferredHeight: 30
-                                model: ["Wszystkie", "Dzisiaj", "Ten tydzień", "Ten miesiąc"]
+                                model: ["All", "Today", "This week", "This month"]
                                 font.pixelSize: 11
                             }
 
                             ComboBox {
                                 Layout.preferredWidth: 150
                                 Layout.preferredHeight: 30
-                                model: ["Wszystkie statusy", "Ukończone", "W trakcie", "Anulowane"]
+                                model: ["All statuses", "Completed", "In progress", "Cancelled"]
                                 font.pixelSize: 11
                             }
 
                             Item { Layout.fillWidth: true }
 
                             Label {
-                                text: "Sortuj:"
+                                text: "Sort:"
                                 font.pixelSize: 12
                                 color: textColor
                             }
@@ -238,13 +238,13 @@ Item {
                             ComboBox {
                                 Layout.preferredWidth: 150
                                 Layout.preferredHeight: 30
-                                model: ["Najnowsze", "Najstarsze", "Wg pacjenta"]
+                                model: ["Newest", "Oldest", "By patient"]
                                 font.pixelSize: 11
                             }
                         }
                     }
 
-                    // Lista badań - POPRAWIONA
+                    // Examination list
                     ScrollView {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
@@ -309,7 +309,7 @@ Item {
                                                 }
 
                                                 Label {
-                                                    text: "EEG - Badanie standardowe"
+                                                    text: "EEG - Standard examination"
                                                     font.pixelSize: 11
                                                     color: "#7f8c8d"
                                                     elide: Text.ElideRight
@@ -327,7 +327,7 @@ Item {
 
                                                 Label {
                                                     anchors.centerIn: parent
-                                                    text: "Ukończone"
+                                                    text: "Completed"
                                                     font.pixelSize: 9
                                                     color: "#155724"
                                                 }
@@ -347,7 +347,7 @@ Item {
                                             rowSpacing: 5
 
                                             Label {
-                                                text: "📅 Data:"
+                                                text: "📅 Date:"
                                                 font.pixelSize: 11
                                                 color: "#7f8c8d"
                                             }
@@ -360,7 +360,7 @@ Item {
                                             }
 
                                             Label {
-                                                text: "⏱️ Czas:"
+                                                text: "⏱️ Duration:"
                                                 font.pixelSize: 11
                                                 color: "#7f8c8d"
                                             }
@@ -373,13 +373,13 @@ Item {
                                             }
 
                                             Label {
-                                                text: "🔌 Kanały:"
+                                                text: "🔌 Channels:"
                                                 font.pixelSize: 11
                                                 color: "#7f8c8d"
                                             }
 
                                             Label {
-                                                text: "14 kanałów"
+                                                text: "14 channels"
                                                 font.pixelSize: 11
                                                 color: textColor
                                                 Layout.fillWidth: true
@@ -393,14 +393,14 @@ Item {
                                             spacing: 8
 
                                             Button {
-                                                text: "👁️ Podgląd"
+                                                text: "👁️ Preview"
                                                 font.pixelSize: 10
                                                 Layout.fillWidth: true
                                                 Layout.preferredHeight: 30
                                             }
 
                                             Button {
-                                                text: "📄 Raport"
+                                                text: "📄 Report"
                                                 font.pixelSize: 10
                                                 Layout.fillWidth: true
                                                 Layout.preferredHeight: 30

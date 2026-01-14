@@ -9,7 +9,7 @@ Window {
     visible: false
     width: 1200
     height: 750
-    title: qsTr("⚡ Konfiguracja badania EEG")
+    title: qsTr("⚡ EEG Examination Configuration")
     modality: Qt.ApplicationModal
 
     signal accepted(amplifierId: string, channels: var)
@@ -20,8 +20,8 @@ Window {
     property int selectedCameraIndex: -1
     property string savePath: ""
 
-    // Mock kamery (zastąp prawdziwym backendem)
-    property var availableCameras: ["Kamera wbudowana", "USB Camera HD", "Logitech C920"]
+    // Mock cameras (replace with real backend)
+    property var availableCameras: ["Built-in Camera", "USB Camera HD", "Logitech C920"]
 
     readonly property color bgColor: "#f5f7fa"
     readonly property color sidebarColor: "#2c3e50"
@@ -104,10 +104,10 @@ Window {
     function getCurrentStepTitle() {
         var step = getCurrentStepNumber()
         switch(step) {
-            case 1: return "Krok 1: Wybór wzmacniacza"
-            case 2: return "Krok 2: Wybór kanałów"
-            case 3: return "Krok 3: Wybór kamery"
-            case 4: return "Krok 4: Podsumowanie"
+            case 1: return "Step 1: Amplifier Selection"
+            case 2: return "Step 2: Channel Selection"
+            case 3: return "Step 3: Camera Selection"
+            case 4: return "Step 4: Summary"
             default: return ""
         }
     }
@@ -115,10 +115,10 @@ Window {
     function getCurrentStepDesc() {
         var step = getCurrentStepNumber()
         switch(step) {
-            case 1: return "Wykryj i wybierz wzmacniacz EEG"
-            case 2: return "Zaznacz kanały do rejestracji"
-            case 3: return "Wybierz kamerę do nagrywania wideo"
-            case 4: return "Sprawdź konfigurację przed rozpoczęciem"
+            case 1: return "Detect and select EEG amplifier"
+            case 2: return "Select channels to record"
+            case 3: return "Select camera for video recording"
+            case 4: return "Review configuration before starting"
             default: return ""
         }
     }
@@ -131,7 +131,7 @@ Window {
             anchors.fill: parent
             spacing: 0
 
-            // HEADER Z PROGRESS
+            // HEADER WITH PROGRESS
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 80
@@ -166,7 +166,7 @@ Window {
                         }
                     }
 
-                    // Progress indicator (4 kroki)
+                    // Progress indicator (4 steps)
                     Row {
                         spacing: 10
 
@@ -248,7 +248,7 @@ Window {
                     }
 
                     Label {
-                        text: "Skanowanie urządzeń..."
+                        text: "Scanning devices..."
                         font.pixelSize: 14
                         color: "white"
                         Layout.alignment: Qt.AlignHCenter
@@ -258,7 +258,7 @@ Window {
         }
     }
 
-    // KROK 1: WYBÓR WZMACNIACZA
+    // STEP 1: AMPLIFIER SELECTION
     Component {
         id: amplifierSelectionPage
 
@@ -289,7 +289,7 @@ Window {
                         }
 
                         Label {
-                            text: "Upewnij się, że wzmacniacz jest włączony i podłączony do komputera"
+                            text: "Make sure the amplifier is turned on and connected to the computer"
                             font.pixelSize: 12
                             color: "#0c5460"
                             Layout.fillWidth: true
@@ -315,7 +315,7 @@ Window {
                             Layout.fillWidth: true
 
                             Label {
-                                text: "🔌 Wykryte wzmacniacze"
+                                text: "🔌 Detected Amplifiers"
                                 font.pixelSize: 16
                                 font.bold: true
                                 color: textColor
@@ -323,7 +323,7 @@ Window {
                             }
 
                             Label {
-                                text: backend.availableAmplifiers.length + " znaleziono"
+                                text: backend.availableAmplifiers.length + " found"
                                 font.pixelSize: 12
                                 color: "#7f8c8d"
                             }
@@ -421,7 +421,7 @@ Window {
                                 Label {
                                     anchors.centerIn: parent
                                     visible: amplifierListView.count === 0
-                                    text: "😔 Nie znaleziono wzmacniaczy\nKliknij 'Odśwież' aby skanować ponownie"
+                                    text: "😔 No amplifiers found\nClick 'Refresh' to scan again"
                                     font.pixelSize: 13
                                     color: "#999999"
                                     horizontalAlignment: Text.AlignHCenter
@@ -436,7 +436,7 @@ Window {
                     spacing: 15
 
                     Button {
-                        text: "🔄 Odśwież"
+                        text: "🔄 Refresh"
                         font.pixelSize: 13
                         enabled: !window.loading
                         Layout.preferredWidth: 120
@@ -454,7 +454,7 @@ Window {
                     Item { Layout.fillWidth: true }
 
                     Button {
-                        text: "Anuluj"
+                        text: "Cancel"
                         font.pixelSize: 13
                         Layout.preferredWidth: 100
                         Layout.preferredHeight: 45
@@ -466,7 +466,7 @@ Window {
                     }
 
                     Button {
-                        text: "Dalej →"
+                        text: "Next →"
                         font.pixelSize: 13
                         font.bold: true
                         enabled: backend.selectedAmplifierIndex !== -1
@@ -482,7 +482,7 @@ Window {
         }
     }
 
-    // KROK 2: WYBÓR KANAŁÓW
+    // STEP 2: CHANNEL SELECTION
     Component {
         id: channelSelectionPage
 
@@ -519,14 +519,14 @@ Window {
                             Layout.fillWidth: true
 
                             Label {
-                                text: "Wybrany wzmacniacz: " + backend.availableAmplifiers[backend.selectedAmplifierIndex]
+                                text: "Selected amplifier: " + backend.availableAmplifiers[backend.selectedAmplifierIndex]
                                 font.pixelSize: 12
                                 font.bold: true
                                 color: "#155724"
                             }
 
                             Label {
-                                text: backend.currentChannels.length + " dostępnych kanałów"
+                                text: backend.currentChannels.length + " available channels"
                                 font.pixelSize: 11
                                 color: "#155724"
                             }
@@ -559,7 +559,7 @@ Window {
                                 spacing: 0
 
                                 Label {
-                                    text: "Nr"
+                                    text: "No."
                                     font.pixelSize: 12
                                     font.bold: true
                                     color: textColor
@@ -567,7 +567,7 @@ Window {
                                 }
 
                                 Label {
-                                    text: "Nazwa kanału"
+                                    text: "Channel Name"
                                     font.pixelSize: 12
                                     font.bold: true
                                     color: textColor
@@ -575,7 +575,7 @@ Window {
                                 }
 
                                 CheckBox {
-                                    text: "Zaznacz wszystkie"
+                                    text: "Select all"
                                     font.pixelSize: 11
                                     checked: false
                                     onClicked: {
@@ -653,7 +653,7 @@ Window {
                     spacing: 15
 
                     Button {
-                        text: "← Wstecz"
+                        text: "← Back"
                         font.pixelSize: 13
                         Layout.preferredWidth: 120
                         Layout.preferredHeight: 45
@@ -663,13 +663,13 @@ Window {
                     Item { Layout.fillWidth: true }
 
                     Label {
-                        text: getSelectedChannelsCount() + " / " + backend.currentChannels.length + " zaznaczonych"
+                        text: getSelectedChannelsCount() + " / " + backend.currentChannels.length + " selected"
                         font.pixelSize: 12
                         color: "#7f8c8d"
                     }
 
                     Button {
-                        text: "Anuluj"
+                        text: "Cancel"
                         font.pixelSize: 13
                         Layout.preferredWidth: 100
                         Layout.preferredHeight: 45
@@ -680,7 +680,7 @@ Window {
                     }
 
                     Button {
-                        text: "Dalej →"
+                        text: "Next →"
                         font.pixelSize: 13
                         font.bold: true
                         enabled: getSelectedChannelsCount() > 0
@@ -695,7 +695,7 @@ Window {
         }
     }
 
-    // KROK 3: WYBÓR KAMERY
+    // STEP 3: CAMERA SELECTION
     Component {
         id: cameraSelectionPage
 
@@ -726,7 +726,7 @@ Window {
                         }
 
                         Label {
-                            text: "Wybierz kamerę do synchronizacji wideo z danymi EEG (opcjonalne)"
+                            text: "Select a camera to synchronize video with EEG data (optional)"
                             font.pixelSize: 12
                             color: "#0c5460"
                             Layout.fillWidth: true
@@ -752,7 +752,7 @@ Window {
                             Layout.fillWidth: true
 
                             Label {
-                                text: "📷 Dostępne kamery"
+                                text: "📷 Available Cameras"
                                 font.pixelSize: 16
                                 font.bold: true
                                 color: textColor
@@ -760,7 +760,7 @@ Window {
                             }
 
                             Label {
-                                text: availableCameras.length + " znaleziono"
+                                text: availableCameras.length + " found"
                                 font.pixelSize: 12
                                 color: "#7f8c8d"
                             }
@@ -855,7 +855,7 @@ Window {
                             }
                         }
 
-                        // Opcja: bez kamery
+                        // Option: no camera
                         Rectangle {
                             Layout.fillWidth: true
                             height: 60
@@ -883,7 +883,7 @@ Window {
                                 }
 
                                 Label {
-                                    text: "Kontynuuj bez kamery (tylko dane EEG)"
+                                    text: "Continue without camera (EEG data only)"
                                     font.pixelSize: 12
                                     font.bold: selectedCameraIndex === -1
                                     color: "#856404"
@@ -899,7 +899,7 @@ Window {
                     spacing: 15
 
                     Button {
-                        text: "🔄 Odśwież kamery"
+                        text: "🔄 Refresh cameras"
                         font.pixelSize: 13
                         Layout.preferredWidth: 140
                         Layout.preferredHeight: 45
@@ -910,7 +910,7 @@ Window {
                     Item { Layout.fillWidth: true }
 
                     Button {
-                        text: "← Wstecz"
+                        text: "← Back"
                         font.pixelSize: 13
                         Layout.preferredWidth: 120
                         Layout.preferredHeight: 45
@@ -918,7 +918,7 @@ Window {
                     }
 
                     Button {
-                        text: "Anuluj"
+                        text: "Cancel"
                         font.pixelSize: 13
                         Layout.preferredWidth: 100
                         Layout.preferredHeight: 45
@@ -929,7 +929,7 @@ Window {
                     }
 
                     Button {
-                        text: "Dalej →"
+                        text: "Next →"
                         font.pixelSize: 13
                         font.bold: true
                         Layout.preferredWidth: 120
@@ -943,7 +943,7 @@ Window {
         }
     }
 
-    // KROK 4: PODSUMOWANIE
+    // STEP 4: SUMMARY
     Component {
         id: summaryPage
 
@@ -956,7 +956,7 @@ Window {
                 spacing: 20
 
                 Label {
-                    text: "✅ Podsumowanie konfiguracji"
+                    text: "✅ Configuration Summary"
                     font.pixelSize: 18
                     font.bold: true
                     color: textColor
@@ -971,7 +971,7 @@ Window {
                         width: parent.width
                         spacing: 15
 
-                        // Wzmacniacz
+                        // Amplifier
                         Rectangle {
                             Layout.fillWidth: true
                             height: contentCol1.implicitHeight + 30
@@ -987,7 +987,7 @@ Window {
                                 spacing: 8
 
                                 Label {
-                                    text: "⚡ Wzmacniacz"
+                                    text: "⚡ Amplifier"
                                     font.pixelSize: 14
                                     font.bold: true
                                     color: textColor
@@ -1007,7 +1007,7 @@ Window {
                             }
                         }
 
-                        // Kanały
+                        // Channels
                         Rectangle {
                             Layout.fillWidth: true
                             height: contentCol2.implicitHeight + 30
@@ -1023,7 +1023,7 @@ Window {
                                 spacing: 8
 
                                 Label {
-                                    text: "🔌 Wybrane kanały (" + getSelectedChannelsCount() + ")"
+                                    text: "🔌 Selected Channels (" + getSelectedChannelsCount() + ")"
                                     font.pixelSize: 14
                                     font.bold: true
                                     color: textColor
@@ -1045,7 +1045,7 @@ Window {
                             }
                         }
 
-                        // Kamera
+                        // Camera
                         Rectangle {
                             Layout.fillWidth: true
                             height: contentCol3.implicitHeight + 30
@@ -1061,7 +1061,7 @@ Window {
                                 spacing: 8
 
                                 Label {
-                                    text: "📹 Kamera"
+                                    text: "📹 Camera"
                                     font.pixelSize: 14
                                     font.bold: true
                                     color: textColor
@@ -1074,14 +1074,14 @@ Window {
                                 }
 
                                 Label {
-                                    text: selectedCameraIndex >= 0 ? availableCameras[selectedCameraIndex] : "Brak (tylko EEG)"
+                                    text: selectedCameraIndex >= 0 ? availableCameras[selectedCameraIndex] : "None (EEG only)"
                                     font.pixelSize: 13
                                     color: "#7f8c8d"
                                 }
                             }
                         }
 
-                        // Miejsce zapisu
+                        // Save location
                         Rectangle {
                             Layout.fillWidth: true
                             height: contentCol4.implicitHeight + 30
@@ -1097,7 +1097,7 @@ Window {
                                 spacing: 8
 
                                 Label {
-                                    text: "💾 Miejsce zapisu nagrań"
+                                    text: "💾 Recording Save Location"
                                     font.pixelSize: 14
                                     font.bold: true
                                     color: textColor
@@ -1115,13 +1115,13 @@ Window {
 
                                     TextField {
                                         Layout.fillWidth: true
-                                        text: savePath || "Wybierz lokalizację..."
+                                        text: savePath || "Select location..."
                                         readOnly: true
                                         font.pixelSize: 11
                                     }
 
                                     Button {
-                                        text: "📁 Wybierz"
+                                        text: "📁 Browse"
                                         font.pixelSize: 11
                                         Layout.preferredHeight: 35
                                         onClicked: folderDialog.open()
@@ -1137,7 +1137,7 @@ Window {
                     spacing: 15
 
                     Button {
-                        text: "← Wstecz"
+                        text: "← Back"
                         font.pixelSize: 13
                         Layout.preferredWidth: 120
                         Layout.preferredHeight: 45
@@ -1147,7 +1147,7 @@ Window {
                     Item { Layout.fillWidth: true }
 
                     Button {
-                        text: "Anuluj"
+                        text: "Cancel"
                         font.pixelSize: 13
                         Layout.preferredWidth: 100
                         Layout.preferredHeight: 45
@@ -1158,10 +1158,10 @@ Window {
                     }
 
                     Button {
-                        text: "✓ Rozpocznij badanie"
+                        text: "✓ Start Examination"
                         font.pixelSize: 13
                         font.bold: true
-                        enabled: true // Zawsze aktywny - savePath opcjonalny
+                        enabled: true // Always active - savePath optional
                         Layout.preferredWidth: 180
                         Layout.preferredHeight: 45
                         palette.button: successColor

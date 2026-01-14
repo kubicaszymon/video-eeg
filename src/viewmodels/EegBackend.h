@@ -18,7 +18,7 @@ class EegBackend : public QObject
     Q_PROPERTY(int amplifierIdx READ amplifierIdx WRITE setAmplifierIdx NOTIFY amplifierIdxChanged FINAL)
     Q_PROPERTY(QString amplifierId READ amplifierId WRITE setAmplifierId NOTIFY amplifierIdChanged FINAL)
 
-    // Zmieniony na double żeby obsłużyć dynamiczne wartości z QML
+    // Changed to double to handle dynamic values from QML
     Q_PROPERTY(double spacing READ spacing WRITE setSpacing NOTIFY spacingChanged FINAL)
 
 public:
@@ -65,7 +65,7 @@ private:
     int m_amplifierIdx = 0;
 
     EegDataModel* m_dataModel = nullptr;
-    double m_spacing = 100.0;  // Domyślna wartość, będzie nadpisana przez QML
+    double m_spacing = 100.0;  // Default value, will be overwritten by QML
     QString m_amplifierId;
 };
 
