@@ -1,6 +1,5 @@
 # This file is used to ignore files which are generated
 # ----------------------------------------------------------------------------
-dupa/*
 
 *~
 *.autosave
@@ -68,11 +67,6 @@ CMakeLists.txt.user*
 
 # Python byte code
 *.pyc
-
-# Binaries
-# --------
-*.dll
-*.exe
 
 # Directories with generated files
 .moc/
