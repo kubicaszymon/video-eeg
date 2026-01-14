@@ -41,12 +41,11 @@ public:
     Q_ENUM(DataUnit)
 
     /**
-     * @brief Stan kalibracji systemu
+     * @brief Stan systemu
      */
     enum class CalibrationState {
-        NotStarted,    // Brak danych
-        Collecting,    // Zbieranie próbek do kalibracji
-        Calibrated     // Skalibrowany, stabilna praca (NIE zmienia się automatycznie)
+        NotStarted,    // Brak danych - czeka na pierwszą paczkę
+        Calibrated     // Skala ustalona (od pierwszej paczki danych)
     };
     Q_ENUM(CalibrationState)
 
@@ -122,7 +121,6 @@ signals:
     void scaleFactorChanged(double newFactor);
     void detectedUnitChanged(DataUnit newUnit);
     void calibrationStateChanged(CalibrationState newState);
-    void calibrationProgress(int current, int total);
 
 private:
     /**

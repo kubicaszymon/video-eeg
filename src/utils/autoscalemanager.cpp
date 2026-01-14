@@ -52,42 +52,29 @@ void AutoScaleManager::processChunk(const std::vector<std::vector<float>>& chunk
     // Aktualizuj statystyki
     updateStatistics(chunk, selectedChannelIndices);
 
-    // Zmiana stanu kalibracji
+    // Już przy pierwszej paczce danych ustalamy skalę - nie ma potrzeby długiej kalibracji
     if (m_calibrationState == CalibrationState::NotStarted)
     {
-        m_calibrationState = CalibrationState::Collecting;
-        qDebug() << "[AutoScale] Started collecting calibration data";
+        // Ustaw skalę od razu na podstawie pierwszych danych
+        m_calibratedMin = m_globalMin;
+        m_calibratedMax = m_globalMax;
+        m_calibratedRange = m_calibratedMax - m_calibratedMin;
+
+        // Wykryj jednostkę
+        m_detectedUnit = detectUnit(m_calibratedMin, m_calibratedMax);
+
+        // Oblicz bazowy współczynnik skalowania
+        m_scaleFactor = calculateOptimalScaleFactor(m_calibratedRange, m_targetSpacing);
+
+        m_calibrationState = CalibrationState::Calibrated;
+
+        qDebug() << "[AutoScale] Scale set from first data:"
+                 << "range:" << m_calibratedMin << "to" << m_calibratedMax
+                 << "(" << dataRangeInMicrovolts() << "μV)"
+                 << "unit:" << unitString()
+                 << "scaleFactor:" << m_scaleFactor;
     }
-
-    // Sprawdź postęp kalibracji
-    if (m_calibrationState == CalibrationState::Collecting)
-    {
-        emit calibrationProgress(m_totalSamplesProcessed, m_calibrationSamples);
-
-        if (m_totalSamplesProcessed >= m_calibrationSamples)
-        {
-            // Zakończ kalibrację - ustaw bazową skalę
-            m_calibratedMin = m_globalMin;
-            m_calibratedMax = m_globalMax;
-            m_calibratedRange = m_calibratedMax - m_calibratedMin;
-
-            // Wykryj jednostkę
-            m_detectedUnit = detectUnit(m_calibratedMin, m_calibratedMax);
-
-            // Oblicz bazowy współczynnik skalowania
-            // Ten współczynnik NIE zmienia się automatycznie - użytkownik kontroluje przez Gain
-            m_scaleFactor = calculateOptimalScaleFactor(m_calibratedRange, m_targetSpacing);
-
-            m_calibrationState = CalibrationState::Calibrated;
-
-            qDebug() << "[AutoScale] Calibration complete:"
-                     << "range:" << m_calibratedMin << "to" << m_calibratedMax
-                     << "(" << dataRangeInMicrovolts() << "μV)"
-                     << "unit:" << unitString()
-                     << "baseScaleFactor:" << m_scaleFactor;
-        }
-    }
-    // Po kalibracji NIE zmieniamy skali automatycznie
+    // Po ustaleniu skali NIE zmieniamy jej automatycznie
     // Użytkownik kontroluje wzmocnienie przez suwak Gain
 
     // Emituj sygnały o zmianach
@@ -387,8 +374,7 @@ QVector<QVector<double>> AutoScaleManager::scaleChunk(const std::vector<std::vec
     double dataCenter = (m_calibratedMax + m_calibratedMin) / 2.0;
 
     // Jeśli nie ma kalibracji, użyj aktualnych globalnych wartości
-    if (m_calibrationState == CalibrationState::NotStarted ||
-        m_calibrationState == CalibrationState::Collecting)
+    if (m_calibrationState == CalibrationState::NotStarted)
     {
         if (std::isfinite(m_globalMin) && std::isfinite(m_globalMax))
         {

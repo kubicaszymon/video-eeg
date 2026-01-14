@@ -23,10 +23,6 @@ EegBackend::EegBackend(QObject *parent)
     connect(m_autoScaleManager, &AutoScaleManager::calibrationStateChanged, this, [this]() {
         emit scaleCalibrationChanged();
     });
-    connect(m_autoScaleManager, &AutoScaleManager::calibrationProgress, this, [this](int current, int total) {
-        m_calibrationProgress = (total > 0) ? (current * 100 / total) : 0;
-        emit calibrationProgressChanged();
-    });
 }
 
 EegBackend::~EegBackend()
@@ -356,11 +352,6 @@ bool EegBackend::scaleCalibrated() const
     return m_autoScaleManager ? m_autoScaleManager->isCalibrated() : false;
 }
 
-int EegBackend::calibrationProgress() const
-{
-    return m_calibrationProgress;
-}
-
 double EegBackend::dataRangeMin() const
 {
     return m_autoScaleManager ? m_autoScaleManager->globalMin() : 0.0;
@@ -391,7 +382,6 @@ void EegBackend::setAutoScaleEnabled(bool enabled)
         // Reset auto-scale when re-enabling
         m_autoScaleManager->reset();
         emit scaleCalibrationChanged();
-        emit calibrationProgressChanged();
     }
 }
 
@@ -400,9 +390,7 @@ void EegBackend::resetAutoScale()
     if (m_autoScaleManager)
     {
         m_autoScaleManager->reset();
-        m_calibrationProgress = 0;
         emit scaleCalibrationChanged();
-        emit calibrationProgressChanged();
         emit scaleFactorChanged();
         emit dataRangeChanged();
         emit scaleBarChanged();

@@ -524,75 +524,46 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    // Calibration status
+                                    // Scale info - pokazuje się gdy są dane
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: 60
+                                        Layout.preferredHeight: 50
                                         color: "#1a2332"
                                         radius: 6
-                                        border.color: backend.scaleCalibrated ? successColor : warningColor
+                                        border.color: backend.scaleCalibrated ? "#2d3e50" : warningColor
                                         border.width: 1
                                         visible: backend.autoScaleEnabled
 
-                                        ColumnLayout {
+                                        RowLayout {
                                             anchors.fill: parent
-                                            anchors.margins: 8
-                                            spacing: 4
+                                            anchors.margins: 10
+                                            spacing: 10
 
-                                            RowLayout {
+                                            ColumnLayout {
+                                                spacing: 2
                                                 Layout.fillWidth: true
 
                                                 Label {
-                                                    text: backend.scaleCalibrated ? "✓ Calibrated" : "⏳ Calibrating..."
+                                                    text: backend.scaleCalibrated
+                                                        ? "Range: " + backend.dataRangeInMicrovolts.toFixed(0) + " μV"
+                                                        : "Waiting for data..."
                                                     font.pixelSize: 11
-                                                    font.bold: true
-                                                    color: backend.scaleCalibrated ? successColor : warningColor
+                                                    color: backend.scaleCalibrated ? textColor : textSecondary
                                                 }
 
-                                                Item { Layout.fillWidth: true }
-
                                                 Label {
-                                                    text: backend.scaleUnit
-                                                    font.pixelSize: 11
-                                                    font.bold: true
-                                                    color: accentColor
+                                                    text: "Scale bar: " + backend.scaleBarValue.toFixed(0) + " μV"
+                                                    font.pixelSize: 9
+                                                    color: textSecondary
                                                     visible: backend.scaleCalibrated
                                                 }
                                             }
 
-                                            // Progress bar during calibration
-                                            Rectangle {
-                                                Layout.fillWidth: true
-                                                height: 4
-                                                color: "#2d3e50"
-                                                radius: 2
-                                                visible: !backend.scaleCalibrated
-
-                                                Rectangle {
-                                                    width: parent.width * (backend.calibrationProgress / 100)
-                                                    height: parent.height
-                                                    color: warningColor
-                                                    radius: 2
-
-                                                    Behavior on width {
-                                                        NumberAnimation { duration: 100 }
-                                                    }
-                                                }
-                                            }
-
-                                            // Data range in μV
                                             Label {
-                                                text: "Range: " + backend.dataRangeInMicrovolts.toFixed(0) + " μV"
-                                                font.pixelSize: 10
-                                                color: textSecondary
-                                                visible: backend.scaleCalibrated
-                                            }
-
-                                            // Scale bar info
-                                            Label {
-                                                text: "Scale bar: " + backend.scaleBarValue.toFixed(0) + " μV"
-                                                font.pixelSize: 9
-                                                color: textSecondary
+                                                text: backend.scaleUnit
+                                                font.pixelSize: 12
+                                                font.bold: true
+                                                color: accentColor
                                                 visible: backend.scaleCalibrated
                                             }
                                         }
@@ -601,10 +572,10 @@ ApplicationWindow {
                                     // Reset button
                                     Button {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: 35
-                                        text: "🔄 Reset Calibration"
+                                        Layout.preferredHeight: 30
+                                        text: "🔄 Reset Scale"
                                         font.pixelSize: 10
-                                        enabled: backend.autoScaleEnabled
+                                        enabled: backend.autoScaleEnabled && backend.scaleCalibrated
                                         palette.button: "#526d82"
                                         palette.buttonText: "white"
 

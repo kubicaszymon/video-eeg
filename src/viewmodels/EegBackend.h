@@ -35,7 +35,6 @@ class EegBackend : public QObject
     Q_PROPERTY(double scaleFactor READ scaleFactor NOTIFY scaleFactorChanged FINAL)
     Q_PROPERTY(QString scaleUnit READ scaleUnit NOTIFY scaleUnitChanged FINAL)
     Q_PROPERTY(bool scaleCalibrated READ scaleCalibrated NOTIFY scaleCalibrationChanged FINAL)
-    Q_PROPERTY(int calibrationProgress READ calibrationProgress NOTIFY calibrationProgressChanged FINAL)
     Q_PROPERTY(double dataRangeMin READ dataRangeMin NOTIFY dataRangeChanged FINAL)
     Q_PROPERTY(double dataRangeMax READ dataRangeMax NOTIFY dataRangeChanged FINAL)
     Q_PROPERTY(bool autoScaleEnabled READ autoScaleEnabled WRITE setAutoScaleEnabled NOTIFY autoScaleEnabledChanged FINAL)
@@ -81,7 +80,6 @@ public:
     double scaleFactor() const;
     QString scaleUnit() const;
     bool scaleCalibrated() const;
-    int calibrationProgress() const;
     double dataRangeMin() const;
     double dataRangeMax() const;
     bool autoScaleEnabled() const;
@@ -120,7 +118,6 @@ signals:
     void scaleFactorChanged();
     void scaleUnitChanged();
     void scaleCalibrationChanged();
-    void calibrationProgressChanged();
     void dataRangeChanged();
     void autoScaleEnabledChanged();
     void gainChanged();
@@ -149,7 +146,6 @@ private:
     // Auto-scale manager
     AutoScaleManager* m_autoScaleManager = nullptr;
     bool m_autoScaleEnabled = true;
-    int m_calibrationProgress = 0;
 
     // Gain - mnożnik kontrolowany przez użytkownika (1.0 = neutralny)
     double m_gain = 1.0;
