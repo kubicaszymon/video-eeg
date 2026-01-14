@@ -116,9 +116,6 @@ void EegDataModel::emitDataChanged(int startRow, int endRow)
     QModelIndex bottomRight = index(endRow, m_data.size() - 1);
     emit QAbstractItemModel::dataChanged(topLeft, bottomRight);
 
-    // Emit writePosition update
-    emit writePositionChanged();
-
     m_updateTimer.restart();
 }
 

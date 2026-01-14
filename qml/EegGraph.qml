@@ -49,14 +49,6 @@ Rectangle {
         id: eegData
     }
 
-    // Connections to handle writePositionChanged signal
-    Connections {
-        target: eegData
-        function onWritePositionChanged() {
-            cursorLine.updatePosition()
-        }
-    }
-
     Item {
         anchors.fill: parent
 
@@ -125,43 +117,6 @@ Rectangle {
                 }
             }
 
-            onPlotAreaChanged: {
-                cursorLine.updatePosition()
-            }
-        }
-
-        Rectangle {
-            id: cursorLine
-            width: 2
-            color: "#ff4444"
-            opacity: 0.9
-            z: 1000
-
-            visible: eegGraph.plotArea && eegGraph.plotArea.width > 0
-
-            y: eegGraph.plotArea ? eegGraph.plotArea.y : 0
-            height: eegGraph.plotArea ? eegGraph.plotArea.height : 0
-
-            property real cachedX: 0
-            x: cachedX
-
-            function updatePosition() {
-                if (!eegGraph.plotArea || eegGraph.plotArea.width <= 0) {
-                    return
-                }
-
-                var plotArea = eegGraph.plotArea
-                var headX = eegData.writePosition
-
-                var xMin = xAxis.min
-                var xMax = xAxis.max
-                var xRange = xMax - xMin
-
-                var normalizedX = (headX - xMin) / xRange
-                var pixelX = plotArea.x + normalizedX * plotArea.width
-
-                cachedX = pixelX
-            }
         }
     }
 
