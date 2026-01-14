@@ -27,8 +27,6 @@ public:
     Q_INVOKABLE void registerDataModel(EegDataModel* dataModel);
     Q_INVOKABLE void startStream();
 
-    Q_INVOKABLE void generateTestData();
-
     QVariantList GetChannelNames() const;
     QVariantList channels() const;
 

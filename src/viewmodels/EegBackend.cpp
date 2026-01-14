@@ -28,36 +28,6 @@ void EegBackend::startStream()
     amplifier_manager_->StartStream(m_amplifierId);
 }
 
-void EegBackend::generateTestData()
-{
-    if (!m_dataModel) return;
-
-    auto channel_spacing = m_spacing;
-
-    const int numChannels = m_channels.size();
-    const int numSamples = 500; // 500 points per 5-second window
-
-    QVector<QVector<double>> testData(numChannels + 1);
-
-    for (int i = 0; i < numSamples; ++i) {
-        double time = i * 0.1;
-        testData[0].append(time); // Column 0: Time (X-axis)
-
-        for (int ch = 1; ch <= numChannels; ++ch) {
-            // Create different frequencies for each channel
-            double value = qSin(time + ch) + (ch * 0.5);
-            ///////////////////////////////////////
-
-
-            auto offset = channel_spacing * (numChannels - ch + 1);
-
-            testData[ch].append(value + offset);
-        }
-    }
-
-    m_dataModel->updateAllData(testData);
-}
-
 void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
 {
     if(chunk.empty() || chunk[0].empty() || m_channels.isEmpty())
