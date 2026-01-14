@@ -35,9 +35,14 @@ ApplicationWindow {
         amplifierId: eegWindow.amplifierId
         channels: eegWindow.channels
         spacing: eegGraph.dynamicChannelSpacing
+        timeWindowSeconds: timeSlider.value
 
         onChannelsChanged: {
             eegGraph.selectedChannels = channels
+        }
+
+        onSamplingRateChanged: {
+            console.log("Sampling rate updated:", samplingRate, "Hz")
         }
     }
 
@@ -512,6 +517,7 @@ ApplicationWindow {
                         id: eegGraph
                         anchors.fill: parent
                         anchors.margins: 10
+                        timeWindowSeconds: timeSlider.value
                     }
 
                     Rectangle {
@@ -578,7 +584,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "📊 Frequency: 250 Hz"
+                        text: "📊 Frequency: " + (backend.samplingRate > 0 ? backend.samplingRate.toFixed(0) + " Hz" : "detecting...")
                         font.pixelSize: 10
                         color: textSecondary
                     }
@@ -590,7 +596,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "💾 Buffer: 1000 samples"
+                        text: "💾 Buffer: " + eegGraph.dataModel.maxSamples + " samples (" + timeSlider.value.toFixed(0) + "s)"
                         font.pixelSize: 10
                         color: textSecondary
                     }

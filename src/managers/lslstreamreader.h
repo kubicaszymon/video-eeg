@@ -20,6 +20,7 @@ signals:
     void ErrorOccurred(const QString& error);
     void StreamConnected();
     void StreamDisconnected();
+    void SamplingRateDetected(double samplingRate);
 
 public slots:
     void onStartReading();

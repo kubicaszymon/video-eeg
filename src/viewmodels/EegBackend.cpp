@@ -7,6 +7,7 @@ EegBackend::EegBackend(QObject *parent)
 {
     qInfo() << "EEGBACKEND CREATED: " << this;
     connect(amplifier_manager_, &AmplifierManager::DataReceived, this, &EegBackend::DataReceived, Qt::QueuedConnection);
+    connect(amplifier_manager_, &AmplifierManager::SamplingRateDetected, this, &EegBackend::onSamplingRateDetected, Qt::QueuedConnection);
 }
 
 EegBackend::~EegBackend()
@@ -221,4 +222,45 @@ void EegBackend::setAmplifierId(const QString &newAmplifierId)
         return;
     m_amplifierId = newAmplifierId;
     emit amplifierIdChanged();
+}
+
+void EegBackend::onSamplingRateDetected(double samplingRate)
+{
+    qDebug() << "EegBackend: Sampling rate detected:" << samplingRate << "Hz";
+    if (!qFuzzyCompare(m_samplingRate, samplingRate))
+    {
+        m_samplingRate = samplingRate;
+        emit samplingRateChanged();
+
+        // Update data model with new sampling rate
+        if (m_dataModel)
+        {
+            m_dataModel->setSamplingRate(samplingRate);
+            m_dataModel->setTimeWindowSeconds(m_timeWindowSeconds);
+        }
+    }
+}
+
+double EegBackend::samplingRate() const
+{
+    return m_samplingRate;
+}
+
+double EegBackend::timeWindowSeconds() const
+{
+    return m_timeWindowSeconds;
+}
+
+void EegBackend::setTimeWindowSeconds(double newTimeWindowSeconds)
+{
+    if (qFuzzyCompare(m_timeWindowSeconds, newTimeWindowSeconds))
+        return;
+    m_timeWindowSeconds = newTimeWindowSeconds;
+    emit timeWindowSecondsChanged();
+
+    // Update data model
+    if (m_dataModel)
+    {
+        m_dataModel->setTimeWindowSeconds(m_timeWindowSeconds);
+    }
 }

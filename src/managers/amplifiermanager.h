@@ -46,9 +46,11 @@ signals:
 
     void AcquisitionStatusChanged();
     void DataReceived(const std::vector<std::vector<float>>& chunk);
+    void SamplingRateDetected(double samplingRate);
 
 public slots:
     void onProcessData(const std::vector<std::vector<float>>& chunk);
+    void onSamplingRateDetected(double samplingRate);
 
 private:
     AmplifierManager(QObject* parent = nullptr);
