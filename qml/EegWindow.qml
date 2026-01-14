@@ -518,6 +518,7 @@ ApplicationWindow {
                         anchors.fill: parent
                         anchors.margins: 10
                         timeWindowSeconds: timeSlider.value
+                        channelNames: backend.channelNames
                     }
 
                     Rectangle {

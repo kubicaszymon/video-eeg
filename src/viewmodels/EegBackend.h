@@ -27,6 +27,9 @@ class EegBackend : public QObject
     // Time window in seconds (default 10)
     Q_PROPERTY(double timeWindowSeconds READ timeWindowSeconds WRITE setTimeWindowSeconds NOTIFY timeWindowSecondsChanged FINAL)
 
+    // Channel names for display (read-only, derived from selected channels)
+    Q_PROPERTY(QStringList channelNames READ channelNames NOTIFY channelsChanged FINAL)
+
 public:
     explicit EegBackend(QObject *parent = nullptr);
     ~EegBackend();
@@ -38,6 +41,7 @@ public:
 
     QVariantList GetChannelNames() const;
     QVariantList channels() const;
+    QStringList channelNames() const;
 
     void setChannels(const QVariantList &newChannels);
 
