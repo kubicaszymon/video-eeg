@@ -163,6 +163,39 @@ QVariantList EegBackend::GetChannelNames() const
     return channels;
 }
 
+QStringList EegBackend::channelNames() const
+{
+    QStringList names;
+
+    // Get amplifier by ID to access channel names
+    Amplifier* amp = amplifier_manager_->GetAmplifierById(m_amplifierId);
+    if (amp == nullptr)
+    {
+        // Return generic names if amplifier not found
+        for (int i = 0; i < m_channels.size(); ++i)
+        {
+            names.append(QString("Ch %1").arg(m_channels[i].toInt()));
+        }
+        return names;
+    }
+
+    // Map selected channel indices to their actual names
+    for (const auto& channelVar : m_channels)
+    {
+        int channelIndex = channelVar.toInt();
+        if (channelIndex >= 0 && channelIndex < amp->available_channels.size())
+        {
+            names.append(amp->available_channels[channelIndex]);
+        }
+        else
+        {
+            names.append(QString("Ch %1").arg(channelIndex));
+        }
+    }
+
+    return names;
+}
+
 QVariantList EegBackend::channels() const
 {
     return m_channels;
