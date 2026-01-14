@@ -16,13 +16,20 @@ Rectangle {
     property real timeWindowSeconds: 10.0
 
     // Width reserved for channel labels on left side
-    readonly property int labelColumnWidth: 70
+    readonly property int labelColumnWidth: 140
 
-    // Dynamically calculated spacing based on available height
-    readonly property real availableHeight: height - 100
+    // Graph margins and plot area calculations
+    readonly property real graphMargins: 16
+    readonly property real xAxisHeight: 25  // Space for X-axis labels at bottom
+
+    // Available height for the plot area (excluding margins and X-axis)
+    readonly property real plotAreaHeight: height - (2 * graphMargins) - xAxisHeight
+    readonly property real plotAreaTop: graphMargins
+
+    // Dynamically calculated spacing based on plot area height
     readonly property real calculatedSpacing: selectedChannels.length > 1
-        ? availableHeight / (selectedChannels.length - 1)
-        : availableHeight
+        ? plotAreaHeight / (selectedChannels.length - 1)
+        : plotAreaHeight
 
     property real dynamicChannelSpacing: Math.max(calculatedSpacing, 20)
 
@@ -44,12 +51,10 @@ Rectangle {
 
         var numChannels = selectedChannels.length
         var spacing = dynamicChannelSpacing
-        var margin = spacing * 0.5
+        var margin = spacing * 0.4
 
         yAxis.min = -margin
         yAxis.max = (numChannels - 1) * spacing + margin
-
-        console.log("Updated Y axis for " + numChannels + " channels, spacing: " + spacing)
     }
 
     EegDataModel {
@@ -70,40 +75,31 @@ Rectangle {
             Repeater {
                 model: selectedChannels.length
 
-                Item {
+                Rectangle {
                     id: labelItem
-                    width: labelColumnWidth
-                    height: 20
+                    width: labelColumnWidth - 4
+                    height: 22
+                    radius: 3
+                    color: "#1a2332"
+                    border.color: "#2d3e50"
+                    border.width: 1
 
-                    // Calculate Y position to match channel position on the graph
-                    // Channel 0 is at top, channel N-1 is at bottom
-                    // Y value for channel = (numChannels - 1 - index) * spacing
-                    property real channelYValue: (selectedChannels.length - 1 - index) * dynamicChannelSpacing
-
-                    // Graph plot area boundaries (accounting for margins and X-axis labels)
-                    property real graphMargin: 16  // matches eegGraph anchors.margins
-                    property real xAxisLabelHeight: 30  // approximate space for X-axis labels
-                    property real graphTop: graphMargin
-                    property real graphBottom: eegGraphContainer.height - graphMargin - xAxisLabelHeight
-                    property real graphHeight: graphBottom - graphTop
-
-                    property real yRange: yAxis.max - yAxis.min
-                    property real normalizedY: yRange > 0 ? (channelYValue - yAxis.min) / yRange : 0.5
-                    // Invert because screen Y increases downward, but axis Y increases upward
-                    property real pixelY: graphTop + graphHeight * (1 - normalizedY) - height / 2
-
-                    y: pixelY
-                    x: 0
+                    // Simple positioning: channel 0 at top, each subsequent channel below
+                    // Using the same spacing calculation as the graph
+                    y: plotAreaTop + (index * dynamicChannelSpacing) - height / 2
+                    x: 2
 
                     Text {
-                        anchors.right: parent.right
-                        anchors.rightMargin: 8
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: channelNames[index] !== undefined ? channelNames[index] : ("Ch " + selectedChannels[index])
-                        color: "#8a9cb5"
-                        font.pixelSize: 11
-                        font.bold: false
+                        anchors.fill: parent
+                        anchors.leftMargin: 6
+                        anchors.rightMargin: 6
+                        verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignRight
+                        text: channelNames[index] !== undefined ? channelNames[index] : ("Ch " + selectedChannels[index])
+                        color: "#c8d4e3"
+                        font.pixelSize: 10
+                        font.family: "monospace"
+                        elide: Text.ElideMiddle
                     }
                 }
             }
