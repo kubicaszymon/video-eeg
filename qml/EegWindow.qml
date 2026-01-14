@@ -476,6 +476,133 @@ ApplicationWindow {
                                     }
                                 }
 
+                                // AUTO-SCALE SECTION
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+
+                                    Label {
+                                        text: "🔬 Auto Scale"
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        color: textColor
+                                    }
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        height: 1
+                                        color: "#2d3e50"
+                                    }
+
+                                    // Enable/Disable auto-scale
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 10
+
+                                        Switch {
+                                            id: autoScaleSwitch
+                                            checked: backend.autoScaleEnabled
+                                            onCheckedChanged: backend.autoScaleEnabled = checked
+                                        }
+
+                                        Label {
+                                            text: autoScaleSwitch.checked ? "Enabled" : "Disabled"
+                                            font.pixelSize: 11
+                                            color: autoScaleSwitch.checked ? successColor : textSecondary
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+
+                                    // Calibration status
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 60
+                                        color: "#1a2332"
+                                        radius: 6
+                                        border.color: backend.scaleCalibrated ? successColor : warningColor
+                                        border.width: 1
+                                        visible: backend.autoScaleEnabled
+
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 8
+                                            spacing: 4
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+
+                                                Label {
+                                                    text: backend.scaleCalibrated ? "✓ Calibrated" : "⏳ Calibrating..."
+                                                    font.pixelSize: 11
+                                                    font.bold: true
+                                                    color: backend.scaleCalibrated ? successColor : warningColor
+                                                }
+
+                                                Item { Layout.fillWidth: true }
+
+                                                Label {
+                                                    text: backend.scaleUnit
+                                                    font.pixelSize: 11
+                                                    font.bold: true
+                                                    color: accentColor
+                                                    visible: backend.scaleCalibrated
+                                                }
+                                            }
+
+                                            // Progress bar during calibration
+                                            Rectangle {
+                                                Layout.fillWidth: true
+                                                height: 4
+                                                color: "#2d3e50"
+                                                radius: 2
+                                                visible: !backend.scaleCalibrated
+
+                                                Rectangle {
+                                                    width: parent.width * (backend.calibrationProgress / 100)
+                                                    height: parent.height
+                                                    color: warningColor
+                                                    radius: 2
+
+                                                    Behavior on width {
+                                                        NumberAnimation { duration: 100 }
+                                                    }
+                                                }
+                                            }
+
+                                            // Scale factor info
+                                            Label {
+                                                text: "Scale: " + backend.scaleFactor.toFixed(2) + "x"
+                                                font.pixelSize: 10
+                                                color: textSecondary
+                                                visible: backend.scaleCalibrated
+                                            }
+
+                                            // Data range
+                                            Label {
+                                                text: "Range: " + backend.dataRangeMin.toFixed(1) + " to " + backend.dataRangeMax.toFixed(1)
+                                                font.pixelSize: 9
+                                                color: textSecondary
+                                                visible: backend.scaleCalibrated
+                                            }
+                                        }
+                                    }
+
+                                    // Reset button
+                                    Button {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 35
+                                        text: "🔄 Reset Calibration"
+                                        font.pixelSize: 10
+                                        enabled: backend.autoScaleEnabled
+                                        palette.button: "#526d82"
+                                        palette.buttonText: "white"
+
+                                        onClicked: {
+                                            backend.resetAutoScale()
+                                        }
+                                    }
+                                }
+
                                 // ACTIONS
                                 ColumnLayout {
                                     Layout.fillWidth: true
@@ -612,6 +739,20 @@ ApplicationWindow {
                         text: "📏 Spacing: " + eegGraph.dynamicChannelSpacing.toFixed(0)
                         font.pixelSize: 10
                         color: textSecondary
+                    }
+
+                    Rectangle {
+                        width: 1
+                        height: 20
+                        color: "#2d3e50"
+                    }
+
+                    Label {
+                        text: backend.autoScaleEnabled
+                            ? ("🔬 Scale: " + backend.scaleFactor.toFixed(1) + "x [" + backend.scaleUnit + "]")
+                            : "🔬 Auto-scale off"
+                        font.pixelSize: 10
+                        color: backend.scaleCalibrated ? accentColor : textSecondary
                     }
 
                     Item { Layout.fillWidth: true }

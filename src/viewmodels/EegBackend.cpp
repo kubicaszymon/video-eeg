@@ -8,6 +8,24 @@ EegBackend::EegBackend(QObject *parent)
     qInfo() << "EEGBACKEND CREATED: " << this;
     connect(amplifier_manager_, &AmplifierManager::DataReceived, this, &EegBackend::DataReceived, Qt::QueuedConnection);
     connect(amplifier_manager_, &AmplifierManager::SamplingRateDetected, this, &EegBackend::onSamplingRateDetected, Qt::QueuedConnection);
+
+    // Initialize auto-scale manager
+    m_autoScaleManager = new AutoScaleManager(this);
+
+    // Connect auto-scale signals
+    connect(m_autoScaleManager, &AutoScaleManager::scaleFactorChanged, this, [this]() {
+        emit scaleFactorChanged();
+    });
+    connect(m_autoScaleManager, &AutoScaleManager::detectedUnitChanged, this, [this]() {
+        emit scaleUnitChanged();
+    });
+    connect(m_autoScaleManager, &AutoScaleManager::calibrationStateChanged, this, [this]() {
+        emit scaleCalibrationChanged();
+    });
+    connect(m_autoScaleManager, &AutoScaleManager::calibrationProgress, this, [this](int current, int total) {
+        m_calibrationProgress = (total > 0) ? (current * 100 / total) : 0;
+        emit calibrationProgressChanged();
+    });
 }
 
 EegBackend::~EegBackend()
@@ -113,38 +131,58 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
     const double channelSpacing = m_spacing;
     const int totalChunkChannels = static_cast<int>(chunk[0].size());
 
-    // Initialize/reuse pre-allocated buffers
-    initializeBuffers(numSelectedChannels, numSamples);
-
-    // Pre-calculate offsets for each channel (from top to bottom)
-    // Channel 0 = highest, channel N-1 = lowest
-    // Combined transposition, conversion and scaling in single pass
-    for (int ch = 0; ch < numSelectedChannels; ++ch)
+    // Update channel index cache if needed
+    if (m_channelIndexCache.size() != numSelectedChannels)
     {
-        const int channelIndex = m_channelIndexCache[ch];
-
-        // Skip invalid channel indices
-        if (channelIndex < 0 || channelIndex >= totalChunkChannels)
+        m_channelIndexCache.resize(numSelectedChannels);
+        for (int i = 0; i < numSelectedChannels; ++i)
         {
-            continue;
-        }
-
-        // Pre-calculate offset for this channel
-        const double offset = (numSelectedChannels - 1 - ch) * channelSpacing;
-
-        // Direct access to output buffer
-        QVector<double>& outputChannel = m_scaledDataBuffer[ch];
-
-        // Process all samples for this channel
-        for (int sample = 0; sample < numSamples; ++sample)
-        {
-            // Combined: read float -> convert to double -> add offset
-            outputChannel.append(static_cast<double>(chunk[sample][channelIndex]) + offset);
+            m_channelIndexCache[i] = m_channels[i].toInt();
         }
     }
 
-    // Send to data model
-    m_dataModel->updateAllData(m_scaledDataBuffer);
+    if (m_autoScaleEnabled && m_autoScaleManager)
+    {
+        // Process chunk through AutoScaleManager
+        // This updates statistics and calculates optimal scaling
+        m_autoScaleManager->processChunk(chunk, m_channelIndexCache);
+
+        // Get scaled data with proper offsets
+        // AutoScaleManager applies the SAME scale factor to ALL channels
+        QVector<QVector<double>> scaledData = m_autoScaleManager->scaleChunk(
+            chunk, m_channelIndexCache, channelSpacing);
+
+        // Send to data model
+        m_dataModel->updateAllData(scaledData);
+
+        // Emit data range changed for UI updates
+        emit dataRangeChanged();
+    }
+    else
+    {
+        // Manual mode - use original behavior without auto-scaling
+        initializeBuffers(numSelectedChannels, numSamples);
+
+        for (int ch = 0; ch < numSelectedChannels; ++ch)
+        {
+            const int channelIndex = m_channelIndexCache[ch];
+
+            if (channelIndex < 0 || channelIndex >= totalChunkChannels)
+            {
+                continue;
+            }
+
+            const double offset = (numSelectedChannels - 1 - ch) * channelSpacing;
+            QVector<double>& outputChannel = m_scaledDataBuffer[ch];
+
+            for (int sample = 0; sample < numSamples; ++sample)
+            {
+                outputChannel.append(static_cast<double>(chunk[sample][channelIndex]) + offset);
+            }
+        }
+
+        m_dataModel->updateAllData(m_scaledDataBuffer);
+    }
 }
 
 QVariantList EegBackend::GetChannelNames() const
@@ -295,5 +333,76 @@ void EegBackend::setTimeWindowSeconds(double newTimeWindowSeconds)
     if (m_dataModel)
     {
         m_dataModel->setTimeWindowSeconds(m_timeWindowSeconds);
+    }
+}
+
+// Auto-scale getters and setters
+
+double EegBackend::scaleFactor() const
+{
+    return m_autoScaleManager ? m_autoScaleManager->scaleFactor() : 1.0;
+}
+
+QString EegBackend::scaleUnit() const
+{
+    return m_autoScaleManager ? m_autoScaleManager->unitString() : "?";
+}
+
+bool EegBackend::scaleCalibrated() const
+{
+    return m_autoScaleManager ? m_autoScaleManager->isCalibrated() : false;
+}
+
+int EegBackend::calibrationProgress() const
+{
+    return m_calibrationProgress;
+}
+
+double EegBackend::dataRangeMin() const
+{
+    return m_autoScaleManager ? m_autoScaleManager->globalMin() : 0.0;
+}
+
+double EegBackend::dataRangeMax() const
+{
+    return m_autoScaleManager ? m_autoScaleManager->globalMax() : 0.0;
+}
+
+bool EegBackend::autoScaleEnabled() const
+{
+    return m_autoScaleEnabled;
+}
+
+void EegBackend::setAutoScaleEnabled(bool enabled)
+{
+    if (m_autoScaleEnabled == enabled)
+        return;
+
+    m_autoScaleEnabled = enabled;
+    emit autoScaleEnabledChanged();
+
+    qDebug() << "[EegBackend] Auto-scale" << (enabled ? "enabled" : "disabled");
+
+    if (enabled && m_autoScaleManager)
+    {
+        // Reset auto-scale when re-enabling
+        m_autoScaleManager->reset();
+        emit scaleCalibrationChanged();
+        emit calibrationProgressChanged();
+    }
+}
+
+void EegBackend::resetAutoScale()
+{
+    if (m_autoScaleManager)
+    {
+        m_autoScaleManager->reset();
+        m_calibrationProgress = 0;
+        emit scaleCalibrationChanged();
+        emit calibrationProgressChanged();
+        emit scaleFactorChanged();
+        emit dataRangeChanged();
+
+        qDebug() << "[EegBackend] Auto-scale reset";
     }
 }

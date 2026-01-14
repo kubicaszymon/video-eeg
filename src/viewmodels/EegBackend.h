@@ -8,6 +8,7 @@
 #include "amplifiermodel.h"
 #include "amplifiermanager.h"
 #include "eegdatamodel.h"
+#include "autoscalemanager.h"
 
 class EegBackend : public QObject
 {
@@ -29,6 +30,15 @@ class EegBackend : public QObject
 
     // Channel names for display (read-only, derived from selected channels)
     Q_PROPERTY(QStringList channelNames READ channelNames NOTIFY channelsChanged FINAL)
+
+    // Auto-scale properties (read-only, from AutoScaleManager)
+    Q_PROPERTY(double scaleFactor READ scaleFactor NOTIFY scaleFactorChanged FINAL)
+    Q_PROPERTY(QString scaleUnit READ scaleUnit NOTIFY scaleUnitChanged FINAL)
+    Q_PROPERTY(bool scaleCalibrated READ scaleCalibrated NOTIFY scaleCalibrationChanged FINAL)
+    Q_PROPERTY(int calibrationProgress READ calibrationProgress NOTIFY calibrationProgressChanged FINAL)
+    Q_PROPERTY(double dataRangeMin READ dataRangeMin NOTIFY dataRangeChanged FINAL)
+    Q_PROPERTY(double dataRangeMax READ dataRangeMax NOTIFY dataRangeChanged FINAL)
+    Q_PROPERTY(bool autoScaleEnabled READ autoScaleEnabled WRITE setAutoScaleEnabled NOTIFY autoScaleEnabledChanged FINAL)
 
 public:
     explicit EegBackend(QObject *parent = nullptr);
@@ -59,6 +69,17 @@ public:
     double timeWindowSeconds() const;
     void setTimeWindowSeconds(double newTimeWindowSeconds);
 
+    // Auto-scale getters/setters
+    double scaleFactor() const;
+    QString scaleUnit() const;
+    bool scaleCalibrated() const;
+    int calibrationProgress() const;
+    double dataRangeMin() const;
+    double dataRangeMax() const;
+    bool autoScaleEnabled() const;
+    void setAutoScaleEnabled(bool enabled);
+    Q_INVOKABLE void resetAutoScale();
+
 public slots:
     void onSamplingRateDetected(double samplingRate);
     void DataReceived(const std::vector<std::vector<float>>& chunk);
@@ -77,6 +98,14 @@ signals:
     void samplingRateChanged();
 
     void timeWindowSecondsChanged();
+
+    // Auto-scale signals
+    void scaleFactorChanged();
+    void scaleUnitChanged();
+    void scaleCalibrationChanged();
+    void calibrationProgressChanged();
+    void dataRangeChanged();
+    void autoScaleEnabledChanged();
 
 private:
     void initializeBuffers(int numChannels, int numSamples);
@@ -97,6 +126,11 @@ private:
     QVector<int> m_channelIndexCache;
     int m_lastNumChannels = 0;
     int m_lastBufferSize = 0;
+
+    // Auto-scale manager
+    AutoScaleManager* m_autoScaleManager = nullptr;
+    bool m_autoScaleEnabled = true;
+    int m_calibrationProgress = 0;
 };
 
 #endif // EEGBACKEND_H

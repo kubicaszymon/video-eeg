@@ -57,6 +57,7 @@ qt_add_qml_module(appvideoEeg
             notes
             QML_FILES qml/EegGraph.qml
             SOURCES src/models/eegdatamodel.h src/models/eegdatamodel.cpp
+            SOURCES src/utils/autoscalemanager.h src/utils/autoscalemanager.cpp
 )
 
 target_include_directories(appvideoEeg PRIVATE
@@ -64,6 +65,7 @@ target_include_directories(appvideoEeg PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/viewmodels
     ${CMAKE_CURRENT_SOURCE_DIR}/src/models
     ${CMAKE_CURRENT_SOURCE_DIR}/src/managers
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/utils
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
