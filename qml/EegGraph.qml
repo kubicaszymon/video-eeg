@@ -120,39 +120,51 @@ Rectangle {
             }
         }
 
-        // Channel labels overlay - positioned on top of the graph
-        // Uses same spacing calculation as the data, offset from a calibrated top position
-        Repeater {
-            model: selectedChannels.length
+        // Channel labels - use Column with uniform distribution matching the graph's plot area
+        Item {
+            id: labelsContainer
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.topMargin: 16      // Same as GraphsView margins
+            anchors.bottomMargin: 41   // 16 margin + ~25 for X-axis labels
+            anchors.leftMargin: 20
+            width: 140
 
-            Rectangle {
-                id: channelLabel
-                width: 130
-                height: 20
-                radius: 3
-                color: "#dd1a2332"
-                border.color: "#2d3e50"
-                border.width: 1
+            // Position each label using the actual available space
+            Repeater {
+                model: selectedChannels.length
 
-                // Simple approach: channel 0 at top, distribute evenly using same spacing as data
-                // The top offset is calibrated to match where GraphsView places the first channel
-                property real topOffset: 50  // Calibrated offset from top of container
-                property real labelY: topOffset + (index * dynamicChannelSpacing)
+                Rectangle {
+                    width: 130
+                    height: 18
+                    radius: 3
+                    color: "#ee1a2332"
+                    border.color: "#2d3e50"
+                    border.width: 1
 
-                x: 20
-                y: labelY - height / 2
+                    // Calculate position: divide available height evenly among channels
+                    // First channel at top, last at bottom
+                    property real availableSpace: labelsContainer.height
+                    property real stepSize: selectedChannels.length > 1
+                        ? availableSpace / (selectedChannels.length - 1)
+                        : 0
 
-                Text {
-                    anchors.fill: parent
-                    anchors.leftMargin: 6
-                    anchors.rightMargin: 6
-                    verticalAlignment: Text.AlignVCenter
-                    horizontalAlignment: Text.AlignLeft
-                    text: channelNames[index] !== undefined ? channelNames[index] : ("Ch " + selectedChannels[index])
-                    color: "#e8eef5"
-                    font.pixelSize: 10
-                    font.family: "monospace"
-                    elide: Text.ElideRight
+                    x: 0
+                    y: (index * stepSize) - height / 2
+
+                    Text {
+                        anchors.fill: parent
+                        anchors.leftMargin: 6
+                        anchors.rightMargin: 6
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignLeft
+                        text: channelNames[index] !== undefined ? channelNames[index] : ("Ch " + selectedChannels[index])
+                        color: "#e8eef5"
+                        font.pixelSize: 10
+                        font.family: "monospace"
+                        elide: Text.ElideRight
+                    }
                 }
             }
         }
