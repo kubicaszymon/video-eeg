@@ -4,7 +4,6 @@
 #include <QObject>
 #include <QVariantMap>
 #include <QVector>
-#include <QElapsedTimer>
 #include <QtQml/qqmlregistration.h>
 #include "amplifiermodel.h"
 #include "amplifiermanager.h"
@@ -157,10 +156,6 @@ private:
 
     // Gain - mnożnik kontrolowany przez użytkownika (1.0 = neutralny)
     double m_gain = 1.0;
-
-    // Timer do śledzenia czasu niezależnie od chunków danych
-    QElapsedTimer m_streamTimer;
-    bool m_streamTimerStarted = false;
 };
 
 #endif // EEGBACKEND_H
