@@ -16,6 +16,15 @@ Rectangle {
     // Time window in seconds (X-axis range)
     property real timeWindowSeconds: 10.0
 
+    // Marker manager reference (set from parent)
+    property var markerManager: null
+
+    // Current time position (end of visible window)
+    property real currentTime: 0.0
+
+    // Computed start time for visible window
+    readonly property real windowStartTime: Math.max(0, currentTime - timeWindowSeconds)
+
     // Channel colors - shared between legend and graph
     readonly property var channelColors: [
         "#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4",
@@ -227,6 +236,112 @@ Rectangle {
 
                         eegGraph.addSeries(series)
                         activeSeries.push(series)
+                    }
+                }
+            }
+
+            // Marker overlay - displays markers as vertical lines with labels
+            Item {
+                id: markerOverlay
+                anchors.fill: eegGraph
+                anchors.margins: 16
+
+                // Plot area dimensions (accounting for axis labels)
+                readonly property real plotLeftMargin: 0
+                readonly property real plotTopMargin: 10
+                readonly property real plotRightMargin: 10
+                readonly property real plotBottomMargin: 30
+                readonly property real plotWidth: width - plotLeftMargin - plotRightMargin
+                readonly property real plotHeight: height - plotTopMargin - plotBottomMargin
+
+                // Get visible markers
+                property var visibleMarkers: {
+                    if (!markerManager) return []
+                    return markerManager.getMarkersInRange(windowStartTime, currentTime)
+                }
+
+                // Update markers when markerManager changes
+                Connections {
+                    target: markerManager
+                    function onMarkersChanged() {
+                        markerOverlay.visibleMarkers = markerManager ?
+                            markerManager.getMarkersInRange(windowStartTime, currentTime) : []
+                    }
+                }
+
+                Repeater {
+                    model: markerOverlay.visibleMarkers
+
+                    Item {
+                        id: markerItem
+                        visible: true
+
+                        // Calculate X position based on timestamp relative to window
+                        readonly property real relativeTime: modelData.timestamp - windowStartTime
+                        readonly property real xPos: markerOverlay.plotLeftMargin +
+                            (relativeTime / timeWindowSeconds) * markerOverlay.plotWidth
+
+                        x: xPos
+                        y: markerOverlay.plotTopMargin
+                        width: 2
+                        height: markerOverlay.plotHeight
+
+                        // Vertical line
+                        Rectangle {
+                            id: markerLine
+                            width: 2
+                            height: parent.height
+                            color: modelData.color
+                            opacity: 0.8
+                        }
+
+                        // Label background
+                        Rectangle {
+                            id: labelBackground
+                            anchors.bottom: markerLine.top
+                            anchors.bottomMargin: 2
+                            anchors.horizontalCenter: markerLine.horizontalCenter
+                            width: markerLabel.width + 8
+                            height: markerLabel.height + 4
+                            radius: 3
+                            color: modelData.color
+                            opacity: 0.9
+
+                            // Adjust position if label would go off-screen
+                            states: [
+                                State {
+                                    when: markerItem.xPos < labelBackground.width / 2
+                                    AnchorChanges {
+                                        target: labelBackground
+                                        anchors.horizontalCenter: undefined
+                                    }
+                                    PropertyChanges {
+                                        target: labelBackground
+                                        x: 0
+                                    }
+                                },
+                                State {
+                                    when: markerItem.xPos > markerOverlay.plotWidth - labelBackground.width / 2
+                                    AnchorChanges {
+                                        target: labelBackground
+                                        anchors.horizontalCenter: undefined
+                                    }
+                                    PropertyChanges {
+                                        target: labelBackground
+                                        x: -labelBackground.width + 2
+                                    }
+                                }
+                            ]
+
+                            Label {
+                                id: markerLabel
+                                anchors.centerIn: parent
+                                text: modelData.label
+                                font.pixelSize: 9
+                                font.bold: true
+                                color: "white"
+                            }
+                        }
                     }
                 }
             }

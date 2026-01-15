@@ -75,6 +75,9 @@ ApplicationWindow {
 
     function addMarker(type) {
         console.log("Marker added:", type, "at time:", recordingTime)
+        if (backend && backend.markerManager) {
+            backend.markerManager.addMarker(type, recordingTime)
+        }
     }
 
     Rectangle {
@@ -315,7 +318,7 @@ ApplicationWindow {
                                             font.pixelSize: 10
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 35
-                                            palette.button: "#2c4a6e"
+                                            palette.button: "#3498db"
                                             palette.buttonText: "white"
                                             onClicked: addMarker("eyes_open")
                                         }
@@ -325,19 +328,29 @@ ApplicationWindow {
                                             font.pixelSize: 10
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 35
-                                            palette.button: "#3d5a80"
+                                            palette.button: "#9b59b6"
                                             palette.buttonText: "white"
                                             onClicked: addMarker("eyes_closed")
                                         }
 
                                         Button {
-                                            text: "⚡ Seizure"
+                                            text: "⚡ Seizure Start"
                                             font.pixelSize: 10
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 35
-                                            palette.button: "#c0392b"
+                                            palette.button: "#e74c3c"
                                             palette.buttonText: "white"
-                                            onClicked: addMarker("seizure")
+                                            onClicked: addMarker("seizure_start")
+                                        }
+
+                                        Button {
+                                            text: "✓ Seizure Stop"
+                                            font.pixelSize: 10
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 35
+                                            palette.button: "#27ae60"
+                                            palette.buttonText: "white"
+                                            onClicked: addMarker("seizure_stop")
                                         }
 
                                         Button {
@@ -345,7 +358,7 @@ ApplicationWindow {
                                             font.pixelSize: 10
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 35
-                                            palette.button: "#7f8c8d"
+                                            palette.button: "#f39c12"
                                             palette.buttonText: "white"
                                             onClicked: addMarker("artifact")
                                         }
@@ -354,9 +367,8 @@ ApplicationWindow {
                                             text: "✏️ Custom"
                                             font.pixelSize: 10
                                             Layout.fillWidth: true
-                                            Layout.columnSpan: 2
                                             Layout.preferredHeight: 35
-                                            palette.button: "#526d82"
+                                            palette.button: "#95a5a6"
                                             palette.buttonText: "white"
                                             onClicked: addMarker("custom")
                                         }
@@ -594,6 +606,8 @@ ApplicationWindow {
                         anchors.margins: 10
                         timeWindowSeconds: timeSlider.value
                         channelNames: backend.channelNames
+                        markerManager: backend.markerManager
+                        currentTime: recordingTime
                     }
 
                     // Scale Bar - pokazuje rzeczywistą skalę sygnału

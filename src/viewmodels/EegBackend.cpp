@@ -13,6 +13,9 @@ EegBackend::EegBackend(QObject *parent)
     // Initialize auto-scale manager
     m_autoScaleManager = new AutoScaleManager(this);
 
+    // Initialize marker manager
+    m_markerManager = new MarkerManager(this);
+
     // Connect auto-scale signals
     connect(m_autoScaleManager, &AutoScaleManager::scaleFactorChanged, this, [this]() {
         emit scaleFactorChanged();

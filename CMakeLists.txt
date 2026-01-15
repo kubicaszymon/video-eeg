@@ -45,6 +45,9 @@ qt_add_qml_module(appvideoEeg
         src/managers/lslstreamreader.h
         src/managers/lslstreamreader.cpp
 
+        src/managers/markermanager.h
+        src/managers/markermanager.cpp
+
         src/globals.h
         src/globals.cpp
 
