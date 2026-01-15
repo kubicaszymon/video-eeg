@@ -50,6 +50,10 @@ class EegBackend : public QObject
     // Marker manager - do zarządzania znacznikami na wykresie
     Q_PROPERTY(MarkerManager* markerManager READ markerManager CONSTANT FINAL)
 
+    // Stream connection state - do wyświetlania loadingu
+    Q_PROPERTY(bool isConnecting READ isConnecting NOTIFY isConnectingChanged FINAL)
+    Q_PROPERTY(bool isConnected READ isConnected NOTIFY isConnectedChanged FINAL)
+
 public:
     explicit EegBackend(QObject *parent = nullptr);
     ~EegBackend();
@@ -101,7 +105,13 @@ public:
     // Marker manager getter
     MarkerManager* markerManager() const { return m_markerManager; }
 
+    // Stream connection state getters
+    bool isConnecting() const { return m_isConnecting; }
+    bool isConnected() const { return m_isConnected; }
+
 public slots:
+    void onStreamConnected();
+    void onStreamDisconnected();
     void onSamplingRateDetected(double samplingRate);
     void DataReceived(const std::vector<std::vector<float>>& chunk);
 
@@ -127,6 +137,10 @@ signals:
     void dataRangeChanged();
     void gainChanged();
     void scaleBarChanged();
+
+    // Stream connection signals
+    void isConnectingChanged();
+    void isConnectedChanged();
 
 private:
     void initializeBuffers(int numChannels, int numSamples);
@@ -156,6 +170,10 @@ private:
 
     // Gain - mnożnik kontrolowany przez użytkownika (1.0 = neutralny)
     double m_gain = 1.0;
+
+    // Stream connection state
+    bool m_isConnecting = false;
+    bool m_isConnected = false;
 };
 
 #endif // EEGBACKEND_H

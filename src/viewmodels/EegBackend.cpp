@@ -9,6 +9,8 @@ EegBackend::EegBackend(QObject *parent)
     qInfo() << "EEGBACKEND CREATED: " << this;
     connect(amplifier_manager_, &AmplifierManager::DataReceived, this, &EegBackend::DataReceived, Qt::QueuedConnection);
     connect(amplifier_manager_, &AmplifierManager::SamplingRateDetected, this, &EegBackend::onSamplingRateDetected, Qt::QueuedConnection);
+    connect(amplifier_manager_, &AmplifierManager::StreamConnected, this, &EegBackend::onStreamConnected, Qt::QueuedConnection);
+    connect(amplifier_manager_, &AmplifierManager::StreamDisconnected, this, &EegBackend::onStreamDisconnected, Qt::QueuedConnection);
 
     // Initialize auto-scale manager
     m_autoScaleManager = new AutoScaleManager(this);
@@ -44,7 +46,31 @@ void EegBackend::registerDataModel(EegDataModel *dataModel)
 
 void EegBackend::startStream()
 {
+    // Set connecting state
+    m_isConnecting = true;
+    m_isConnected = false;
+    emit isConnectingChanged();
+    emit isConnectedChanged();
+
     amplifier_manager_->StartStream(m_amplifierId);
+}
+
+void EegBackend::onStreamConnected()
+{
+    qInfo() << "[EegBackend] Stream connected!";
+    m_isConnecting = false;
+    m_isConnected = true;
+    emit isConnectingChanged();
+    emit isConnectedChanged();
+}
+
+void EegBackend::onStreamDisconnected()
+{
+    qInfo() << "[EegBackend] Stream disconnected";
+    m_isConnecting = false;
+    m_isConnected = false;
+    emit isConnectingChanged();
+    emit isConnectedChanged();
 }
 
 void EegBackend::initializeBuffers(int numChannels, int numSamples)

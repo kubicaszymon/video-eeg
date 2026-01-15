@@ -607,6 +607,165 @@ ApplicationWindow {
                         markerManager: backend.markerManager
                     }
 
+                    // Loading Overlay - pokazuje się gdy czekamy na połączenie ze streamem
+                    Rectangle {
+                        id: loadingOverlay
+                        anchors.fill: parent
+                        color: "#e00d0f12"
+                        visible: backend.isConnecting
+                        z: 100
+
+                        Behavior on opacity {
+                            NumberAnimation { duration: 300 }
+                        }
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 20
+
+                            // Spinning loader
+                            Item {
+                                width: 80
+                                height: 80
+                                anchors.horizontalCenter: parent.horizontalCenter
+
+                                Rectangle {
+                                    id: spinnerOuter
+                                    anchors.fill: parent
+                                    radius: 40
+                                    color: "transparent"
+                                    border.width: 4
+                                    border.color: "#2d3e50"
+                                }
+
+                                Rectangle {
+                                    id: spinnerArc
+                                    width: 80
+                                    height: 80
+                                    radius: 40
+                                    color: "transparent"
+                                    border.width: 4
+                                    border.color: accentColor
+
+                                    // Create arc effect with clip
+                                    layer.enabled: true
+                                    layer.effect: Item {
+                                        Rectangle {
+                                            width: 40
+                                            height: 80
+                                            color: "transparent"
+                                        }
+                                    }
+
+                                    RotationAnimation on rotation {
+                                        from: 0
+                                        to: 360
+                                        duration: 1200
+                                        loops: Animation.Infinite
+                                        running: backend.isConnecting
+                                    }
+                                }
+
+                                // Inner pulse
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 40
+                                    height: 40
+                                    radius: 20
+                                    color: accentColor
+                                    opacity: 0.3
+
+                                    SequentialAnimation on scale {
+                                        running: backend.isConnecting
+                                        loops: Animation.Infinite
+                                        NumberAnimation { from: 0.8; to: 1.2; duration: 800; easing.type: Easing.InOutQuad }
+                                        NumberAnimation { from: 1.2; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
+                                    }
+                                }
+
+                                // EEG wave icon in center
+                                Label {
+                                    anchors.centerIn: parent
+                                    text: "📊"
+                                    font.pixelSize: 24
+                                }
+                            }
+
+                            Label {
+                                text: "Connecting to EEG Stream..."
+                                font.pixelSize: 18
+                                font.bold: true
+                                color: textColor
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+
+                            Label {
+                                text: "Searching for LSL stream from amplifier"
+                                font.pixelSize: 12
+                                color: textSecondary
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+
+                            // Animated dots
+                            Row {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                spacing: 8
+
+                                Repeater {
+                                    model: 3
+
+                                    Rectangle {
+                                        width: 10
+                                        height: 10
+                                        radius: 5
+                                        color: accentColor
+
+                                        SequentialAnimation on opacity {
+                                            running: backend.isConnecting
+                                            loops: Animation.Infinite
+                                            PauseAnimation { duration: index * 200 }
+                                            NumberAnimation { from: 0.3; to: 1; duration: 400 }
+                                            NumberAnimation { from: 1; to: 0.3; duration: 400 }
+                                            PauseAnimation { duration: (2 - index) * 200 }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Tips section
+                            Rectangle {
+                                width: 350
+                                height: 70
+                                color: "#1a2332"
+                                radius: 8
+                                border.color: "#2d3e50"
+                                border.width: 1
+                                anchors.horizontalCenter: parent.horizontalCenter
+
+                                Column {
+                                    anchors.centerIn: parent
+                                    spacing: 5
+
+                                    Label {
+                                        text: "💡 Tip"
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        color: warningColor
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                    }
+
+                                    Label {
+                                        text: "Make sure the amplifier is turned on\nand properly connected"
+                                        font.pixelSize: 10
+                                        color: textSecondary
+                                        horizontalAlignment: Text.AlignHCenter
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Scale Bar - pokazuje rzeczywistą skalę sygnału
                     Rectangle {
                         id: scaleBarContainer
@@ -777,20 +936,20 @@ ApplicationWindow {
                         width: 12
                         height: 12
                         radius: 6
-                        color: successColor
+                        color: backend.isConnecting ? warningColor : (backend.isConnected ? successColor : dangerColor)
 
                         SequentialAnimation on opacity {
-                            running: true
+                            running: backend.isConnecting || backend.isConnected
                             loops: Animation.Infinite
-                            NumberAnimation { from: 1; to: 0.3; duration: 1000 }
-                            NumberAnimation { from: 0.3; to: 1; duration: 1000 }
+                            NumberAnimation { from: 1; to: 0.3; duration: backend.isConnecting ? 500 : 1000 }
+                            NumberAnimation { from: 0.3; to: 1; duration: backend.isConnecting ? 500 : 1000 }
                         }
                     }
 
                     Label {
-                        text: "Connected"
+                        text: backend.isConnecting ? "Connecting..." : (backend.isConnected ? "Connected" : "Disconnected")
                         font.pixelSize: 10
-                        color: successColor
+                        color: backend.isConnecting ? warningColor : (backend.isConnected ? successColor : dangerColor)
                         font.bold: true
                     }
                 }
