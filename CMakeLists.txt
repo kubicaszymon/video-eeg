@@ -27,40 +27,62 @@ qt_add_qml_module(appvideoEeg
     URI videoEeg
     VERSION 1.0
     QML_FILES
+        # Main screens
         qml/main.qml
         qml/MainWindow.qml
         qml/AmplifierSetupWindow.qml
         qml/EegWindow.qml
+        qml/EegGraph.qml
+
+        # Setup wizard components
+        qml/components/setup/AmplifierSelectionPage.qml
+        qml/components/setup/ChannelSelectionPage.qml
+        qml/components/setup/CameraSelectionPage.qml
+        qml/components/setup/SummaryPage.qml
+
+        # EEG window components
+        qml/components/eeg/EegToolbar.qml
+        qml/components/eeg/EegControlPanel.qml
+        qml/components/eeg/EegStatusBar.qml
+        qml/components/eeg/EegLoadingOverlay.qml
+        qml/components/eeg/EegScaleBar.qml
+        qml/components/eeg/EegPreviewOverlay.qml
+
+        # Main window components
+        qml/components/main/PatientListPanel.qml
+        qml/components/main/ExaminationCard.qml
+        qml/components/main/ExaminationsPanel.qml
 
     SOURCES
+        # ViewModels
         src/viewmodels/AmplifierSetupBackend.h
         src/viewmodels/AmplifierSetupBackend.cpp
-
         src/viewmodels/EegBackend.h
         src/viewmodels/EegBackend.cpp
 
+        # Managers
         src/managers/amplifiermanager.h
         src/managers/amplifiermanager.cpp
-
         src/managers/lslstreamreader.h
         src/managers/lslstreamreader.cpp
-
         src/managers/markermanager.h
         src/managers/markermanager.cpp
 
+        # Models
+        src/models/amplifiermodel.h
+        src/models/eegdatamodel.h
+        src/models/eegdatamodel.cpp
+
+        # Utils
+        src/utils/autoscalemanager.h
+        src/utils/autoscalemanager.cpp
+
+        # Globals
         src/globals.h
         src/globals.cpp
 
-        src/models/amplifiermodel.h
-
-
-
-
-        RESOURCES
-            notes
-            QML_FILES qml/EegGraph.qml
-            SOURCES src/models/eegdatamodel.h src/models/eegdatamodel.cpp
-            SOURCES src/utils/autoscalemanager.h src/utils/autoscalemanager.cpp
+    RESOURCES
+        notes
 )
 
 target_include_directories(appvideoEeg PRIVATE
@@ -83,17 +105,16 @@ set_target_properties(appvideoEeg PROPERTIES
 )
 
 target_link_libraries(appvideoEeg
-    PRIVATE 
+    PRIVATE
         Qt6::Quick
         Qt6::Widgets
         Qt6::PrintSupport
         Qt6::Graphs
         Qt6::GraphsWidgets
         Qt6::QuickControls2
+        Qt6::Core
         LSL::lsl
 )
-target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
-target_link_libraries(appvideoEeg PRIVATE Qt6::Core)
 
 include(GNUInstallDirs)
 install(TARGETS appvideoEeg
