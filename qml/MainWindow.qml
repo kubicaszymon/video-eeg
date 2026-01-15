@@ -14,6 +14,135 @@ Item {
     readonly property color borderColor: "#e0e6ed"
     readonly property color hoverColor: "#ecf0f1"
 
+    // ==================== INLINE COMPONENTS ====================
+
+    // SectionHeader - header bar with icon, title and optional action button
+    component SectionHeader: Rectangle {
+        property string icon: ""
+        property string title: ""
+        property string buttonText: ""
+        property color buttonColor: "#2ecc71"
+        signal buttonClicked()
+
+        Layout.fillWidth: true
+        Layout.preferredHeight: 60
+        color: sidebarColor
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 15
+            spacing: 10
+
+            Label {
+                text: icon + " " + title
+                font.pixelSize: 18
+                font.bold: true
+                color: "white"
+                Layout.fillWidth: true
+            }
+
+            Button {
+                visible: buttonText !== ""
+                text: buttonText
+                font.pixelSize: 12
+                font.bold: buttonText.length > 10
+                Layout.preferredWidth: buttonText.length > 10 ? 180 : 80
+                Layout.preferredHeight: buttonText.length > 10 ? 40 : 35
+                palette.button: buttonColor
+                palette.buttonText: "white"
+                onClicked: buttonClicked()
+            }
+        }
+    }
+
+    // PatientListItem - patient entry in the list
+    component PatientListItem: Rectangle {
+        property string patientName: ""
+        property string patientId: ""
+        property string lastExamination: ""
+
+        width: ListView.view ? ListView.view.width : parent.width
+        height: 80
+        color: itemMouseArea.containsMouse ? hoverColor : "white"
+        border.color: borderColor
+        border.width: 1
+
+        MouseArea {
+            id: itemMouseArea
+            anchors.fill: parent
+            hoverEnabled: true
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 4
+
+            Label {
+                text: patientName
+                font.pixelSize: 14
+                font.bold: true
+                color: textColor
+            }
+
+            Label {
+                text: "ID: " + patientId
+                font.pixelSize: 11
+                color: "#7f8c8d"
+            }
+
+            Label {
+                text: "Last examination: " + lastExamination
+                font.pixelSize: 11
+                color: "#7f8c8d"
+            }
+        }
+    }
+
+    // StatusBadge - status indicator badge
+    component StatusBadge: Rectangle {
+        property string status: "Completed"
+        property color badgeColor: "#d4edda"
+        property color badgeBorderColor: "#c3e6cb"
+        property color badgeTextColor: "#155724"
+
+        Layout.preferredWidth: 80
+        Layout.preferredHeight: 24
+        color: badgeColor
+        radius: 12
+        border.color: badgeBorderColor
+        border.width: 1
+
+        Label {
+            anchors.centerIn: parent
+            text: status
+            font.pixelSize: 9
+            color: badgeTextColor
+        }
+    }
+
+    // InfoRow - row with label and value in grid
+    component InfoRow: Row {
+        property string icon: ""
+        property string label: ""
+        property string value: ""
+
+        Label {
+            text: icon + " " + label + ":"
+            font.pixelSize: 11
+            color: "#7f8c8d"
+            width: 90
+        }
+
+        Label {
+            text: value
+            font.pixelSize: 11
+            color: textColor
+        }
+    }
+
+    // ==================== END INLINE COMPONENTS ====================
+
     Rectangle {
         anchors.fill: parent
         color: bgColor
@@ -37,34 +166,11 @@ Item {
                     anchors.margins: 0
                     spacing: 0
 
-                    // Patient header
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 60
-                        color: sidebarColor
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 15
-                            spacing: 10
-
-                            Label {
-                                text: "👤 Patients"
-                                font.pixelSize: 18
-                                font.bold: true
-                                color: "white"
-                                Layout.fillWidth: true
-                            }
-
-                            Button {
-                                text: "+ New"
-                                font.pixelSize: 12
-                                Layout.preferredWidth: 80
-                                Layout.preferredHeight: 35
-                                palette.button: "#2ecc71"
-                                palette.buttonText: "white"
-                            }
-                        }
+                    SectionHeader {
+                        icon: "👤"
+                        title: "Patients"
+                        buttonText: "+ New"
+                        buttonColor: "#2ecc71"
                     }
 
                     // Search bar
@@ -104,43 +210,10 @@ Item {
                             model: 8
                             spacing: 1
 
-                            delegate: Rectangle {
-                                width: ListView.view.width
-                                height: 80
-                                color: mouseArea.containsMouse ? hoverColor : "white"
-                                border.color: borderColor
-                                border.width: 1
-
-                                MouseArea {
-                                    id: mouseArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                }
-
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 12
-                                    spacing: 4
-
-                                    Label {
-                                        text: "Jan Kowalski"
-                                        font.pixelSize: 14
-                                        font.bold: true
-                                        color: textColor
-                                    }
-
-                                    Label {
-                                        text: "ID: 85010112345"
-                                        font.pixelSize: 11
-                                        color: "#7f8c8d"
-                                    }
-
-                                    Label {
-                                        text: "Last examination: 10.01.2025"
-                                        font.pixelSize: 11
-                                        color: "#7f8c8d"
-                                    }
-                                }
+                            delegate: PatientListItem {
+                                patientName: "Jan Kowalski"
+                                patientId: "85010112345"
+                                lastExamination: "10.01.2025"
                             }
                         }
                     }
@@ -158,39 +231,12 @@ Item {
                     anchors.margins: 0
                     spacing: 0
 
-                    // Examinations header
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 60
-                        color: sidebarColor
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 15
-                            spacing: 10
-
-                            Label {
-                                text: "📊 EEG Examinations"
-                                font.pixelSize: 18
-                                font.bold: true
-                                color: "white"
-                                Layout.fillWidth: true
-                            }
-
-                            Button {
-                                text: "⚡ New EEG Examination"
-                                font.pixelSize: 12
-                                font.bold: true
-                                Layout.preferredWidth: 180
-                                Layout.preferredHeight: 40
-                                palette.button: accentColor
-                                palette.buttonText: "white"
-
-                                onClicked: {
-                                    amplifierSetupWindow.show()
-                                }
-                            }
-                        }
+                    SectionHeader {
+                        icon: "📊"
+                        title: "EEG Examinations"
+                        buttonText: "⚡ New EEG Examination"
+                        buttonColor: accentColor
+                        onButtonClicked: amplifierSetupWindow.show()
                     }
 
                     // Filters bar
@@ -317,20 +363,8 @@ Item {
                                                 }
                                             }
 
-                                            Rectangle {
-                                                Layout.preferredWidth: 80
-                                                Layout.preferredHeight: 24
-                                                color: "#d4edda"
-                                                radius: 12
-                                                border.color: "#c3e6cb"
-                                                border.width: 1
-
-                                                Label {
-                                                    anchors.centerIn: parent
-                                                    text: "Completed"
-                                                    font.pixelSize: 9
-                                                    color: "#155724"
-                                                }
+                                            StatusBadge {
+                                                status: "Completed"
                                             }
                                         }
 

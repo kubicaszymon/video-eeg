@@ -30,6 +30,107 @@ ApplicationWindow {
     readonly property color textColor: "#e8eef5"
     readonly property color textSecondary: "#8a9cb5"
 
+    // ==================== INLINE COMPONENTS ====================
+
+    // ControlSection - section with title and separator in left panel
+    component ControlSection: ColumnLayout {
+        property string title: ""
+        property alias content: contentLoader.sourceComponent
+
+        Layout.fillWidth: true
+        spacing: 10
+
+        Label {
+            text: title
+            font.pixelSize: 13
+            font.bold: true
+            color: textColor
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            height: 1
+            color: "#2d3e50"
+        }
+
+        Loader {
+            id: contentLoader
+            Layout.fillWidth: true
+        }
+    }
+
+    // ParameterSlider - slider with label and value display
+    component ParameterSlider: ColumnLayout {
+        property string icon: ""
+        property string label: ""
+        property string unit: ""
+        property string description: ""
+        property alias slider: sliderControl
+        property real displayValue: sliderControl.value
+
+        Layout.fillWidth: true
+        spacing: 5
+
+        RowLayout {
+            Layout.fillWidth: true
+
+            Label {
+                text: icon + " " + label + ":"
+                font.pixelSize: 11
+                color: textSecondary
+                Layout.fillWidth: true
+            }
+
+            Label {
+                text: displayValue.toFixed(unit === "x" ? 2 : 0) + unit
+                font.pixelSize: 11
+                font.bold: true
+                color: accentColor
+            }
+        }
+
+        Slider {
+            id: sliderControl
+            Layout.fillWidth: true
+        }
+
+        Label {
+            visible: description !== ""
+            text: description
+            font.pixelSize: 9
+            color: textSecondary
+            Layout.fillWidth: true
+        }
+    }
+
+    // MarkerButton - colored button for event markers
+    component MarkerButton: Button {
+        property string markerType: ""
+        property color buttonColor: "#3498db"
+
+        font.pixelSize: 10
+        Layout.fillWidth: true
+        Layout.preferredHeight: 35
+        palette.button: buttonColor
+        palette.buttonText: "white"
+        onClicked: addMarker(markerType)
+    }
+
+    // StatusDivider - vertical divider in status bar
+    component StatusDivider: Rectangle {
+        width: 1
+        height: 20
+        color: "#2d3e50"
+    }
+
+    // StatusLabel - label in status bar
+    component StatusLabel: Label {
+        font.pixelSize: 10
+        color: textSecondary
+    }
+
+    // ==================== END INLINE COMPONENTS ====================
+
     EegBackend {
         id: backend
         amplifierId: eegWindow.amplifierId
@@ -220,305 +321,218 @@ ApplicationWindow {
                                 spacing: 15
 
                                 // RECORDING CONTROL
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
+                                ControlSection {
+                                    title: "⏺ Recording Control"
+                                    content: ColumnLayout {
+                                        spacing: 8
 
-                                    Label {
-                                        text: "⏺ Recording Control"
-                                        font.pixelSize: 13
-                                        font.bold: true
-                                        color: textColor
-                                    }
+                                        Button {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 45
+                                            text: isRecording ? "⏹ Stop" : "⏺ Start Recording"
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                            palette.button: isRecording ? dangerColor : successColor
+                                            palette.buttonText: "white"
 
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        height: 1
-                                        color: "#2d3e50"
-                                    }
-
-                                    Button {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 45
-                                        text: isRecording ? "⏹ Stop" : "⏺ Start Recording"
-                                        font.pixelSize: 12
-                                        font.bold: true
-                                        palette.button: isRecording ? dangerColor : successColor
-                                        palette.buttonText: "white"
-
-                                        onClicked: {
-                                            if (isRecording) {
-                                                isRecording = false
-                                                isPaused = false
-                                                recordingTime = 0
-                                            } else {
-                                                isRecording = true
-                                                isPaused = false
-                                                recordingTime = 0
+                                            onClicked: {
+                                                if (isRecording) {
+                                                    isRecording = false
+                                                    isPaused = false
+                                                    recordingTime = 0
+                                                } else {
+                                                    isRecording = true
+                                                    isPaused = false
+                                                    recordingTime = 0
+                                                }
                                             }
                                         }
-                                    }
 
-                                    Button {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 40
-                                        text: isPaused ? "▶ Resume" : "⏸ Pause"
-                                        font.pixelSize: 11
-                                        enabled: isRecording
-                                        palette.button: warningColor
-                                        palette.buttonText: "white"
-
-                                        onClicked: {
-                                            isPaused = !isPaused
+                                        Button {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 40
+                                            text: isPaused ? "▶ Resume" : "⏸ Pause"
+                                            font.pixelSize: 11
+                                            enabled: isRecording
+                                            palette.button: warningColor
+                                            palette.buttonText: "white"
+                                            onClicked: isPaused = !isPaused
                                         }
-                                    }
 
-                                    Button {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 40
-                                        text: "🧪 Generate Test Data"
-                                        font.pixelSize: 11
-                                        palette.button: accentColor
-                                        palette.buttonText: "white"
-
-                                        onClicked: {
-                                            backend.generateTestData()
+                                        Button {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 40
+                                            text: "🧪 Generate Test Data"
+                                            font.pixelSize: 11
+                                            palette.button: accentColor
+                                            palette.buttonText: "white"
+                                            onClicked: backend.generateTestData()
                                         }
                                     }
                                 }
 
                                 // EVENT MARKERS
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-
-                                    Label {
-                                        text: "🏷️ Event Markers"
-                                        font.pixelSize: 13
-                                        font.bold: true
-                                        color: textColor
-                                    }
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        height: 1
-                                        color: "#2d3e50"
-                                    }
-
-                                    GridLayout {
-                                        Layout.fillWidth: true
+                                ControlSection {
+                                    title: "🏷️ Event Markers"
+                                    content: GridLayout {
                                         columns: 2
                                         columnSpacing: 8
                                         rowSpacing: 8
 
-                                        Button {
+                                        MarkerButton {
                                             text: "👁️ Eyes Open"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#3498db"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("eyes_open")
+                                            markerType: "eyes_open"
+                                            buttonColor: "#3498db"
                                         }
 
-                                        Button {
+                                        MarkerButton {
                                             text: "😴 Eyes Closed"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#9b59b6"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("eyes_closed")
+                                            markerType: "eyes_closed"
+                                            buttonColor: "#9b59b6"
                                         }
 
-                                        Button {
+                                        MarkerButton {
                                             text: "⚡ Seizure Start"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#e74c3c"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("seizure_start")
+                                            markerType: "seizure_start"
+                                            buttonColor: "#e74c3c"
                                         }
 
-                                        Button {
+                                        MarkerButton {
                                             text: "✓ Seizure Stop"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#27ae60"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("seizure_stop")
+                                            markerType: "seizure_stop"
+                                            buttonColor: "#27ae60"
                                         }
 
-                                        Button {
+                                        MarkerButton {
                                             text: "⚠️ Artifact"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#f39c12"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("artifact")
+                                            markerType: "artifact"
+                                            buttonColor: "#f39c12"
                                         }
 
-                                        Button {
+                                        MarkerButton {
                                             text: "✏️ Custom"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#95a5a6"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("custom")
+                                            markerType: "custom"
+                                            buttonColor: "#95a5a6"
                                         }
                                     }
                                 }
 
                                 // DISPLAY PARAMETERS
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
+                                ControlSection {
+                                    title: "⚙️ Display Parameters"
+                                    content: ColumnLayout {
+                                        spacing: 10
 
-                                    Label {
-                                        text: "⚙️ Display Parameters"
-                                        font.pixelSize: 13
-                                        font.bold: true
-                                        color: textColor
-                                    }
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        height: 1
-                                        color: "#2d3e50"
-                                    }
-
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 5
-
-                                        RowLayout {
+                                        ColumnLayout {
                                             Layout.fillWidth: true
+                                            spacing: 5
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+
+                                                Label {
+                                                    text: "⏱️ Time Window:"
+                                                    font.pixelSize: 11
+                                                    color: textSecondary
+                                                    Layout.fillWidth: true
+                                                }
+
+                                                Label {
+                                                    text: timeSlider.value.toFixed(0) + "s"
+                                                    font.pixelSize: 11
+                                                    font.bold: true
+                                                    color: accentColor
+                                                }
+                                            }
+
+                                            Slider {
+                                                id: timeSlider
+                                                Layout.fillWidth: true
+                                                from: 5
+                                                to: 30
+                                                value: 10
+                                                stepSize: 1
+                                            }
+                                        }
+
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 5
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+
+                                                Label {
+                                                    text: "📈 Gain:"
+                                                    font.pixelSize: 11
+                                                    color: textSecondary
+                                                    Layout.fillWidth: true
+                                                }
+
+                                                Label {
+                                                    text: amplitudeSlider.value.toFixed(2) + "x"
+                                                    font.pixelSize: 11
+                                                    font.bold: true
+                                                    color: accentColor
+                                                }
+                                            }
+
+                                            Slider {
+                                                id: amplitudeSlider
+                                                Layout.fillWidth: true
+                                                from: 0.1
+                                                to: 5.0
+                                                value: backend.gain
+                                                stepSize: 0.1
+                                                onValueChanged: backend.gain = value
+                                            }
 
                                             Label {
-                                                text: "⏱️ Time Window:"
-                                                font.pixelSize: 11
+                                                text: "Increases/decreases signal amplitude"
+                                                font.pixelSize: 9
                                                 color: textSecondary
                                                 Layout.fillWidth: true
                                             }
+                                        }
 
-                                            Label {
-                                                text: timeSlider.value.toFixed(0) + "s"
-                                                font.pixelSize: 11
-                                                font.bold: true
-                                                color: accentColor
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 5
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+
+                                                Label {
+                                                    text: "📏 Channel Spacing:"
+                                                    font.pixelSize: 11
+                                                    color: textSecondary
+                                                    Layout.fillWidth: true
+                                                }
+
+                                                Label {
+                                                    text: eegGraph.dynamicChannelSpacing.toFixed(0) + " (auto)"
+                                                    font.pixelSize: 11
+                                                    font.bold: true
+                                                    color: accentColor
+                                                }
                                             }
-                                        }
-
-                                        Slider {
-                                            id: timeSlider
-                                            Layout.fillWidth: true
-                                            from: 5
-                                            to: 30
-                                            value: 10
-                                            stepSize: 1
-                                        }
-                                    }
-
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 5
-
-                                        RowLayout {
-                                            Layout.fillWidth: true
 
                                             Label {
-                                                text: "📈 Gain:"
-                                                font.pixelSize: 11
+                                                text: "Automatically adjusted for " + channelCount + " channels"
+                                                font.pixelSize: 9
                                                 color: textSecondary
                                                 Layout.fillWidth: true
                                             }
-
-                                            Label {
-                                                text: amplitudeSlider.value.toFixed(2) + "x"
-                                                font.pixelSize: 11
-                                                font.bold: true
-                                                color: accentColor
-                                            }
-                                        }
-
-                                        Slider {
-                                            id: amplitudeSlider
-                                            Layout.fillWidth: true
-                                            from: 0.1
-                                            to: 5.0
-                                            value: backend.gain
-                                            stepSize: 0.1
-
-                                            onValueChanged: {
-                                                backend.gain = value
-                                            }
-                                        }
-
-                                        Label {
-                                            text: "Increases/decreases signal amplitude"
-                                            font.pixelSize: 9
-                                            color: textSecondary
-                                            Layout.fillWidth: true
-                                        }
-                                    }
-
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 5
-
-                                        RowLayout {
-                                            Layout.fillWidth: true
-
-                                            Label {
-                                                text: "📏 Channel Spacing:"
-                                                font.pixelSize: 11
-                                                color: textSecondary
-                                                Layout.fillWidth: true
-                                            }
-
-                                            Label {
-                                                text: eegGraph.dynamicChannelSpacing.toFixed(0) + " (auto)"
-                                                font.pixelSize: 11
-                                                font.bold: true
-                                                color: accentColor
-                                            }
-                                        }
-
-                                        Label {
-                                            text: "Automatically adjusted for " + channelCount + " channels"
-                                            font.pixelSize: 9
-                                            color: textSecondary
-                                            Layout.fillWidth: true
                                         }
                                     }
                                 }
 
                                 // SCALE INFO SECTION
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-
-                                    Label {
-                                        text: "🔬 Scale Info"
-                                        font.pixelSize: 13
-                                        font.bold: true
-                                        color: textColor
-                                    }
-
-                                    Rectangle {
+                                ControlSection {
+                                    title: "🔬 Scale Info"
+                                    content: Rectangle {
                                         Layout.fillWidth: true
-                                        height: 1
-                                        color: "#2d3e50"
-                                    }
-
-                                    // Scale info - pokazuje się gdy są dane
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 50
+                                        implicitHeight: 50
                                         color: "#1a2332"
                                         radius: 6
                                         border.color: backend.scaleCalibrated ? "#2d3e50" : warningColor
@@ -558,7 +572,6 @@ ApplicationWindow {
                                             }
                                         }
                                     }
-
                                 }
 
                                 // ACTIONS
@@ -579,10 +592,7 @@ ApplicationWindow {
                                         Layout.preferredHeight: 40
                                         palette.button: dangerColor
                                         palette.buttonText: "white"
-
-                                        onClicked: {
-                                            eegWindow.close()
-                                        }
+                                        onClicked: eegWindow.close()
                                     }
                                 }
 
@@ -874,53 +884,17 @@ ApplicationWindow {
                     anchors.rightMargin: 15
                     spacing: 20
 
-                    Label {
-                        text: "🔌 Amplifier: " + (amplifierId || "Unknown")
-                        font.pixelSize: 10
-                        color: textSecondary
-                    }
+                    StatusLabel { text: "🔌 Amplifier: " + (amplifierId || "Unknown") }
+                    StatusDivider {}
 
-                    Rectangle {
-                        width: 1
-                        height: 20
-                        color: "#2d3e50"
-                    }
+                    StatusLabel { text: "📊 Frequency: " + (backend.samplingRate > 0 ? backend.samplingRate.toFixed(0) + " Hz" : "detecting...") }
+                    StatusDivider {}
 
-                    Label {
-                        text: "📊 Frequency: " + (backend.samplingRate > 0 ? backend.samplingRate.toFixed(0) + " Hz" : "detecting...")
-                        font.pixelSize: 10
-                        color: textSecondary
-                    }
+                    StatusLabel { text: "💾 Buffer: " + eegGraph.dataModel.maxSamples + " samples (" + timeSlider.value.toFixed(0) + "s)" }
+                    StatusDivider {}
 
-                    Rectangle {
-                        width: 1
-                        height: 20
-                        color: "#2d3e50"
-                    }
-
-                    Label {
-                        text: "💾 Buffer: " + eegGraph.dataModel.maxSamples + " samples (" + timeSlider.value.toFixed(0) + "s)"
-                        font.pixelSize: 10
-                        color: textSecondary
-                    }
-
-                    Rectangle {
-                        width: 1
-                        height: 20
-                        color: "#2d3e50"
-                    }
-
-                    Label {
-                        text: "📏 Spacing: " + eegGraph.dynamicChannelSpacing.toFixed(0)
-                        font.pixelSize: 10
-                        color: textSecondary
-                    }
-
-                    Rectangle {
-                        width: 1
-                        height: 20
-                        color: "#2d3e50"
-                    }
+                    StatusLabel { text: "📏 Spacing: " + eegGraph.dynamicChannelSpacing.toFixed(0) }
+                    StatusDivider {}
 
                     Label {
                         text: backend.scaleCalibrated

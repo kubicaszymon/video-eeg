@@ -32,6 +32,309 @@ Window {
     readonly property color borderColor: "#e0e6ed"
     readonly property color hoverColor: "#ecf0f1"
 
+    // ==================== INLINE COMPONENTS ====================
+
+    // InfoBanner - information/warning banner at top of pages
+    component InfoBanner: Rectangle {
+        property string icon: "ℹ️"
+        property string message: ""
+        property color bannerColor: "#e8f4f8"
+        property color bannerBorderColor: "#bee5eb"
+        property color bannerTextColor: "#0c5460"
+
+        Layout.fillWidth: true
+        Layout.preferredHeight: 60
+        color: bannerColor
+        radius: 8
+        border.color: bannerBorderColor
+        border.width: 1
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 15
+            spacing: 12
+
+            Label {
+                text: icon
+                font.pixelSize: 24
+            }
+
+            Label {
+                text: message
+                font.pixelSize: 12
+                color: bannerTextColor
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+            }
+        }
+    }
+
+    // SuccessBanner - green success banner with title and subtitle
+    component SuccessBanner: Rectangle {
+        property string title: ""
+        property string subtitle: ""
+
+        Layout.fillWidth: true
+        Layout.preferredHeight: 60
+        color: "#d4edda"
+        radius: 8
+        border.color: "#c3e6cb"
+        border.width: 1
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 15
+            spacing: 12
+
+            Label {
+                text: "✓"
+                font.pixelSize: 20
+                font.bold: true
+                color: "#155724"
+            }
+
+            ColumnLayout {
+                spacing: 2
+                Layout.fillWidth: true
+
+                Label {
+                    text: title
+                    font.pixelSize: 12
+                    font.bold: true
+                    color: "#155724"
+                }
+
+                Label {
+                    text: subtitle
+                    font.pixelSize: 11
+                    color: "#155724"
+                }
+            }
+        }
+    }
+
+    // SectionHeader - header with icon, title and count
+    component SectionHeader: RowLayout {
+        property string icon: ""
+        property string title: ""
+        property int count: 0
+
+        Layout.fillWidth: true
+
+        Label {
+            text: icon + " " + title
+            font.pixelSize: 16
+            font.bold: true
+            color: textColor
+            Layout.fillWidth: true
+        }
+
+        Label {
+            text: count + " found"
+            font.pixelSize: 12
+            color: "#7f8c8d"
+        }
+    }
+
+    // DeviceCard - selectable card for devices (amplifiers, cameras)
+    component DeviceCard: Rectangle {
+        property string icon: "⚡"
+        property string deviceName: ""
+        property string deviceInfo: ""
+        property bool isSelected: false
+
+        signal clicked()
+
+        width: ListView.view ? ListView.view.width : parent.width
+        height: 80
+        color: isSelected ? "#e8f4f8" : cardColor
+        radius: 6
+        border.color: isSelected ? accentColor : borderColor
+        border.width: isSelected ? 2 : 1
+
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            onEntered: parent.color = isSelected ? "#e8f4f8" : hoverColor
+            onExited: parent.color = isSelected ? "#e8f4f8" : cardColor
+            onClicked: parent.clicked()
+        }
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 15
+            spacing: 15
+
+            Rectangle {
+                Layout.preferredWidth: 50
+                Layout.preferredHeight: 50
+                radius: 25
+                color: isSelected ? accentColor : "#ecf0f1"
+
+                Label {
+                    anchors.centerIn: parent
+                    text: icon
+                    font.pixelSize: 24
+                    color: isSelected ? "white" : textColor
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
+
+                Label {
+                    text: deviceName
+                    font.pixelSize: 14
+                    font.bold: true
+                    color: textColor
+                }
+
+                Label {
+                    text: deviceInfo
+                    font.pixelSize: 11
+                    color: "#7f8c8d"
+                }
+            }
+
+            Rectangle {
+                visible: isSelected
+                Layout.preferredWidth: 24
+                Layout.preferredHeight: 24
+                radius: 12
+                color: successColor
+
+                Label {
+                    anchors.centerIn: parent
+                    text: "✓"
+                    font.pixelSize: 14
+                    font.bold: true
+                    color: "white"
+                }
+            }
+        }
+    }
+
+    // SummaryCard - card for displaying summary information
+    component SummaryCard: Rectangle {
+        property string icon: ""
+        property string title: ""
+        property alias contentItem: contentLoader.sourceComponent
+
+        Layout.fillWidth: true
+        implicitHeight: cardContent.implicitHeight + 30
+        color: cardColor
+        radius: 8
+        border.color: borderColor
+        border.width: 1
+
+        ColumnLayout {
+            id: cardContent
+            anchors.fill: parent
+            anchors.margins: 15
+            spacing: 8
+
+            Label {
+                text: icon + " " + title
+                font.pixelSize: 14
+                font.bold: true
+                color: textColor
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: borderColor
+            }
+
+            Loader {
+                id: contentLoader
+                Layout.fillWidth: true
+            }
+        }
+    }
+
+    // NavigationBar - bottom navigation with Back, Cancel, Next buttons
+    component NavigationBar: RowLayout {
+        property bool showBack: true
+        property bool showRefresh: false
+        property string refreshText: "🔄 Refresh"
+        property bool refreshEnabled: true
+        property string nextText: "Next →"
+        property bool nextEnabled: true
+        property color nextColor: accentColor
+        property string middleText: ""
+
+        signal backClicked()
+        signal cancelClicked()
+        signal nextClicked()
+        signal refreshClicked()
+
+        Layout.fillWidth: true
+        spacing: 15
+
+        Button {
+            visible: showRefresh
+            text: refreshText
+            font.pixelSize: 13
+            enabled: refreshEnabled
+            Layout.preferredWidth: 140
+            Layout.preferredHeight: 45
+            palette.button: "#95a5a6"
+            palette.buttonText: "white"
+            onClicked: refreshClicked()
+        }
+
+        Button {
+            visible: showBack && !showRefresh
+            text: "← Back"
+            font.pixelSize: 13
+            Layout.preferredWidth: 120
+            Layout.preferredHeight: 45
+            onClicked: backClicked()
+        }
+
+        Item { Layout.fillWidth: true }
+
+        Label {
+            visible: middleText !== ""
+            text: middleText
+            font.pixelSize: 12
+            color: "#7f8c8d"
+        }
+
+        Button {
+            visible: showBack && showRefresh
+            text: "← Back"
+            font.pixelSize: 13
+            Layout.preferredWidth: 120
+            Layout.preferredHeight: 45
+            onClicked: backClicked()
+        }
+
+        Button {
+            text: "Cancel"
+            font.pixelSize: 13
+            Layout.preferredWidth: 100
+            Layout.preferredHeight: 45
+            onClicked: cancelClicked()
+        }
+
+        Button {
+            text: nextText
+            font.pixelSize: 13
+            font.bold: true
+            enabled: nextEnabled
+            Layout.preferredWidth: nextText.length > 10 ? 180 : 120
+            Layout.preferredHeight: 45
+            palette.button: nextColor
+            palette.buttonText: "white"
+            onClicked: nextClicked()
+        }
+    }
+
+    // ==================== END INLINE COMPONENTS ====================
+
     AmplifierSetupBackend {
         id: backend
 
@@ -270,32 +573,9 @@ Window {
                 anchors.margins: 30
                 spacing: 20
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 60
-                    color: "#e8f4f8"
-                    radius: 8
-                    border.color: "#bee5eb"
-                    border.width: 1
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 12
-
-                        Label {
-                            text: "ℹ️"
-                            font.pixelSize: 24
-                        }
-
-                        Label {
-                            text: "Make sure the amplifier is turned on and connected to the computer"
-                            font.pixelSize: 12
-                            color: "#0c5460"
-                            Layout.fillWidth: true
-                            wrapMode: Text.WordWrap
-                        }
-                    }
+                InfoBanner {
+                    icon: "ℹ️"
+                    message: "Make sure the amplifier is turned on and connected to the computer"
                 }
 
                 Rectangle {
@@ -311,22 +591,10 @@ Window {
                         anchors.margins: 20
                         spacing: 15
 
-                        RowLayout {
-                            Layout.fillWidth: true
-
-                            Label {
-                                text: "🔌 Detected Amplifiers"
-                                font.pixelSize: 16
-                                font.bold: true
-                                color: textColor
-                                Layout.fillWidth: true
-                            }
-
-                            Label {
-                                text: backend.availableAmplifiers.length + " found"
-                                font.pixelSize: 12
-                                color: "#7f8c8d"
-                            }
+                        SectionHeader {
+                            icon: "🔌"
+                            title: "Detected Amplifiers"
+                            count: backend.availableAmplifiers.length
                         }
 
                         Rectangle {
@@ -345,77 +613,12 @@ Window {
                                 model: backend.availableAmplifiers
                                 spacing: 10
 
-                                delegate: Rectangle {
-                                    width: ListView.view.width
-                                    height: 80
-                                    color: backend.selectedAmplifierIndex === index ? "#e8f4f8" : cardColor
-                                    radius: 6
-                                    border.color: backend.selectedAmplifierIndex === index ? accentColor : borderColor
-                                    border.width: backend.selectedAmplifierIndex === index ? 2 : 1
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onEntered: parent.color = backend.selectedAmplifierIndex === index ? "#e8f4f8" : hoverColor
-                                        onExited: parent.color = backend.selectedAmplifierIndex === index ? "#e8f4f8" : cardColor
-                                        onClicked: {
-                                            backend.selectedAmplifierIndex = index
-                                        }
-                                    }
-
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.margins: 15
-                                        spacing: 15
-
-                                        Rectangle {
-                                            Layout.preferredWidth: 50
-                                            Layout.preferredHeight: 50
-                                            radius: 25
-                                            color: backend.selectedAmplifierIndex === index ? accentColor : "#ecf0f1"
-
-                                            Label {
-                                                anchors.centerIn: parent
-                                                text: "⚡"
-                                                font.pixelSize: 24
-                                                color: backend.selectedAmplifierIndex === index ? "white" : textColor
-                                            }
-                                        }
-
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 4
-
-                                            Label {
-                                                text: modelData
-                                                font.pixelSize: 14
-                                                font.bold: true
-                                                color: textColor
-                                            }
-
-                                            Label {
-                                                text: "Virtual Amplifier • Ready"
-                                                font.pixelSize: 11
-                                                color: "#7f8c8d"
-                                            }
-                                        }
-
-                                        Rectangle {
-                                            visible: backend.selectedAmplifierIndex === index
-                                            Layout.preferredWidth: 24
-                                            Layout.preferredHeight: 24
-                                            radius: 12
-                                            color: successColor
-
-                                            Label {
-                                                anchors.centerIn: parent
-                                                text: "✓"
-                                                font.pixelSize: 14
-                                                font.bold: true
-                                                color: "white"
-                                            }
-                                        }
-                                    }
+                                delegate: DeviceCard {
+                                    icon: "⚡"
+                                    deviceName: modelData
+                                    deviceInfo: "Virtual Amplifier • Ready"
+                                    isSelected: backend.selectedAmplifierIndex === index
+                                    onClicked: backend.selectedAmplifierIndex = index
                                 }
 
                                 Label {
@@ -431,52 +634,23 @@ Window {
                     }
                 }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 15
+                NavigationBar {
+                    showBack: false
+                    showRefresh: true
+                    refreshText: "🔄 Refresh"
+                    refreshEnabled: !window.loading
+                    nextEnabled: backend.selectedAmplifierIndex !== -1
 
-                    Button {
-                        text: "🔄 Refresh"
-                        font.pixelSize: 13
-                        enabled: !window.loading
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 45
-                        palette.button: "#95a5a6"
-                        palette.buttonText: "white"
-
-                        onClicked: {
-                            Globals.status = Globals.Loading
-                            timer.restart()
-                            backend.refreshAmplifiersList()
-                        }
+                    onRefreshClicked: {
+                        Globals.status = Globals.Loading
+                        timer.restart()
+                        backend.refreshAmplifiersList()
                     }
-
-                    Item { Layout.fillWidth: true }
-
-                    Button {
-                        text: "Cancel"
-                        font.pixelSize: 13
-                        Layout.preferredWidth: 100
-                        Layout.preferredHeight: 45
-
-                        onClicked: {
-                            rejected()
-                            window.close()
-                        }
+                    onCancelClicked: {
+                        rejected()
+                        window.close()
                     }
-
-                    Button {
-                        text: "Next →"
-                        font.pixelSize: 13
-                        font.bold: true
-                        enabled: backend.selectedAmplifierIndex !== -1
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 45
-                        palette.button: accentColor
-                        palette.buttonText: "white"
-
-                        onClicked: stackView.push(channelSelectionPage)
-                    }
+                    onNextClicked: stackView.push(channelSelectionPage)
                 }
             }
         }
@@ -494,44 +668,9 @@ Window {
                 anchors.margins: 30
                 spacing: 20
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 60
-                    color: "#d4edda"
-                    radius: 8
-                    border.color: "#c3e6cb"
-                    border.width: 1
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 12
-
-                        Label {
-                            text: "✓"
-                            font.pixelSize: 20
-                            font.bold: true
-                            color: "#155724"
-                        }
-
-                        ColumnLayout {
-                            spacing: 2
-                            Layout.fillWidth: true
-
-                            Label {
-                                text: "Selected amplifier: " + backend.availableAmplifiers[backend.selectedAmplifierIndex]
-                                font.pixelSize: 12
-                                font.bold: true
-                                color: "#155724"
-                            }
-
-                            Label {
-                                text: backend.currentChannels.length + " available channels"
-                                font.pixelSize: 11
-                                color: "#155724"
-                            }
-                        }
-                    }
+                SuccessBanner {
+                    title: "Selected amplifier: " + backend.availableAmplifiers[backend.selectedAmplifierIndex]
+                    subtitle: backend.currentChannels.length + " available channels"
                 }
 
                 Rectangle {
@@ -578,9 +717,7 @@ Window {
                                     text: "Select all"
                                     font.pixelSize: 11
                                     checked: false
-                                    onClicked: {
-                                        selectAllChannels(checked)
-                                    }
+                                    onClicked: selectAllChannels(checked)
                                 }
                             }
                         }
@@ -610,9 +747,7 @@ Window {
 
                                     MouseArea {
                                         anchors.fill: parent
-                                        onClicked: {
-                                            toggleChannel(index)
-                                        }
+                                        onClicked: toggleChannel(index)
                                     }
 
                                     RowLayout {
@@ -637,9 +772,7 @@ Window {
 
                                         CheckBox {
                                             checked: channelSelectionModel[index] || false
-                                            onClicked: {
-                                                toggleChannel(index)
-                                            }
+                                            onClicked: toggleChannel(index)
                                         }
                                     }
                                 }
@@ -648,48 +781,17 @@ Window {
                     }
                 }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 15
+                NavigationBar {
+                    showBack: true
+                    middleText: getSelectedChannelsCount() + " / " + backend.currentChannels.length + " selected"
+                    nextEnabled: getSelectedChannelsCount() > 0
 
-                    Button {
-                        text: "← Back"
-                        font.pixelSize: 13
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 45
-                        onClicked: stackView.pop()
+                    onBackClicked: stackView.pop()
+                    onCancelClicked: {
+                        rejected()
+                        window.close()
                     }
-
-                    Item { Layout.fillWidth: true }
-
-                    Label {
-                        text: getSelectedChannelsCount() + " / " + backend.currentChannels.length + " selected"
-                        font.pixelSize: 12
-                        color: "#7f8c8d"
-                    }
-
-                    Button {
-                        text: "Cancel"
-                        font.pixelSize: 13
-                        Layout.preferredWidth: 100
-                        Layout.preferredHeight: 45
-                        onClicked: {
-                            rejected()
-                            window.close()
-                        }
-                    }
-
-                    Button {
-                        text: "Next →"
-                        font.pixelSize: 13
-                        font.bold: true
-                        enabled: getSelectedChannelsCount() > 0
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 45
-                        palette.button: accentColor
-                        palette.buttonText: "white"
-                        onClicked: stackView.push(cameraSelectionPage)
-                    }
+                    onNextClicked: stackView.push(cameraSelectionPage)
                 }
             }
         }
@@ -707,32 +809,9 @@ Window {
                 anchors.margins: 30
                 spacing: 20
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 60
-                    color: "#e8f4f8"
-                    radius: 8
-                    border.color: "#bee5eb"
-                    border.width: 1
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 12
-
-                        Label {
-                            text: "📹"
-                            font.pixelSize: 24
-                        }
-
-                        Label {
-                            text: "Select a camera to synchronize video with EEG data (optional)"
-                            font.pixelSize: 12
-                            color: "#0c5460"
-                            Layout.fillWidth: true
-                            wrapMode: Text.WordWrap
-                        }
-                    }
+                InfoBanner {
+                    icon: "📹"
+                    message: "Select a camera to synchronize video with EEG data (optional)"
                 }
 
                 Rectangle {
@@ -748,22 +827,10 @@ Window {
                         anchors.margins: 20
                         spacing: 15
 
-                        RowLayout {
-                            Layout.fillWidth: true
-
-                            Label {
-                                text: "📷 Available Cameras"
-                                font.pixelSize: 16
-                                font.bold: true
-                                color: textColor
-                                Layout.fillWidth: true
-                            }
-
-                            Label {
-                                text: availableCameras.length + " found"
-                                font.pixelSize: 12
-                                color: "#7f8c8d"
-                            }
+                        SectionHeader {
+                            icon: "📷"
+                            title: "Available Cameras"
+                            count: availableCameras.length
                         }
 
                         Rectangle {
@@ -781,76 +848,12 @@ Window {
                                 model: availableCameras
                                 spacing: 10
 
-                                delegate: Rectangle {
-                                    width: ListView.view.width
-                                    height: 80
-                                    color: selectedCameraIndex === index ? "#e8f4f8" : cardColor
-                                    radius: 6
-                                    border.color: selectedCameraIndex === index ? accentColor : borderColor
-                                    border.width: selectedCameraIndex === index ? 2 : 1
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onEntered: parent.color = selectedCameraIndex === index ? "#e8f4f8" : hoverColor
-                                        onExited: parent.color = selectedCameraIndex === index ? "#e8f4f8" : cardColor
-                                        onClicked: {
-                                            selectedCameraIndex = index
-                                        }
-                                    }
-
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.margins: 15
-                                        spacing: 15
-
-                                        Rectangle {
-                                            Layout.preferredWidth: 50
-                                            Layout.preferredHeight: 50
-                                            radius: 25
-                                            color: selectedCameraIndex === index ? accentColor : "#ecf0f1"
-
-                                            Label {
-                                                anchors.centerIn: parent
-                                                text: "📹"
-                                                font.pixelSize: 24
-                                            }
-                                        }
-
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 4
-
-                                            Label {
-                                                text: modelData
-                                                font.pixelSize: 14
-                                                font.bold: true
-                                                color: textColor
-                                            }
-
-                                            Label {
-                                                text: "1920x1080 • 30 FPS"
-                                                font.pixelSize: 11
-                                                color: "#7f8c8d"
-                                            }
-                                        }
-
-                                        Rectangle {
-                                            visible: selectedCameraIndex === index
-                                            Layout.preferredWidth: 24
-                                            Layout.preferredHeight: 24
-                                            radius: 12
-                                            color: successColor
-
-                                            Label {
-                                                anchors.centerIn: parent
-                                                text: "✓"
-                                                font.pixelSize: 14
-                                                font.bold: true
-                                                color: "white"
-                                            }
-                                        }
-                                    }
+                                delegate: DeviceCard {
+                                    icon: "📹"
+                                    deviceName: modelData
+                                    deviceInfo: "1920x1080 • 30 FPS"
+                                    isSelected: selectedCameraIndex === index
+                                    onClicked: selectedCameraIndex = index
                                 }
                             }
                         }
@@ -866,9 +869,7 @@ Window {
 
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: {
-                                    selectedCameraIndex = -1
-                                }
+                                onClicked: selectedCameraIndex = -1
                             }
 
                             RowLayout {
@@ -894,50 +895,18 @@ Window {
                     }
                 }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 15
+                NavigationBar {
+                    showBack: true
+                    showRefresh: true
+                    refreshText: "🔄 Refresh cameras"
 
-                    Button {
-                        text: "🔄 Refresh cameras"
-                        font.pixelSize: 13
-                        Layout.preferredWidth: 140
-                        Layout.preferredHeight: 45
-                        palette.button: "#95a5a6"
-                        palette.buttonText: "white"
+                    onRefreshClicked: { /* TODO: refresh cameras */ }
+                    onBackClicked: stackView.pop()
+                    onCancelClicked: {
+                        rejected()
+                        window.close()
                     }
-
-                    Item { Layout.fillWidth: true }
-
-                    Button {
-                        text: "← Back"
-                        font.pixelSize: 13
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 45
-                        onClicked: stackView.pop()
-                    }
-
-                    Button {
-                        text: "Cancel"
-                        font.pixelSize: 13
-                        Layout.preferredWidth: 100
-                        Layout.preferredHeight: 45
-                        onClicked: {
-                            rejected()
-                            window.close()
-                        }
-                    }
-
-                    Button {
-                        text: "Next →"
-                        font.pixelSize: 13
-                        font.bold: true
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 45
-                        palette.button: accentColor
-                        palette.buttonText: "white"
-                        onClicked: stackView.push(summaryPage)
-                    }
+                    onNextClicked: stackView.push(summaryPage)
                 }
             }
         }
@@ -972,212 +941,84 @@ Window {
                         spacing: 15
 
                         // Amplifier
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: contentCol1.implicitHeight + 30
-                            color: cardColor
-                            radius: 8
-                            border.color: borderColor
-                            border.width: 1
-
-                            ColumnLayout {
-                                id: contentCol1
-                                anchors.fill: parent
-                                anchors.margins: 15
-                                spacing: 8
-
-                                Label {
-                                    text: "⚡ Amplifier"
-                                    font.pixelSize: 14
-                                    font.bold: true
-                                    color: textColor
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-                                    color: borderColor
-                                }
-
-                                Label {
-                                    text: backend.availableAmplifiers[backend.selectedAmplifierIndex]
-                                    font.pixelSize: 13
-                                    color: "#7f8c8d"
-                                }
+                        SummaryCard {
+                            icon: "⚡"
+                            title: "Amplifier"
+                            contentItem: Label {
+                                text: backend.availableAmplifiers[backend.selectedAmplifierIndex]
+                                font.pixelSize: 13
+                                color: "#7f8c8d"
                             }
                         }
 
                         // Channels
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: contentCol2.implicitHeight + 30
-                            color: cardColor
-                            radius: 8
-                            border.color: borderColor
-                            border.width: 1
-
-                            ColumnLayout {
-                                id: contentCol2
-                                anchors.fill: parent
-                                anchors.margins: 15
-                                spacing: 8
-
-                                Label {
-                                    text: "🔌 Selected Channels (" + getSelectedChannelsCount() + ")"
-                                    font.pixelSize: 14
-                                    font.bold: true
-                                    color: textColor
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-                                    color: borderColor
-                                }
-
-                                Label {
-                                    text: getSelectedChannelsList().join(", ")
-                                    font.pixelSize: 12
-                                    color: "#7f8c8d"
-                                    wrapMode: Text.WordWrap
-                                    Layout.fillWidth: true
-                                }
+                        SummaryCard {
+                            icon: "🔌"
+                            title: "Selected Channels (" + getSelectedChannelsCount() + ")"
+                            contentItem: Label {
+                                text: getSelectedChannelsList().join(", ")
+                                font.pixelSize: 12
+                                color: "#7f8c8d"
+                                wrapMode: Text.WordWrap
                             }
                         }
 
                         // Camera
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: contentCol3.implicitHeight + 30
-                            color: cardColor
-                            radius: 8
-                            border.color: borderColor
-                            border.width: 1
-
-                            ColumnLayout {
-                                id: contentCol3
-                                anchors.fill: parent
-                                anchors.margins: 15
-                                spacing: 8
-
-                                Label {
-                                    text: "📹 Camera"
-                                    font.pixelSize: 14
-                                    font.bold: true
-                                    color: textColor
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-                                    color: borderColor
-                                }
-
-                                Label {
-                                    text: selectedCameraIndex >= 0 ? availableCameras[selectedCameraIndex] : "None (EEG only)"
-                                    font.pixelSize: 13
-                                    color: "#7f8c8d"
-                                }
+                        SummaryCard {
+                            icon: "📹"
+                            title: "Camera"
+                            contentItem: Label {
+                                text: selectedCameraIndex >= 0 ? availableCameras[selectedCameraIndex] : "None (EEG only)"
+                                font.pixelSize: 13
+                                color: "#7f8c8d"
                             }
                         }
 
                         // Save location
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: contentCol4.implicitHeight + 30
-                            color: cardColor
-                            radius: 8
-                            border.color: borderColor
-                            border.width: 1
+                        SummaryCard {
+                            icon: "💾"
+                            title: "Recording Save Location"
+                            contentItem: RowLayout {
+                                spacing: 10
 
-                            ColumnLayout {
-                                id: contentCol4
-                                anchors.fill: parent
-                                anchors.margins: 15
-                                spacing: 8
-
-                                Label {
-                                    text: "💾 Recording Save Location"
-                                    font.pixelSize: 14
-                                    font.bold: true
-                                    color: textColor
+                                TextField {
+                                    Layout.fillWidth: true
+                                    text: savePath || "Select location..."
+                                    readOnly: true
+                                    font.pixelSize: 11
                                 }
 
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-                                    color: borderColor
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-
-                                    TextField {
-                                        Layout.fillWidth: true
-                                        text: savePath || "Select location..."
-                                        readOnly: true
-                                        font.pixelSize: 11
-                                    }
-
-                                    Button {
-                                        text: "📁 Browse"
-                                        font.pixelSize: 11
-                                        Layout.preferredHeight: 35
-                                        onClicked: folderDialog.open()
-                                    }
+                                Button {
+                                    text: "📁 Browse"
+                                    font.pixelSize: 11
+                                    Layout.preferredHeight: 35
+                                    onClicked: folderDialog.open()
                                 }
                             }
                         }
                     }
                 }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 15
+                NavigationBar {
+                    showBack: true
+                    nextText: "✓ Start Examination"
+                    nextColor: successColor
 
-                    Button {
-                        text: "← Back"
-                        font.pixelSize: 13
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 45
-                        onClicked: stackView.pop()
+                    onBackClicked: stackView.pop()
+                    onCancelClicked: {
+                        rejected()
+                        window.close()
                     }
-
-                    Item { Layout.fillWidth: true }
-
-                    Button {
-                        text: "Cancel"
-                        font.pixelSize: 13
-                        Layout.preferredWidth: 100
-                        Layout.preferredHeight: 45
-                        onClicked: {
-                            rejected()
-                            window.close()
-                        }
-                    }
-
-                    Button {
-                        text: "✓ Start Examination"
-                        font.pixelSize: 13
-                        font.bold: true
-                        enabled: true // Always active - savePath optional
-                        Layout.preferredWidth: 180
-                        Layout.preferredHeight: 45
-                        palette.button: successColor
-                        palette.buttonText: "white"
-
-                        onClicked: {
-                            var selectedChannels = []
-                            for (var i = 0; i < channelSelectionModel.length; i++) {
-                                if (channelSelectionModel[i]) {
-                                    selectedChannels.push(i)
-                                }
+                    onNextClicked: {
+                        var selectedChannels = []
+                        for (var i = 0; i < channelSelectionModel.length; i++) {
+                            if (channelSelectionModel[i]) {
+                                selectedChannels.push(i)
                             }
-                            console.log("Starting examination with", selectedChannels.length, "channels")
-                            accepted(backend.getSelectedAmplifierId(), selectedChannels)
-                            window.close()
                         }
+                        console.log("Starting examination with", selectedChannels.length, "channels")
+                        accepted(backend.getSelectedAmplifierId(), selectedChannels)
+                        window.close()
                     }
                 }
             }
