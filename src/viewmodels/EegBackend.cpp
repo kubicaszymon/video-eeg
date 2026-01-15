@@ -2,6 +2,7 @@
 
 #include <qtimer.h>
 #include <algorithm>
+#include <cmath>
 
 EegBackend::EegBackend(QObject *parent)
     : QObject{parent}, amplifier_manager_{AmplifierManager::instance()}
@@ -121,21 +122,22 @@ void EegBackend::generateTestData()
 
 void EegBackend::addMarker(const QString& type)
 {
-    if (!m_markerManager || !m_dataModel || m_samplingRate <= 0) {
-        qWarning() << "[EegBackend] Cannot add marker - missing dataModel or samplingRate";
+    if (!m_markerManager || m_samplingRate <= 0 || !m_streamTimerStarted) {
+        qWarning() << "[EegBackend] Cannot add marker - stream not started";
         return;
     }
 
-    // Oblicz pozycję X na podstawie aktualnej pozycji zapisu w buforze
-    int writePos = m_dataModel->writePosition();
-    double xPosition = static_cast<double>(writePos) / m_samplingRate;
+    // Oblicz czas od startu streamu (niezależny od chunków danych)
+    double elapsedSeconds = m_streamTimer.elapsed() / 1000.0;
 
-    // Czas absolutny od początku (do eksportu)
-    static double totalTime = 0.0;
-    totalTime = xPosition;  // Na razie używamy xPosition, później można dodać tracking całkowitego czasu
+    // Pozycja X w oknie czasowym (0 do timeWindowSeconds, cyklicznie)
+    double xPosition = std::fmod(elapsedSeconds, m_timeWindowSeconds);
 
-    qInfo() << "[EegBackend] Adding marker" << type << "at X:" << xPosition;
-    m_markerManager->addMarkerAtPosition(type, xPosition, totalTime);
+    qInfo() << "[EegBackend] Adding marker" << type
+            << "at X:" << xPosition
+            << "(elapsed:" << elapsedSeconds << "s)";
+
+    m_markerManager->addMarkerAtPosition(type, xPosition, elapsedSeconds);
 }
 
 void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
@@ -143,6 +145,13 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
     if(chunk.empty() || chunk[0].empty() || m_channels.isEmpty() || !m_dataModel)
     {
         return;
+    }
+
+    // Uruchom timer przy pierwszych danych (do niezależnego śledzenia czasu)
+    if (!m_streamTimerStarted) {
+        m_streamTimer.start();
+        m_streamTimerStarted = true;
+        qInfo() << "[EegBackend] Stream timer started";
     }
 
     const int numSamples = static_cast<int>(chunk.size());
