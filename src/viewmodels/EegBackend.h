@@ -81,7 +81,6 @@ public:
     bool scaleCalibrated() const;
     double dataRangeMin() const;
     double dataRangeMax() const;
-    Q_INVOKABLE void resetAutoScale();
 
     // Gain control
     double gain() const;

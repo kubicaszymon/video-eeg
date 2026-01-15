@@ -337,20 +337,6 @@ double EegBackend::dataRangeMax() const
     return m_autoScaleManager ? m_autoScaleManager->globalMax() : 0.0;
 }
 
-void EegBackend::resetAutoScale()
-{
-    if (m_autoScaleManager)
-    {
-        m_autoScaleManager->reset();
-        emit scaleCalibrationChanged();
-        emit scaleFactorChanged();
-        emit dataRangeChanged();
-        emit scaleBarChanged();
-
-        qDebug() << "[EegBackend] Auto-scale reset";
-    }
-}
-
 // Gain control
 
 double EegBackend::gain() const

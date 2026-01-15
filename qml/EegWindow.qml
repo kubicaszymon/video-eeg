@@ -549,20 +549,6 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    // Reset button
-                                    Button {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 30
-                                        text: "🔄 Reset Scale"
-                                        font.pixelSize: 10
-                                        enabled: backend.scaleCalibrated
-                                        palette.button: "#526d82"
-                                        palette.buttonText: "white"
-
-                                        onClicked: {
-                                            backend.resetAutoScale()
-                                        }
-                                    }
                                 }
 
                                 // ACTIONS
