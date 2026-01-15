@@ -9,6 +9,7 @@
 #include "amplifiermanager.h"
 #include "eegdatamodel.h"
 #include "autoscalemanager.h"
+#include "markermanager.h"
 
 class EegBackend : public QObject
 {
@@ -46,6 +47,9 @@ class EegBackend : public QObject
     Q_PROPERTY(double scaleBarHeight READ scaleBarHeight NOTIFY scaleBarChanged FINAL)
     Q_PROPERTY(double dataRangeInMicrovolts READ dataRangeInMicrovolts NOTIFY dataRangeChanged FINAL)
 
+    // Marker manager - do zarządzania znacznikami na wykresie
+    Q_PROPERTY(MarkerManager* markerManager READ markerManager CONSTANT FINAL)
+
 public:
     explicit EegBackend(QObject *parent = nullptr);
     ~EegBackend();
@@ -54,6 +58,9 @@ public:
     Q_INVOKABLE void startStream();
 
     Q_INVOKABLE void generateTestData();
+
+    // Dodaj znacznik w aktualnej pozycji zapisu danych
+    Q_INVOKABLE void addMarker(const QString& type);
 
     QVariantList GetChannelNames() const;
     QVariantList channels() const;
@@ -90,6 +97,9 @@ public:
     double scaleBarValue() const;
     double scaleBarHeight() const;
     double dataRangeInMicrovolts() const;
+
+    // Marker manager getter
+    MarkerManager* markerManager() const { return m_markerManager; }
 
 public slots:
     void onSamplingRateDetected(double samplingRate);
@@ -140,6 +150,9 @@ private:
 
     // Auto-scale manager
     AutoScaleManager* m_autoScaleManager = nullptr;
+
+    // Marker manager
+    MarkerManager* m_markerManager = nullptr;
 
     // Gain - mnożnik kontrolowany przez użytkownika (1.0 = neutralny)
     double m_gain = 1.0;

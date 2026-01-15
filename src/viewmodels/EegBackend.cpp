@@ -13,6 +13,9 @@ EegBackend::EegBackend(QObject *parent)
     // Initialize auto-scale manager
     m_autoScaleManager = new AutoScaleManager(this);
 
+    // Initialize marker manager
+    m_markerManager = new MarkerManager(this);
+
     // Connect auto-scale signals
     connect(m_autoScaleManager, &AutoScaleManager::scaleFactorChanged, this, [this]() {
         emit scaleFactorChanged();
@@ -116,6 +119,21 @@ void EegBackend::generateTestData()
     m_dataModel->updateAllData(testData);
 }
 
+void EegBackend::addMarker(const QString& type)
+{
+    if (!m_markerManager || !m_dataModel || m_samplingRate <= 0) {
+        qWarning() << "[EegBackend] Cannot add marker - not ready";
+        return;
+    }
+
+    // Pozycja X = aktualna pozycja zapisu w buforze
+    int writePos = m_dataModel->writePosition();
+    double xPosition = static_cast<double>(writePos) / m_samplingRate;
+
+    qInfo() << "[EegBackend] Adding marker" << type << "at X:" << xPosition;
+    m_markerManager->addMarkerAtPosition(type, xPosition, xPosition);
+}
+
 void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
 {
     if(chunk.empty() || chunk[0].empty() || m_channels.isEmpty() || !m_dataModel)
@@ -151,8 +169,24 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
     QVector<QVector<double>> scaledData = m_autoScaleManager->scaleChunk(
         chunk, m_channelIndexCache, channelSpacing, m_gain);
 
+    // Zapamiętaj poprzednią pozycję przed zapisem
+    int prevWritePos = m_dataModel->writePosition();
+
     // Send to data model
     m_dataModel->updateAllData(scaledData);
+
+    // Pobierz nową pozycję po zapisie
+    int newWritePos = m_dataModel->writePosition();
+
+    // Usuń znaczniki które zostały nadpisane przez nowe dane
+    if (m_markerManager && m_samplingRate > 0) {
+        // Oblicz zakres X który został nadpisany
+        // prevWritePos+1 to pierwszy nadpisany sample, newWritePos to ostatni
+        double startX = static_cast<double>((prevWritePos + 1) % m_dataModel->maxSamples()) / m_samplingRate;
+        double endX = static_cast<double>(newWritePos) / m_samplingRate;
+
+        m_markerManager->removeMarkersInRange(startX, endX, m_timeWindowSeconds);
+    }
 
     // Emit data range changed for UI updates
     emit dataRangeChanged();

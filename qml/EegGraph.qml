@@ -16,6 +16,9 @@ Rectangle {
     // Time window in seconds (X-axis range)
     property real timeWindowSeconds: 10.0
 
+    // Marker manager reference (set from parent)
+    property var markerManager: null
+
     // Channel colors - shared between legend and graph
     readonly property var channelColors: [
         "#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4",
@@ -227,6 +230,69 @@ Rectangle {
 
                         eegGraph.addSeries(series)
                         activeSeries.push(series)
+                    }
+                }
+            }
+
+            // Marker overlay - displays markers as vertical lines with labels
+            Item {
+                id: markerOverlay
+                anchors.fill: eegGraph
+                anchors.margins: 16
+
+                // Plot area dimensions (accounting for axis labels)
+                readonly property real plotLeftMargin: 0
+                readonly property real plotTopMargin: 10
+                readonly property real plotRightMargin: 10
+                readonly property real plotBottomMargin: 30
+                readonly property real plotWidth: width - plotLeftMargin - plotRightMargin
+                readonly property real plotHeight: height - plotTopMargin - plotBottomMargin
+
+                Repeater {
+                    model: markerManager ? markerManager.markers : []
+
+                    Item {
+                        id: markerItem
+
+                        // Calculate X position based on xPosition (0 to timeWindowSeconds)
+                        readonly property real xPos: markerOverlay.plotLeftMargin +
+                            (modelData.xPosition / timeWindowSeconds) * markerOverlay.plotWidth
+
+                        x: xPos
+                        y: markerOverlay.plotTopMargin
+                        width: 2
+                        height: markerOverlay.plotHeight
+
+                        // Vertical line
+                        Rectangle {
+                            id: markerLine
+                            width: 2
+                            height: parent.height
+                            color: modelData.color
+                            opacity: 0.85
+                        }
+
+                        // Label background
+                        Rectangle {
+                            id: labelBackground
+                            anchors.bottom: markerLine.top
+                            anchors.bottomMargin: 2
+                            anchors.horizontalCenter: markerLine.horizontalCenter
+                            width: markerLabel.width + 8
+                            height: markerLabel.height + 4
+                            radius: 3
+                            color: modelData.color
+                            opacity: 0.95
+
+                            Label {
+                                id: markerLabel
+                                anchors.centerIn: parent
+                                text: modelData.label
+                                font.pixelSize: 9
+                                font.bold: true
+                                color: "white"
+                            }
+                        }
                     }
                 }
             }
