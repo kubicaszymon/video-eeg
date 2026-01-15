@@ -4,14 +4,12 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 import videoEeg
 
-import "components/setup"
-
 Window {
     id: window
     visible: false
     width: 1200
     height: 750
-    title: qsTr("EEG Examination Configuration")
+    title: qsTr("⚡ EEG Examination Configuration")
     modality: Qt.ApplicationModal
 
     signal accepted(amplifierId: string, channels: var)
@@ -25,7 +23,6 @@ Window {
     // Mock cameras (replace with real backend)
     property var availableCameras: ["Built-in Camera", "USB Camera HD", "Logitech C920"]
 
-    // Theme colors
     readonly property color bgColor: "#f5f7fa"
     readonly property color sidebarColor: "#2c3e50"
     readonly property color cardColor: "#ffffff"
@@ -51,7 +48,7 @@ Window {
         running: true
         repeat: true
         onTriggered: {
-            if (window.loading === Globals.Loading) {
+            if(window.loading === Globals.Loading){
                 Globals.status = Globals.Ready
             }
         }
@@ -66,7 +63,6 @@ Window {
         }
     }
 
-    // Helper functions
     function getSelectedChannelsCount() {
         var count = 0
         for (var i = 0; i < channelSelectionModel.length; i++) {
@@ -107,7 +103,7 @@ Window {
 
     function getCurrentStepTitle() {
         var step = getCurrentStepNumber()
-        switch (step) {
+        switch(step) {
             case 1: return "Step 1: Amplifier Selection"
             case 2: return "Step 2: Channel Selection"
             case 3: return "Step 3: Camera Selection"
@@ -118,36 +114,13 @@ Window {
 
     function getCurrentStepDesc() {
         var step = getCurrentStepNumber()
-        switch (step) {
+        switch(step) {
             case 1: return "Detect and select EEG amplifier"
             case 2: return "Select channels to record"
             case 3: return "Select camera for video recording"
             case 4: return "Review configuration before starting"
             default: return ""
         }
-    }
-
-    function handleCancel() {
-        rejected()
-        window.close()
-    }
-
-    function handleRefresh() {
-        Globals.status = Globals.Loading
-        timer.restart()
-        backend.refreshAmplifiersList()
-    }
-
-    function handleStart() {
-        var selectedChannels = []
-        for (var i = 0; i < channelSelectionModel.length; i++) {
-            if (channelSelectionModel[i]) {
-                selectedChannels.push(i)
-            }
-        }
-        console.log("Starting examination with", selectedChannels.length, "channels")
-        accepted(backend.getSelectedAmplifierId(), selectedChannels)
-        window.close()
     }
 
     Rectangle {
@@ -158,7 +131,7 @@ Window {
             anchors.fill: parent
             spacing: 0
 
-            // Header with progress indicator
+            // HEADER WITH PROGRESS
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 80
@@ -170,7 +143,7 @@ Window {
                     spacing: 15
 
                     Label {
-                        text: "~"
+                        text: "⚡"
                         font.pixelSize: 32
                         color: "white"
                     }
@@ -214,8 +187,8 @@ Window {
 
                                     Label {
                                         anchors.centerIn: parent
-                                        text: getCurrentStepNumber() > index ? "ok" : (index + 1).toString()
-                                        font.pixelSize: getCurrentStepNumber() > index ? 10 : 14
+                                        text: getCurrentStepNumber() > index ? "✓" : (index + 1).toString()
+                                        font.pixelSize: getCurrentStepNumber() > index ? 16 : 14
                                         font.bold: true
                                         color: "white"
                                     }
@@ -234,7 +207,7 @@ Window {
                 }
             }
 
-            // Content area with StackView
+            // CONTENT
             StackView {
                 id: stackView
                 Layout.fillWidth: true
@@ -255,7 +228,7 @@ Window {
                 }
             }
 
-            // Loading overlay
+            // LOADING OVERLAY
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -285,92 +258,929 @@ Window {
         }
     }
 
-    // Step 1: Amplifier Selection
+    // STEP 1: AMPLIFIER SELECTION
     Component {
         id: amplifierSelectionPage
 
-        AmplifierSelectionPage {
-            backend: window.backend
-            bgColor: window.bgColor
-            cardColor: window.cardColor
-            borderColor: window.borderColor
-            textColor: window.textColor
-            accentColor: window.accentColor
-            successColor: window.successColor
-            hoverColor: window.hoverColor
+        Rectangle {
+            color: bgColor
 
-            onNextClicked: stackView.push(channelSelectionPage)
-            onCancelClicked: window.handleCancel()
-            onRefreshClicked: window.handleRefresh()
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 30
+                spacing: 20
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 60
+                    color: "#e8f4f8"
+                    radius: 8
+                    border.color: "#bee5eb"
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 12
+
+                        Label {
+                            text: "ℹ️"
+                            font.pixelSize: 24
+                        }
+
+                        Label {
+                            text: "Make sure the amplifier is turned on and connected to the computer"
+                            font.pixelSize: 12
+                            color: "#0c5460"
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: cardColor
+                    radius: 8
+                    border.color: borderColor
+                    border.width: 1
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 20
+                        spacing: 15
+
+                        RowLayout {
+                            Layout.fillWidth: true
+
+                            Label {
+                                text: "🔌 Detected Amplifiers"
+                                font.pixelSize: 16
+                                font.bold: true
+                                color: textColor
+                                Layout.fillWidth: true
+                            }
+
+                            Label {
+                                text: backend.availableAmplifiers.length + " found"
+                                font.pixelSize: 12
+                                color: "#7f8c8d"
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 1
+                            color: borderColor
+                        }
+
+                        ScrollView {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+
+                            ListView {
+                                id: amplifierListView
+                                model: backend.availableAmplifiers
+                                spacing: 10
+
+                                delegate: Rectangle {
+                                    width: ListView.view.width
+                                    height: 80
+                                    color: backend.selectedAmplifierIndex === index ? "#e8f4f8" : cardColor
+                                    radius: 6
+                                    border.color: backend.selectedAmplifierIndex === index ? accentColor : borderColor
+                                    border.width: backend.selectedAmplifierIndex === index ? 2 : 1
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onEntered: parent.color = backend.selectedAmplifierIndex === index ? "#e8f4f8" : hoverColor
+                                        onExited: parent.color = backend.selectedAmplifierIndex === index ? "#e8f4f8" : cardColor
+                                        onClicked: {
+                                            backend.selectedAmplifierIndex = index
+                                        }
+                                    }
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: 15
+                                        spacing: 15
+
+                                        Rectangle {
+                                            Layout.preferredWidth: 50
+                                            Layout.preferredHeight: 50
+                                            radius: 25
+                                            color: backend.selectedAmplifierIndex === index ? accentColor : "#ecf0f1"
+
+                                            Label {
+                                                anchors.centerIn: parent
+                                                text: "⚡"
+                                                font.pixelSize: 24
+                                                color: backend.selectedAmplifierIndex === index ? "white" : textColor
+                                            }
+                                        }
+
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 4
+
+                                            Label {
+                                                text: modelData
+                                                font.pixelSize: 14
+                                                font.bold: true
+                                                color: textColor
+                                            }
+
+                                            Label {
+                                                text: "Virtual Amplifier • Ready"
+                                                font.pixelSize: 11
+                                                color: "#7f8c8d"
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            visible: backend.selectedAmplifierIndex === index
+                                            Layout.preferredWidth: 24
+                                            Layout.preferredHeight: 24
+                                            radius: 12
+                                            color: successColor
+
+                                            Label {
+                                                anchors.centerIn: parent
+                                                text: "✓"
+                                                font.pixelSize: 14
+                                                font.bold: true
+                                                color: "white"
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Label {
+                                    anchors.centerIn: parent
+                                    visible: amplifierListView.count === 0
+                                    text: "😔 No amplifiers found\nClick 'Refresh' to scan again"
+                                    font.pixelSize: 13
+                                    color: "#999999"
+                                    horizontalAlignment: Text.AlignHCenter
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 15
+
+                    Button {
+                        text: "🔄 Refresh"
+                        font.pixelSize: 13
+                        enabled: !window.loading
+                        Layout.preferredWidth: 120
+                        Layout.preferredHeight: 45
+                        palette.button: "#95a5a6"
+                        palette.buttonText: "white"
+
+                        onClicked: {
+                            Globals.status = Globals.Loading
+                            timer.restart()
+                            backend.refreshAmplifiersList()
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Button {
+                        text: "Cancel"
+                        font.pixelSize: 13
+                        Layout.preferredWidth: 100
+                        Layout.preferredHeight: 45
+
+                        onClicked: {
+                            rejected()
+                            window.close()
+                        }
+                    }
+
+                    Button {
+                        text: "Next →"
+                        font.pixelSize: 13
+                        font.bold: true
+                        enabled: backend.selectedAmplifierIndex !== -1
+                        Layout.preferredWidth: 120
+                        Layout.preferredHeight: 45
+                        palette.button: accentColor
+                        palette.buttonText: "white"
+
+                        onClicked: stackView.push(channelSelectionPage)
+                    }
+                }
+            }
         }
     }
 
-    // Step 2: Channel Selection
+    // STEP 2: CHANNEL SELECTION
     Component {
         id: channelSelectionPage
 
-        ChannelSelectionPage {
-            backend: window.backend
-            channelSelectionModel: window.channelSelectionModel
-            bgColor: window.bgColor
-            cardColor: window.cardColor
-            borderColor: window.borderColor
-            textColor: window.textColor
-            accentColor: window.accentColor
+        Rectangle {
+            color: bgColor
 
-            onNextClicked: stackView.push(cameraSelectionPage)
-            onBackClicked: stackView.pop()
-            onCancelClicked: window.handleCancel()
-            onToggleChannel: function(index) { window.toggleChannel(index) }
-            onSelectAllChannels: function(checked) { window.selectAllChannels(checked) }
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 30
+                spacing: 20
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 60
+                    color: "#d4edda"
+                    radius: 8
+                    border.color: "#c3e6cb"
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 12
+
+                        Label {
+                            text: "✓"
+                            font.pixelSize: 20
+                            font.bold: true
+                            color: "#155724"
+                        }
+
+                        ColumnLayout {
+                            spacing: 2
+                            Layout.fillWidth: true
+
+                            Label {
+                                text: "Selected amplifier: " + backend.availableAmplifiers[backend.selectedAmplifierIndex]
+                                font.pixelSize: 12
+                                font.bold: true
+                                color: "#155724"
+                            }
+
+                            Label {
+                                text: backend.currentChannels.length + " available channels"
+                                font.pixelSize: 11
+                                color: "#155724"
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: cardColor
+                    radius: 8
+                    border.color: borderColor
+                    border.width: 1
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 0
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 50
+                            color: "#f8f9fa"
+                            radius: 8
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 20
+                                anchors.rightMargin: 20
+                                spacing: 0
+
+                                Label {
+                                    text: "No."
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    color: textColor
+                                    Layout.preferredWidth: 60
+                                }
+
+                                Label {
+                                    text: "Channel Name"
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    color: textColor
+                                    Layout.fillWidth: true
+                                }
+
+                                CheckBox {
+                                    text: "Select all"
+                                    font.pixelSize: 11
+                                    checked: false
+                                    onClicked: {
+                                        selectAllChannels(checked)
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 1
+                            color: borderColor
+                        }
+
+                        ScrollView {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+
+                            ListView {
+                                model: backend.currentChannels
+                                spacing: 0
+
+                                delegate: Rectangle {
+                                    width: ListView.view.width
+                                    height: 45
+                                    color: {
+                                        if (channelSelectionModel[index]) return "#e8f4f8"
+                                        return index % 2 === 0 ? "white" : "#f8f9fa"
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        onClicked: {
+                                            toggleChannel(index)
+                                        }
+                                    }
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 20
+                                        anchors.rightMargin: 20
+                                        spacing: 15
+
+                                        Label {
+                                            text: (index + 1).toString()
+                                            font.pixelSize: 12
+                                            color: textColor
+                                            Layout.preferredWidth: 60
+                                        }
+
+                                        Label {
+                                            text: modelData
+                                            font.pixelSize: 12
+                                            color: textColor
+                                            Layout.fillWidth: true
+                                        }
+
+                                        CheckBox {
+                                            checked: channelSelectionModel[index] || false
+                                            onClicked: {
+                                                toggleChannel(index)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 15
+
+                    Button {
+                        text: "← Back"
+                        font.pixelSize: 13
+                        Layout.preferredWidth: 120
+                        Layout.preferredHeight: 45
+                        onClicked: stackView.pop()
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Label {
+                        text: getSelectedChannelsCount() + " / " + backend.currentChannels.length + " selected"
+                        font.pixelSize: 12
+                        color: "#7f8c8d"
+                    }
+
+                    Button {
+                        text: "Cancel"
+                        font.pixelSize: 13
+                        Layout.preferredWidth: 100
+                        Layout.preferredHeight: 45
+                        onClicked: {
+                            rejected()
+                            window.close()
+                        }
+                    }
+
+                    Button {
+                        text: "Next →"
+                        font.pixelSize: 13
+                        font.bold: true
+                        enabled: getSelectedChannelsCount() > 0
+                        Layout.preferredWidth: 120
+                        Layout.preferredHeight: 45
+                        palette.button: accentColor
+                        palette.buttonText: "white"
+                        onClicked: stackView.push(cameraSelectionPage)
+                    }
+                }
+            }
         }
     }
 
-    // Step 3: Camera Selection
+    // STEP 3: CAMERA SELECTION
     Component {
         id: cameraSelectionPage
 
-        CameraSelectionPage {
-            availableCameras: window.availableCameras
-            selectedCameraIndex: window.selectedCameraIndex
-            bgColor: window.bgColor
-            cardColor: window.cardColor
-            borderColor: window.borderColor
-            textColor: window.textColor
-            accentColor: window.accentColor
-            successColor: window.successColor
-            hoverColor: window.hoverColor
+        Rectangle {
+            color: bgColor
 
-            onNextClicked: stackView.push(summaryPage)
-            onBackClicked: stackView.pop()
-            onCancelClicked: window.handleCancel()
-            onCameraSelected: function(index) { window.selectedCameraIndex = index }
-            onRefreshCamerasClicked: console.log("Refresh cameras clicked")
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 30
+                spacing: 20
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 60
+                    color: "#e8f4f8"
+                    radius: 8
+                    border.color: "#bee5eb"
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 12
+
+                        Label {
+                            text: "📹"
+                            font.pixelSize: 24
+                        }
+
+                        Label {
+                            text: "Select a camera to synchronize video with EEG data (optional)"
+                            font.pixelSize: 12
+                            color: "#0c5460"
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: cardColor
+                    radius: 8
+                    border.color: borderColor
+                    border.width: 1
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 20
+                        spacing: 15
+
+                        RowLayout {
+                            Layout.fillWidth: true
+
+                            Label {
+                                text: "📷 Available Cameras"
+                                font.pixelSize: 16
+                                font.bold: true
+                                color: textColor
+                                Layout.fillWidth: true
+                            }
+
+                            Label {
+                                text: availableCameras.length + " found"
+                                font.pixelSize: 12
+                                color: "#7f8c8d"
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 1
+                            color: borderColor
+                        }
+
+                        ScrollView {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+
+                            ListView {
+                                model: availableCameras
+                                spacing: 10
+
+                                delegate: Rectangle {
+                                    width: ListView.view.width
+                                    height: 80
+                                    color: selectedCameraIndex === index ? "#e8f4f8" : cardColor
+                                    radius: 6
+                                    border.color: selectedCameraIndex === index ? accentColor : borderColor
+                                    border.width: selectedCameraIndex === index ? 2 : 1
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onEntered: parent.color = selectedCameraIndex === index ? "#e8f4f8" : hoverColor
+                                        onExited: parent.color = selectedCameraIndex === index ? "#e8f4f8" : cardColor
+                                        onClicked: {
+                                            selectedCameraIndex = index
+                                        }
+                                    }
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: 15
+                                        spacing: 15
+
+                                        Rectangle {
+                                            Layout.preferredWidth: 50
+                                            Layout.preferredHeight: 50
+                                            radius: 25
+                                            color: selectedCameraIndex === index ? accentColor : "#ecf0f1"
+
+                                            Label {
+                                                anchors.centerIn: parent
+                                                text: "📹"
+                                                font.pixelSize: 24
+                                            }
+                                        }
+
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 4
+
+                                            Label {
+                                                text: modelData
+                                                font.pixelSize: 14
+                                                font.bold: true
+                                                color: textColor
+                                            }
+
+                                            Label {
+                                                text: "1920x1080 • 30 FPS"
+                                                font.pixelSize: 11
+                                                color: "#7f8c8d"
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            visible: selectedCameraIndex === index
+                                            Layout.preferredWidth: 24
+                                            Layout.preferredHeight: 24
+                                            radius: 12
+                                            color: successColor
+
+                                            Label {
+                                                anchors.centerIn: parent
+                                                text: "✓"
+                                                font.pixelSize: 14
+                                                font.bold: true
+                                                color: "white"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Option: no camera
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 60
+                            color: selectedCameraIndex === -1 ? "#fff3cd" : cardColor
+                            radius: 6
+                            border.color: selectedCameraIndex === -1 ? "#ffc107" : borderColor
+                            border.width: selectedCameraIndex === -1 ? 2 : 1
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    selectedCameraIndex = -1
+                                }
+                            }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 15
+                                spacing: 12
+
+                                Label {
+                                    text: "⊘"
+                                    font.pixelSize: 20
+                                    color: "#856404"
+                                }
+
+                                Label {
+                                    text: "Continue without camera (EEG data only)"
+                                    font.pixelSize: 12
+                                    font.bold: selectedCameraIndex === -1
+                                    color: "#856404"
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 15
+
+                    Button {
+                        text: "🔄 Refresh cameras"
+                        font.pixelSize: 13
+                        Layout.preferredWidth: 140
+                        Layout.preferredHeight: 45
+                        palette.button: "#95a5a6"
+                        palette.buttonText: "white"
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Button {
+                        text: "← Back"
+                        font.pixelSize: 13
+                        Layout.preferredWidth: 120
+                        Layout.preferredHeight: 45
+                        onClicked: stackView.pop()
+                    }
+
+                    Button {
+                        text: "Cancel"
+                        font.pixelSize: 13
+                        Layout.preferredWidth: 100
+                        Layout.preferredHeight: 45
+                        onClicked: {
+                            rejected()
+                            window.close()
+                        }
+                    }
+
+                    Button {
+                        text: "Next →"
+                        font.pixelSize: 13
+                        font.bold: true
+                        Layout.preferredWidth: 120
+                        Layout.preferredHeight: 45
+                        palette.button: accentColor
+                        palette.buttonText: "white"
+                        onClicked: stackView.push(summaryPage)
+                    }
+                }
+            }
         }
     }
 
-    // Step 4: Summary
+    // STEP 4: SUMMARY
     Component {
         id: summaryPage
 
-        SummaryPage {
-            backend: window.backend
-            availableCameras: window.availableCameras
-            selectedCameraIndex: window.selectedCameraIndex
-            savePath: window.savePath
-            bgColor: window.bgColor
-            cardColor: window.cardColor
-            borderColor: window.borderColor
-            textColor: window.textColor
-            successColor: window.successColor
+        Rectangle {
+            color: bgColor
 
-            getSelectedChannelsCount: window.getSelectedChannelsCount
-            getSelectedChannelsList: window.getSelectedChannelsList
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 30
+                spacing: 20
 
-            onStartClicked: window.handleStart()
-            onBackClicked: stackView.pop()
-            onCancelClicked: window.handleCancel()
-            onBrowseClicked: folderDialog.open()
+                Label {
+                    text: "✅ Configuration Summary"
+                    font.pixelSize: 18
+                    font.bold: true
+                    color: textColor
+                }
+
+                ScrollView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+
+                    ColumnLayout {
+                        width: parent.width
+                        spacing: 15
+
+                        // Amplifier
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: contentCol1.implicitHeight + 30
+                            color: cardColor
+                            radius: 8
+                            border.color: borderColor
+                            border.width: 1
+
+                            ColumnLayout {
+                                id: contentCol1
+                                anchors.fill: parent
+                                anchors.margins: 15
+                                spacing: 8
+
+                                Label {
+                                    text: "⚡ Amplifier"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    color: textColor
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
+                                    color: borderColor
+                                }
+
+                                Label {
+                                    text: backend.availableAmplifiers[backend.selectedAmplifierIndex]
+                                    font.pixelSize: 13
+                                    color: "#7f8c8d"
+                                }
+                            }
+                        }
+
+                        // Channels
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: contentCol2.implicitHeight + 30
+                            color: cardColor
+                            radius: 8
+                            border.color: borderColor
+                            border.width: 1
+
+                            ColumnLayout {
+                                id: contentCol2
+                                anchors.fill: parent
+                                anchors.margins: 15
+                                spacing: 8
+
+                                Label {
+                                    text: "🔌 Selected Channels (" + getSelectedChannelsCount() + ")"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    color: textColor
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
+                                    color: borderColor
+                                }
+
+                                Label {
+                                    text: getSelectedChannelsList().join(", ")
+                                    font.pixelSize: 12
+                                    color: "#7f8c8d"
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
+
+                        // Camera
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: contentCol3.implicitHeight + 30
+                            color: cardColor
+                            radius: 8
+                            border.color: borderColor
+                            border.width: 1
+
+                            ColumnLayout {
+                                id: contentCol3
+                                anchors.fill: parent
+                                anchors.margins: 15
+                                spacing: 8
+
+                                Label {
+                                    text: "📹 Camera"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    color: textColor
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
+                                    color: borderColor
+                                }
+
+                                Label {
+                                    text: selectedCameraIndex >= 0 ? availableCameras[selectedCameraIndex] : "None (EEG only)"
+                                    font.pixelSize: 13
+                                    color: "#7f8c8d"
+                                }
+                            }
+                        }
+
+                        // Save location
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: contentCol4.implicitHeight + 30
+                            color: cardColor
+                            radius: 8
+                            border.color: borderColor
+                            border.width: 1
+
+                            ColumnLayout {
+                                id: contentCol4
+                                anchors.fill: parent
+                                anchors.margins: 15
+                                spacing: 8
+
+                                Label {
+                                    text: "💾 Recording Save Location"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    color: textColor
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
+                                    color: borderColor
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+
+                                    TextField {
+                                        Layout.fillWidth: true
+                                        text: savePath || "Select location..."
+                                        readOnly: true
+                                        font.pixelSize: 11
+                                    }
+
+                                    Button {
+                                        text: "📁 Browse"
+                                        font.pixelSize: 11
+                                        Layout.preferredHeight: 35
+                                        onClicked: folderDialog.open()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 15
+
+                    Button {
+                        text: "← Back"
+                        font.pixelSize: 13
+                        Layout.preferredWidth: 120
+                        Layout.preferredHeight: 45
+                        onClicked: stackView.pop()
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Button {
+                        text: "Cancel"
+                        font.pixelSize: 13
+                        Layout.preferredWidth: 100
+                        Layout.preferredHeight: 45
+                        onClicked: {
+                            rejected()
+                            window.close()
+                        }
+                    }
+
+                    Button {
+                        text: "✓ Start Examination"
+                        font.pixelSize: 13
+                        font.bold: true
+                        enabled: true // Always active - savePath optional
+                        Layout.preferredWidth: 180
+                        Layout.preferredHeight: 45
+                        palette.button: successColor
+                        palette.buttonText: "white"
+
+                        onClicked: {
+                            var selectedChannels = []
+                            for (var i = 0; i < channelSelectionModel.length; i++) {
+                                if (channelSelectionModel[i]) {
+                                    selectedChannels.push(i)
+                                }
+                            }
+                            console.log("Starting examination with", selectedChannels.length, "channels")
+                            accepted(backend.getSelectedAmplifierId(), selectedChannels)
+                            window.close()
+                        }
+                    }
+                }
+            }
         }
     }
 }
