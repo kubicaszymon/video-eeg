@@ -1,6 +1,5 @@
 #include "markermanager.h"
 #include <QDebug>
-#include <algorithm>
 
 MarkerManager::MarkerManager(QObject *parent)
     : QObject{parent}
@@ -28,7 +27,7 @@ QString MarkerManager::getLabelForType(const QString& type)
     if (config.contains(type)) {
         return config[type].first;
     }
-    return type;  // Fallback do samego typu
+    return type;
 }
 
 QColor MarkerManager::getColorForType(const QString& type)
@@ -37,37 +36,49 @@ QColor MarkerManager::getColorForType(const QString& type)
     if (config.contains(type)) {
         return config[type].second;
     }
-    return QColor("#95a5a6");  // Domyślny szary
+    return QColor("#95a5a6");
 }
 
-void MarkerManager::addMarker(const QString& type, double timestamp, const QString& customLabel)
+void MarkerManager::addMarker(const QString& type, const QString& customLabel)
 {
     Marker marker;
     marker.type = type;
-    marker.timestamp = timestamp;
+    marker.xPosition = m_timeWindowSeconds;  // Nowy znacznik na prawej krawędzi
+    marker.absoluteTime = m_totalElapsedTime;
     marker.color = getColorForType(type);
 
-    // Użyj customLabel jeśli podany, w przeciwnym razie domyślna etykieta
     if (!customLabel.isEmpty()) {
         marker.label = customLabel;
     } else {
         marker.label = getLabelForType(type);
     }
 
-    // Dodaj znacznik zachowując sortowanie po czasie
-    auto it = std::lower_bound(m_markers.begin(), m_markers.end(), marker,
-        [](const Marker& a, const Marker& b) {
-            return a.timestamp < b.timestamp;
-        });
-
-    m_markers.insert(it, marker);
+    m_markers.append(marker);
 
     qInfo() << "[MarkerManager] Added marker:" << marker.label
-            << "at" << marker.timestamp << "s"
+            << "at xPos:" << marker.xPosition
+            << "absoluteTime:" << marker.absoluteTime
             << "color:" << marker.color.name();
 
-    emit markerAdded(marker.type, marker.timestamp, marker.label, marker.color);
+    emit markerAdded(marker.type, marker.label, marker.color);
     emit markersChanged();
+}
+
+void MarkerManager::updatePositions(double deltaSeconds)
+{
+    if (deltaSeconds <= 0) return;
+
+    m_totalElapsedTime += deltaSeconds;
+
+    bool changed = false;
+    for (int i = 0; i < m_markers.size(); ++i) {
+        m_markers[i].xPosition -= deltaSeconds;
+        changed = true;
+    }
+
+    if (changed) {
+        emit markersChanged();
+    }
 }
 
 void MarkerManager::removeMarker(int index)
@@ -80,36 +91,26 @@ void MarkerManager::removeMarker(int index)
     }
 }
 
-void MarkerManager::removeMarkerAtTime(double timestamp, double tolerance)
-{
-    for (int i = 0; i < m_markers.size(); ++i) {
-        if (qAbs(m_markers[i].timestamp - timestamp) <= tolerance) {
-            qInfo() << "[MarkerManager] Removing marker at time:" << timestamp
-                    << "(" << m_markers[i].label << ")";
-            m_markers.removeAt(i);
-            emit markersChanged();
-            return;
-        }
-    }
-}
-
 void MarkerManager::clearMarkers()
 {
     qInfo() << "[MarkerManager] Clearing all" << m_markers.size() << "markers";
     m_markers.clear();
+    m_totalElapsedTime = 0.0;
     emit markersChanged();
 }
 
-QVariantList MarkerManager::getMarkersInRange(double startTime, double endTime) const
+QVariantList MarkerManager::visibleMarkersAsVariant() const
 {
     QVariantList result;
 
     for (const auto& marker : m_markers) {
-        if (marker.timestamp >= startTime && marker.timestamp <= endTime) {
+        // Tylko znaczniki widoczne na wykresie (xPosition >= 0)
+        if (marker.xPosition >= 0 && marker.xPosition <= m_timeWindowSeconds) {
             QVariantMap markerMap;
             markerMap["type"] = marker.type;
             markerMap["label"] = marker.label;
-            markerMap["timestamp"] = marker.timestamp;
+            markerMap["xPosition"] = marker.xPosition;
+            markerMap["absoluteTime"] = marker.absoluteTime;
             markerMap["color"] = marker.color;
             result.append(markerMap);
         }
@@ -118,7 +119,7 @@ QVariantList MarkerManager::getMarkersInRange(double startTime, double endTime) 
     return result;
 }
 
-QVariantList MarkerManager::markersAsVariant() const
+QVariantList MarkerManager::allMarkersAsVariant() const
 {
     QVariantList result;
 
@@ -126,10 +127,20 @@ QVariantList MarkerManager::markersAsVariant() const
         QVariantMap markerMap;
         markerMap["type"] = marker.type;
         markerMap["label"] = marker.label;
-        markerMap["timestamp"] = marker.timestamp;
+        markerMap["xPosition"] = marker.xPosition;
+        markerMap["absoluteTime"] = marker.absoluteTime;
         markerMap["color"] = marker.color;
         result.append(markerMap);
     }
 
     return result;
+}
+
+void MarkerManager::setTimeWindowSeconds(double seconds)
+{
+    if (seconds > 0 && !qFuzzyCompare(m_timeWindowSeconds, seconds)) {
+        m_timeWindowSeconds = seconds;
+        emit timeWindowSecondsChanged();
+        emit markersChanged();  // Może zmienić widoczność znaczników
+    }
 }

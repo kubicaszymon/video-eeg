@@ -157,6 +157,12 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
     // Send to data model
     m_dataModel->updateAllData(scaledData);
 
+    // Update marker positions based on incoming data time
+    if (m_markerManager && m_samplingRate > 0) {
+        double deltaSeconds = static_cast<double>(numSamples) / m_samplingRate;
+        m_markerManager->updatePositions(deltaSeconds);
+    }
+
     // Emit data range changed for UI updates
     emit dataRangeChanged();
     emit scaleBarChanged();
@@ -310,6 +316,12 @@ void EegBackend::setTimeWindowSeconds(double newTimeWindowSeconds)
     if (m_dataModel)
     {
         m_dataModel->setTimeWindowSeconds(m_timeWindowSeconds);
+    }
+
+    // Update marker manager
+    if (m_markerManager)
+    {
+        m_markerManager->setTimeWindowSeconds(m_timeWindowSeconds);
     }
 }
 

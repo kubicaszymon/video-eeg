@@ -19,12 +19,6 @@ Rectangle {
     // Marker manager reference (set from parent)
     property var markerManager: null
 
-    // Current time position (end of visible window)
-    property real currentTime: 0.0
-
-    // Computed start time for visible window
-    readonly property real windowStartTime: Math.max(0, currentTime - timeWindowSeconds)
-
     // Channel colors - shared between legend and graph
     readonly property var channelColors: [
         "#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4",
@@ -254,32 +248,15 @@ Rectangle {
                 readonly property real plotWidth: width - plotLeftMargin - plotRightMargin
                 readonly property real plotHeight: height - plotTopMargin - plotBottomMargin
 
-                // Get visible markers
-                property var visibleMarkers: {
-                    if (!markerManager) return []
-                    return markerManager.getMarkersInRange(windowStartTime, currentTime)
-                }
-
-                // Update markers when markerManager changes
-                Connections {
-                    target: markerManager
-                    function onMarkersChanged() {
-                        markerOverlay.visibleMarkers = markerManager ?
-                            markerManager.getMarkersInRange(windowStartTime, currentTime) : []
-                    }
-                }
-
                 Repeater {
-                    model: markerOverlay.visibleMarkers
+                    model: markerManager ? markerManager.visibleMarkers : []
 
                     Item {
                         id: markerItem
-                        visible: true
 
-                        // Calculate X position based on timestamp relative to window
-                        readonly property real relativeTime: modelData.timestamp - windowStartTime
+                        // Calculate X position based on xPosition (0 to timeWindowSeconds)
                         readonly property real xPos: markerOverlay.plotLeftMargin +
-                            (relativeTime / timeWindowSeconds) * markerOverlay.plotWidth
+                            (modelData.xPosition / timeWindowSeconds) * markerOverlay.plotWidth
 
                         x: xPos
                         y: markerOverlay.plotTopMargin
@@ -292,7 +269,7 @@ Rectangle {
                             width: 2
                             height: parent.height
                             color: modelData.color
-                            opacity: 0.8
+                            opacity: 0.85
                         }
 
                         // Label background
@@ -305,33 +282,7 @@ Rectangle {
                             height: markerLabel.height + 4
                             radius: 3
                             color: modelData.color
-                            opacity: 0.9
-
-                            // Adjust position if label would go off-screen
-                            states: [
-                                State {
-                                    when: markerItem.xPos < labelBackground.width / 2
-                                    AnchorChanges {
-                                        target: labelBackground
-                                        anchors.horizontalCenter: undefined
-                                    }
-                                    PropertyChanges {
-                                        target: labelBackground
-                                        x: 0
-                                    }
-                                },
-                                State {
-                                    when: markerItem.xPos > markerOverlay.plotWidth - labelBackground.width / 2
-                                    AnchorChanges {
-                                        target: labelBackground
-                                        anchors.horizontalCenter: undefined
-                                    }
-                                    PropertyChanges {
-                                        target: labelBackground
-                                        x: -labelBackground.width + 2
-                                    }
-                                }
-                            ]
+                            opacity: 0.95
 
                             Label {
                                 id: markerLabel

@@ -74,9 +74,9 @@ ApplicationWindow {
     }
 
     function addMarker(type) {
-        console.log("Marker added:", type, "at time:", recordingTime)
+        console.log("Marker added:", type)
         if (backend && backend.markerManager) {
-            backend.markerManager.addMarker(type, recordingTime)
+            backend.markerManager.addMarker(type)
         }
     }
 
@@ -607,7 +607,6 @@ ApplicationWindow {
                         timeWindowSeconds: timeSlider.value
                         channelNames: backend.channelNames
                         markerManager: backend.markerManager
-                        currentTime: recordingTime
                     }
 
                     // Scale Bar - pokazuje rzeczywistą skalę sygnału
