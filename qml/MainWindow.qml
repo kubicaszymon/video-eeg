@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Item {
+    id: mainWindow
     signal eegWindowOpen(amplifierId: string, channels: var)
 
     // Hospital colors
@@ -37,34 +38,12 @@ Item {
                     anchors.margins: 0
                     spacing: 0
 
-                    // Patient header
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 60
-                        color: sidebarColor
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 15
-                            spacing: 10
-
-                            Label {
-                                text: "👤 Patients"
-                                font.pixelSize: 18
-                                font.bold: true
-                                color: "white"
-                                Layout.fillWidth: true
-                            }
-
-                            Button {
-                                text: "+ New"
-                                font.pixelSize: 12
-                                Layout.preferredWidth: 80
-                                Layout.preferredHeight: 35
-                                palette.button: "#2ecc71"
-                                palette.buttonText: "white"
-                            }
-                        }
+                    PanelHeader {
+                        icon: "👤"
+                        title: "Patients"
+                        buttonText: "+ New"
+                        buttonColor: "#2ecc71"
+                        headerColor: sidebarColor
                     }
 
                     // Search bar
@@ -104,43 +83,13 @@ Item {
                             model: 8
                             spacing: 1
 
-                            delegate: Rectangle {
-                                width: ListView.view.width
-                                height: 80
-                                color: mouseArea.containsMouse ? hoverColor : "white"
-                                border.color: borderColor
-                                border.width: 1
-
-                                MouseArea {
-                                    id: mouseArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                }
-
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 12
-                                    spacing: 4
-
-                                    Label {
-                                        text: "Jan Kowalski"
-                                        font.pixelSize: 14
-                                        font.bold: true
-                                        color: textColor
-                                    }
-
-                                    Label {
-                                        text: "ID: 85010112345"
-                                        font.pixelSize: 11
-                                        color: "#7f8c8d"
-                                    }
-
-                                    Label {
-                                        text: "Last examination: 10.01.2025"
-                                        font.pixelSize: 11
-                                        color: "#7f8c8d"
-                                    }
-                                }
+                            delegate: PatientListItem {
+                                patientName: "Jan Kowalski"
+                                patientId: "85010112345"
+                                lastExamination: "10.01.2025"
+                                textColor: mainWindow.textColor
+                                hoverColor: mainWindow.hoverColor
+                                borderColor: mainWindow.borderColor
                             }
                         }
                     }
@@ -158,39 +107,13 @@ Item {
                     anchors.margins: 0
                     spacing: 0
 
-                    // Examinations header
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 60
-                        color: sidebarColor
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 15
-                            spacing: 10
-
-                            Label {
-                                text: "📊 EEG Examinations"
-                                font.pixelSize: 18
-                                font.bold: true
-                                color: "white"
-                                Layout.fillWidth: true
-                            }
-
-                            Button {
-                                text: "⚡ New EEG Examination"
-                                font.pixelSize: 12
-                                font.bold: true
-                                Layout.preferredWidth: 180
-                                Layout.preferredHeight: 40
-                                palette.button: accentColor
-                                palette.buttonText: "white"
-
-                                onClicked: {
-                                    amplifierSetupWindow.show()
-                                }
-                            }
-                        }
+                    PanelHeader {
+                        icon: "📊"
+                        title: "EEG Examinations"
+                        buttonText: "⚡ New EEG Examination"
+                        buttonColor: accentColor
+                        headerColor: sidebarColor
+                        onButtonClicked: amplifierSetupWindow.show()
                     }
 
                     // Filters bar
@@ -317,20 +240,8 @@ Item {
                                                 }
                                             }
 
-                                            Rectangle {
-                                                Layout.preferredWidth: 80
-                                                Layout.preferredHeight: 24
-                                                color: "#d4edda"
-                                                radius: 12
-                                                border.color: "#c3e6cb"
-                                                border.width: 1
-
-                                                Label {
-                                                    anchors.centerIn: parent
-                                                    text: "Completed"
-                                                    font.pixelSize: 9
-                                                    color: "#155724"
-                                                }
+                                            StatusBadge {
+                                                status: "Completed"
                                             }
                                         }
 

@@ -220,22 +220,9 @@ ApplicationWindow {
                                 spacing: 15
 
                                 // RECORDING CONTROL
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-
-                                    Label {
-                                        text: "⏺ Recording Control"
-                                        font.pixelSize: 13
-                                        font.bold: true
-                                        color: textColor
-                                    }
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        height: 1
-                                        color: "#2d3e50"
-                                    }
+                                ControlSection {
+                                    title: "⏺ Recording Control"
+                                    textColor: eegWindow.textColor
 
                                     Button {
                                         Layout.fillWidth: true
@@ -267,10 +254,7 @@ ApplicationWindow {
                                         enabled: isRecording
                                         palette.button: warningColor
                                         palette.buttonText: "white"
-
-                                        onClicked: {
-                                            isPaused = !isPaused
-                                        }
+                                        onClicked: isPaused = !isPaused
                                     }
 
                                     Button {
@@ -280,30 +264,14 @@ ApplicationWindow {
                                         font.pixelSize: 11
                                         palette.button: accentColor
                                         palette.buttonText: "white"
-
-                                        onClicked: {
-                                            backend.generateTestData()
-                                        }
+                                        onClicked: backend.generateTestData()
                                     }
                                 }
 
                                 // EVENT MARKERS
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-
-                                    Label {
-                                        text: "🏷️ Event Markers"
-                                        font.pixelSize: 13
-                                        font.bold: true
-                                        color: textColor
-                                    }
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        height: 1
-                                        color: "#2d3e50"
-                                    }
+                                ControlSection {
+                                    title: "🏷️ Event Markers"
+                                    textColor: eegWindow.textColor
 
                                     GridLayout {
                                         Layout.fillWidth: true
@@ -311,85 +279,54 @@ ApplicationWindow {
                                         columnSpacing: 8
                                         rowSpacing: 8
 
-                                        Button {
+                                        MarkerButton {
                                             text: "👁️ Eyes Open"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#3498db"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("eyes_open")
+                                            markerType: "eyes_open"
+                                            buttonColor: "#3498db"
+                                            onMarkerClicked: function(type) { addMarker(type) }
                                         }
 
-                                        Button {
+                                        MarkerButton {
                                             text: "😴 Eyes Closed"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#9b59b6"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("eyes_closed")
+                                            markerType: "eyes_closed"
+                                            buttonColor: "#9b59b6"
+                                            onMarkerClicked: function(type) { addMarker(type) }
                                         }
 
-                                        Button {
+                                        MarkerButton {
                                             text: "⚡ Seizure Start"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#e74c3c"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("seizure_start")
+                                            markerType: "seizure_start"
+                                            buttonColor: "#e74c3c"
+                                            onMarkerClicked: function(type) { addMarker(type) }
                                         }
 
-                                        Button {
+                                        MarkerButton {
                                             text: "✓ Seizure Stop"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#27ae60"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("seizure_stop")
+                                            markerType: "seizure_stop"
+                                            buttonColor: "#27ae60"
+                                            onMarkerClicked: function(type) { addMarker(type) }
                                         }
 
-                                        Button {
+                                        MarkerButton {
                                             text: "⚠️ Artifact"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#f39c12"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("artifact")
+                                            markerType: "artifact"
+                                            buttonColor: "#f39c12"
+                                            onMarkerClicked: function(type) { addMarker(type) }
                                         }
 
-                                        Button {
+                                        MarkerButton {
                                             text: "✏️ Custom"
-                                            font.pixelSize: 10
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 35
-                                            palette.button: "#95a5a6"
-                                            palette.buttonText: "white"
-                                            onClicked: addMarker("custom")
+                                            markerType: "custom"
+                                            buttonColor: "#95a5a6"
+                                            onMarkerClicked: function(type) { addMarker(type) }
                                         }
                                     }
                                 }
 
                                 // DISPLAY PARAMETERS
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-
-                                    Label {
-                                        text: "⚙️ Display Parameters"
-                                        font.pixelSize: 13
-                                        font.bold: true
-                                        color: textColor
-                                    }
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        height: 1
-                                        color: "#2d3e50"
-                                    }
+                                ControlSection {
+                                    title: "⚙️ Display Parameters"
+                                    textColor: eegWindow.textColor
 
                                     ColumnLayout {
                                         Layout.fillWidth: true
@@ -452,10 +389,7 @@ ApplicationWindow {
                                             to: 5.0
                                             value: backend.gain
                                             stepSize: 0.1
-
-                                            onValueChanged: {
-                                                backend.gain = value
-                                            }
+                                            onValueChanged: backend.gain = value
                                         }
 
                                         Label {
@@ -498,24 +432,10 @@ ApplicationWindow {
                                 }
 
                                 // SCALE INFO SECTION
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
+                                ControlSection {
+                                    title: "🔬 Scale Info"
+                                    textColor: eegWindow.textColor
 
-                                    Label {
-                                        text: "🔬 Scale Info"
-                                        font.pixelSize: 13
-                                        font.bold: true
-                                        color: textColor
-                                    }
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        height: 1
-                                        color: "#2d3e50"
-                                    }
-
-                                    // Scale info - pokazuje się gdy są dane
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 50
@@ -558,7 +478,6 @@ ApplicationWindow {
                                             }
                                         }
                                     }
-
                                 }
 
                                 // ACTIONS
