@@ -75,9 +75,7 @@ ApplicationWindow {
 
     function addMarker(type) {
         console.log("Marker added:", type)
-        if (backend && backend.markerManager) {
-            backend.markerManager.addMarker(type)
-        }
+        backend.addMarker(type)
     }
 
     Rectangle {

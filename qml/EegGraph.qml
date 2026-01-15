@@ -249,7 +249,7 @@ Rectangle {
                 readonly property real plotHeight: height - plotTopMargin - plotBottomMargin
 
                 Repeater {
-                    model: markerManager ? markerManager.visibleMarkers : []
+                    model: markerManager ? markerManager.markers : []
 
                     Item {
                         id: markerItem

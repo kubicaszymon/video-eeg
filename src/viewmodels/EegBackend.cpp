@@ -119,6 +119,25 @@ void EegBackend::generateTestData()
     m_dataModel->updateAllData(testData);
 }
 
+void EegBackend::addMarker(const QString& type)
+{
+    if (!m_markerManager || !m_dataModel || m_samplingRate <= 0) {
+        qWarning() << "[EegBackend] Cannot add marker - missing dataModel or samplingRate";
+        return;
+    }
+
+    // Oblicz pozycję X na podstawie aktualnej pozycji zapisu w buforze
+    int writePos = m_dataModel->writePosition();
+    double xPosition = static_cast<double>(writePos) / m_samplingRate;
+
+    // Czas absolutny od początku (do eksportu)
+    static double totalTime = 0.0;
+    totalTime = xPosition;  // Na razie używamy xPosition, później można dodać tracking całkowitego czasu
+
+    qInfo() << "[EegBackend] Adding marker" << type << "at X:" << xPosition;
+    m_markerManager->addMarkerAtPosition(type, xPosition, totalTime);
+}
+
 void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
 {
     if(chunk.empty() || chunk[0].empty() || m_channels.isEmpty() || !m_dataModel)
@@ -156,12 +175,6 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
 
     // Send to data model
     m_dataModel->updateAllData(scaledData);
-
-    // Update marker positions based on incoming data time
-    if (m_markerManager && m_samplingRate > 0) {
-        double deltaSeconds = static_cast<double>(numSamples) / m_samplingRate;
-        m_markerManager->updatePositions(deltaSeconds);
-    }
 
     // Emit data range changed for UI updates
     emit dataRangeChanged();
@@ -316,12 +329,6 @@ void EegBackend::setTimeWindowSeconds(double newTimeWindowSeconds)
     if (m_dataModel)
     {
         m_dataModel->setTimeWindowSeconds(m_timeWindowSeconds);
-    }
-
-    // Update marker manager
-    if (m_markerManager)
-    {
-        m_markerManager->setTimeWindowSeconds(m_timeWindowSeconds);
     }
 }
 

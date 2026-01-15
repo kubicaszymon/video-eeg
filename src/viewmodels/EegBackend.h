@@ -59,6 +59,9 @@ public:
 
     Q_INVOKABLE void generateTestData();
 
+    // Dodaj znacznik w aktualnej pozycji zapisu danych
+    Q_INVOKABLE void addMarker(const QString& type);
+
     QVariantList GetChannelNames() const;
     QVariantList channels() const;
     QStringList channelNames() const;
