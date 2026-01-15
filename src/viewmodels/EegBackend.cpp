@@ -173,8 +173,24 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
     QVector<QVector<double>> scaledData = m_autoScaleManager->scaleChunk(
         chunk, m_channelIndexCache, channelSpacing, m_gain);
 
+    // Zapamiętaj poprzednią pozycję przed zapisem
+    int prevWritePos = m_dataModel->writePosition();
+
     // Send to data model
     m_dataModel->updateAllData(scaledData);
+
+    // Pobierz nową pozycję po zapisie
+    int newWritePos = m_dataModel->writePosition();
+
+    // Usuń znaczniki które zostały nadpisane przez nowe dane
+    if (m_markerManager && m_samplingRate > 0) {
+        // Oblicz zakres X który został nadpisany
+        // prevWritePos+1 to pierwszy nadpisany sample, newWritePos to ostatni
+        double startX = static_cast<double>((prevWritePos + 1) % m_dataModel->maxSamples()) / m_samplingRate;
+        double endX = static_cast<double>(newWritePos) / m_samplingRate;
+
+        m_markerManager->removeMarkersInRange(startX, endX, m_timeWindowSeconds);
+    }
 
     // Emit data range changed for UI updates
     emit dataRangeChanged();

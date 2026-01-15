@@ -45,6 +45,9 @@ public:
     // Usuń znacznik po indeksie
     Q_INVOKABLE void removeMarker(int index);
 
+    // Usuń znaczniki w zakresie X (gdy bufor je nadpisuje)
+    void removeMarkersInRange(double startX, double endX, double timeWindowSeconds);
+
     // Wyczyść wszystkie znaczniki
     Q_INVOKABLE void clearMarkers();
 

@@ -71,6 +71,38 @@ void MarkerManager::removeMarker(int index)
     }
 }
 
+void MarkerManager::removeMarkersInRange(double startX, double endX, double timeWindowSeconds)
+{
+    // Usuń znaczniki które zostały nadpisane przez nowe dane w circular buffer
+    bool removed = false;
+
+    for (int i = m_markers.size() - 1; i >= 0; --i) {
+        double markerX = m_markers[i].xPosition;
+
+        bool shouldRemove = false;
+
+        if (startX <= endX) {
+            // Normalny przypadek - bez przekroczenia granicy bufora
+            shouldRemove = (markerX >= startX && markerX <= endX);
+        } else {
+            // Wraparound - bufor się zapętlił (startX > endX)
+            // np. startX=9.5, endX=0.5 oznacza że piszemy od 9.5 do końca i od 0 do 0.5
+            shouldRemove = (markerX >= startX || markerX <= endX);
+        }
+
+        if (shouldRemove) {
+            qInfo() << "[MarkerManager] Removing overwritten marker:" << m_markers[i].label
+                    << "at X:" << markerX;
+            m_markers.removeAt(i);
+            removed = true;
+        }
+    }
+
+    if (removed) {
+        emit markersChanged();
+    }
+}
+
 void MarkerManager::clearMarkers()
 {
     qInfo() << "[MarkerManager] Clearing all" << m_markers.size() << "markers";
