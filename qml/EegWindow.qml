@@ -487,13 +487,13 @@ ApplicationWindow {
                                     }
                                 }
 
-                                // AUTO-SCALE SECTION
+                                // SCALE INFO SECTION
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     spacing: 10
 
                                     Label {
-                                        text: "🔬 Auto Scale"
+                                        text: "🔬 Scale Info"
                                         font.pixelSize: 13
                                         font.bold: true
                                         color: textColor
@@ -505,25 +505,6 @@ ApplicationWindow {
                                         color: "#2d3e50"
                                     }
 
-                                    // Enable/Disable auto-scale
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 10
-
-                                        Switch {
-                                            id: autoScaleSwitch
-                                            checked: backend.autoScaleEnabled
-                                            onCheckedChanged: backend.autoScaleEnabled = checked
-                                        }
-
-                                        Label {
-                                            text: autoScaleSwitch.checked ? "Enabled" : "Disabled"
-                                            font.pixelSize: 11
-                                            color: autoScaleSwitch.checked ? successColor : textSecondary
-                                            Layout.fillWidth: true
-                                        }
-                                    }
-
                                     // Scale info - pokazuje się gdy są dane
                                     Rectangle {
                                         Layout.fillWidth: true
@@ -532,7 +513,6 @@ ApplicationWindow {
                                         radius: 6
                                         border.color: backend.scaleCalibrated ? "#2d3e50" : warningColor
                                         border.width: 1
-                                        visible: backend.autoScaleEnabled
 
                                         RowLayout {
                                             anchors.fill: parent
@@ -575,7 +555,7 @@ ApplicationWindow {
                                         Layout.preferredHeight: 30
                                         text: "🔄 Reset Scale"
                                         font.pixelSize: 10
-                                        enabled: backend.autoScaleEnabled && backend.scaleCalibrated
+                                        enabled: backend.scaleCalibrated
                                         palette.button: "#526d82"
                                         palette.buttonText: "white"
 
@@ -643,7 +623,7 @@ ApplicationWindow {
                         border.color: "#2d3e50"
                         border.width: 1
                         opacity: 0.95
-                        visible: backend.autoScaleEnabled && backend.scaleCalibrated
+                        visible: backend.scaleCalibrated
 
                         Column {
                             anchors.centerIn: parent
@@ -787,11 +767,9 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: backend.autoScaleEnabled
-                            ? (backend.scaleCalibrated
-                                ? ("🔬 " + backend.dataRangeInMicrovolts.toFixed(0) + " μV | Gain: " + backend.gain.toFixed(1) + "x")
-                                : "🔬 Calibrating...")
-                            : "🔬 Auto-scale off"
+                        text: backend.scaleCalibrated
+                            ? ("🔬 " + backend.dataRangeInMicrovolts.toFixed(0) + " μV | Gain: " + backend.gain.toFixed(1) + "x")
+                            : "🔬 Detecting scale..."
                         font.pixelSize: 10
                         color: backend.scaleCalibrated ? accentColor : textSecondary
                     }
