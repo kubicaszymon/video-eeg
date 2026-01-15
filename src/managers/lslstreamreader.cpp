@@ -81,7 +81,7 @@ void LSLStreamReader::ReadLoop()
         {
             emit ErrorOccurred(QString("Read error: %1").arg(e.what()));
         }
-        QThread::sleep(std::chrono::milliseconds(100));
+        QThread::sleep(std::chrono::milliseconds(20));
     }
 }
 
