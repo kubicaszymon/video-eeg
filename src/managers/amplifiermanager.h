@@ -47,6 +47,8 @@ signals:
     void AcquisitionStatusChanged();
     void DataReceived(const std::vector<std::vector<float>>& chunk);
     void SamplingRateDetected(double samplingRate);
+    void StreamConnected();
+    void StreamDisconnected();
 
 public slots:
     void onProcessData(const std::vector<std::vector<float>>& chunk);

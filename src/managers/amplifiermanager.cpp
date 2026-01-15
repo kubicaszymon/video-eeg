@@ -84,6 +84,8 @@ void AmplifierManager::StartStream(const QString amplifier_id)
 
         connect(lsl_reader_.get(), &LSLStreamReader::DataReceived, this, &AmplifierManager::onProcessData);
         connect(lsl_reader_.get(), &LSLStreamReader::SamplingRateDetected, this, &AmplifierManager::onSamplingRateDetected);
+        connect(lsl_reader_.get(), &LSLStreamReader::StreamConnected, this, &AmplifierManager::StreamConnected);
+        connect(lsl_reader_.get(), &LSLStreamReader::StreamDisconnected, this, &AmplifierManager::StreamDisconnected);
         connect(this, &AmplifierManager::StartLSLReading, lsl_reader_.get(), &LSLStreamReader::onStartReading);
         connect(this, &AmplifierManager::StopLSLReading, lsl_reader_.get(), &LSLStreamReader::onStopReading);
 
