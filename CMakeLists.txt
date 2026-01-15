@@ -31,6 +31,23 @@ qt_add_qml_module(appvideoEeg
         qml/MainWindow.qml
         qml/AmplifierSetupWindow.qml
         qml/EegWindow.qml
+        qml/EegGraph.qml
+
+        # Common components
+        qml/components/common/InfoBanner.qml
+        qml/components/common/SuccessBanner.qml
+        qml/components/common/DeviceCard.qml
+        qml/components/common/NavigationBar.qml
+        qml/components/common/SectionHeader.qml
+
+        # EEG components
+        qml/components/eeg/ControlSection.qml
+        qml/components/eeg/MarkerButton.qml
+
+        # Main components
+        qml/components/main/PatientListItem.qml
+        qml/components/main/PanelHeader.qml
+        qml/components/main/StatusBadge.qml
 
     SOURCES
         src/viewmodels/AmplifierSetupBackend.h
@@ -52,15 +69,14 @@ qt_add_qml_module(appvideoEeg
         src/globals.cpp
 
         src/models/amplifiermodel.h
+        src/models/eegdatamodel.h
+        src/models/eegdatamodel.cpp
 
+        src/utils/autoscalemanager.h
+        src/utils/autoscalemanager.cpp
 
-
-
-        RESOURCES
-            notes
-            QML_FILES qml/EegGraph.qml
-            SOURCES src/models/eegdatamodel.h src/models/eegdatamodel.cpp
-            SOURCES src/utils/autoscalemanager.h src/utils/autoscalemanager.cpp
+    RESOURCES
+        notes
 )
 
 target_include_directories(appvideoEeg PRIVATE
