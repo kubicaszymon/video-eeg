@@ -18,6 +18,7 @@ Window {
     property var channelSelectionModel: []
     property int selectedCameraIndex: -1
     property string savePath: ""
+    property int currentStep: 1
 
     // Mock cameras (replace with real backend)
     property var availableCameras: ["Built-in Camera", "USB Camera HD", "Logitech C920"]
@@ -72,6 +73,11 @@ Window {
         channelSelectionModel = channelSelectionModel.slice()
     }
 
+    function setChannelSelection(index, selected) {
+        channelSelectionModel[index] = selected
+        channelSelectionModel = channelSelectionModel.slice()
+    }
+
     function selectAllChannels(checked) {
         for (var i = 0; i < channelSelectionModel.length; i++) {
             channelSelectionModel[i] = checked
@@ -90,11 +96,7 @@ Window {
     }
 
     function getCurrentStepNumber() {
-        if (stackView.currentItem === amplifierSelectionPage) return 1
-        if (stackView.currentItem === channelSelectionPage) return 2
-        if (stackView.currentItem === cameraSelectionPage) return 3
-        if (stackView.currentItem === summaryPage) return 4
-        return 1
+        return currentStep
     }
 
     function getCurrentStepTitle() {
@@ -462,7 +464,10 @@ Window {
                         rejected()
                         window.close()
                     }
-                    onNextClicked: stackView.push(channelSelectionPage)
+                    onNextClicked: {
+                        currentStep = 2
+                        stackView.push(channelSelectionPage)
+                    }
                 }
             }
         }
@@ -529,7 +534,18 @@ Window {
                                     id: selectAllCheckbox
                                     text: "Select all"
                                     font.pixelSize: 11
-                                    checked: areAllChannelsSelected()
+
+                                    Component.onCompleted: {
+                                        checked = areAllChannelsSelected()
+                                    }
+
+                                    Connections {
+                                        target: window
+                                        function onChannelSelectionModelChanged() {
+                                            selectAllCheckbox.checked = areAllChannelsSelected()
+                                        }
+                                    }
+
                                     onClicked: {
                                         selectAllChannels(checked)
                                     }
@@ -590,7 +606,7 @@ Window {
                                         CheckBox {
                                             checked: channelSelectionModel[index] || false
                                             onClicked: {
-                                                toggleChannel(index)
+                                                setChannelSelection(index, checked)
                                             }
                                         }
                                     }
@@ -606,12 +622,18 @@ Window {
                     nextEnabled: getSelectedChannelsCount() > 0
                     nextColor: accentColor
 
-                    onBackClicked: stackView.pop()
+                    onBackClicked: {
+                        currentStep = 1
+                        stackView.pop()
+                    }
                     onCancelClicked: {
                         rejected()
                         window.close()
                     }
-                    onNextClicked: stackView.push(cameraSelectionPage)
+                    onNextClicked: {
+                        currentStep = 3
+                        stackView.push(cameraSelectionPage)
+                    }
                 }
             }
         }
@@ -729,12 +751,18 @@ Window {
                     nextColor: accentColor
 
                     onRefreshClicked: { /* TODO: refresh cameras */ }
-                    onBackClicked: stackView.pop()
+                    onBackClicked: {
+                        currentStep = 2
+                        stackView.pop()
+                    }
                     onCancelClicked: {
                         rejected()
                         window.close()
                     }
-                    onNextClicked: stackView.push(summaryPage)
+                    onNextClicked: {
+                        currentStep = 4
+                        stackView.push(summaryPage)
+                    }
                 }
             }
         }
@@ -934,7 +962,10 @@ Window {
                     nextText: "✓ Start Examination"
                     nextColor: successColor
 
-                    onBackClicked: stackView.pop()
+                    onBackClicked: {
+                        currentStep = 3
+                        stackView.pop()
+                    }
                     onCancelClicked: {
                         rejected()
                         window.close()
