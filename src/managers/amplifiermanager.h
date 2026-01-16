@@ -8,8 +8,8 @@
 #include <QThread>
 
 #include "lslstreamreader.h"
+#include "amplifiermodel.h"
 
-struct Amplifier;
 struct Channel;
 
 /*
