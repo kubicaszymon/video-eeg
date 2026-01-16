@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QVector>
 #include <QString>
+#include <QMap>
 #include <vector>
 #include <limits>
 #include <cmath>
@@ -139,11 +140,25 @@ private:
      */
     double calculateOptimalScaleFactor(double dataRange, double targetSpacing) const;
 
+    /**
+     * @brief Oblicza rozbustny zakres używając mediany zakresów per-channel
+     * Zapobiega sytuacji gdy jeden "zły" kanał dominuje nad skalowaniem
+     */
+    double calculateRobustRange() const;
+
     // Statystyki globalne - dla WSZYSTKICH kanałów razem
     double m_globalMin = std::numeric_limits<double>::infinity();
     double m_globalMax = -std::numeric_limits<double>::infinity();
     double m_globalSum = 0.0;
     double m_globalSumSquares = 0.0;
+
+    // Per-channel statistics for robust scaling
+    struct ChannelStats {
+        double min = std::numeric_limits<double>::infinity();
+        double max = -std::numeric_limits<double>::infinity();
+        double range() const { return max - min; }
+    };
+    QMap<int, ChannelStats> m_channelStats;
 
     // Statystyki stabilne (po kalibracji)
     double m_calibratedMin = 0.0;

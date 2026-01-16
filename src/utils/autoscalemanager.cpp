@@ -24,6 +24,7 @@ void AutoScaleManager::reset()
     m_detectedUnit = DataUnit::Unknown;
     m_totalSamplesProcessed = 0;
     m_recentRanges.clear();
+    m_channelStats.clear();
 
     CalibrationState oldState = m_calibrationState;
     m_calibrationState = CalibrationState::NotStarted;
@@ -55,24 +56,51 @@ void AutoScaleManager::processChunk(const std::vector<std::vector<float>>& chunk
     // Już przy pierwszej paczce danych ustalamy skalę - nie ma potrzeby długiej kalibracji
     if (m_calibrationState == CalibrationState::NotStarted)
     {
-        // Ustaw skalę od razu na podstawie pierwszych danych
-        m_calibratedMin = m_globalMin;
-        m_calibratedMax = m_globalMax;
-        m_calibratedRange = m_calibratedMax - m_calibratedMin;
+        // USE ROBUST SCALING: Use median of per-channel ranges instead of global min/max
+        // This prevents one bad channel from ruining the scale for all channels
+        double robustRange = calculateRobustRange();
 
-        // Wykryj jednostkę
-        m_detectedUnit = detectUnit(m_calibratedMin, m_calibratedMax);
+        if (robustRange > 0 && std::isfinite(robustRange))
+        {
+            // Use robust range for scaling
+            m_calibratedRange = robustRange;
+            // Set min/max symmetrically around 0 for display purposes
+            m_calibratedMin = -robustRange / 2.0;
+            m_calibratedMax = robustRange / 2.0;
+        }
+        else
+        {
+            // Fallback to global min/max if robust calculation fails
+            m_calibratedMin = m_globalMin;
+            m_calibratedMax = m_globalMax;
+            m_calibratedRange = m_calibratedMax - m_calibratedMin;
+        }
+
+        // Wykryj jednostkę based on robust range
+        m_detectedUnit = detectUnit(-m_calibratedRange/2, m_calibratedRange/2);
 
         // Oblicz bazowy współczynnik skalowania
         m_scaleFactor = calculateOptimalScaleFactor(m_calibratedRange, m_targetSpacing);
 
         m_calibrationState = CalibrationState::Calibrated;
 
-        qDebug() << "[AutoScale] Scale set from first data:"
-                 << "range:" << m_calibratedMin << "to" << m_calibratedMax
+        qDebug() << "[AutoScale] Scale set from first data (robust):"
+                 << "robustRange:" << m_calibratedRange
+                 << "globalRange:" << (m_globalMax - m_globalMin)
                  << "(" << dataRangeInMicrovolts() << "μV)"
                  << "unit:" << unitString()
-                 << "scaleFactor:" << m_scaleFactor;
+                 << "scaleFactor:" << m_scaleFactor
+                 << "channels:" << m_channelStats.size();
+
+        // Log per-channel ranges for debugging
+        if (m_channelStats.size() <= 32)
+        {
+            for (auto it = m_channelStats.constBegin(); it != m_channelStats.constEnd(); ++it)
+            {
+                qDebug() << "  [Ch" << it.key() << "] range:" << it.value().range()
+                         << "min:" << it.value().min << "max:" << it.value().max;
+            }
+        }
     }
     // Po ustaleniu skali NIE zmieniamy jej automatycznie
     // Użytkownik kontroluje wzmocnienie przez suwak Gain
@@ -103,6 +131,9 @@ void AutoScaleManager::updateStatistics(const std::vector<std::vector<float>>& c
     double chunkMin = std::numeric_limits<double>::infinity();
     double chunkMax = -std::numeric_limits<double>::infinity();
 
+    // Per-channel min/max for this chunk (for robust scaling)
+    QMap<int, ChannelStats> chunkChannelStats;
+
     // Przejdź przez WSZYSTKIE wybrane kanały i WSZYSTKIE próbki
     for (int sample = 0; sample < numSamples; ++sample)
     {
@@ -122,7 +153,12 @@ void AutoScaleManager::updateStatistics(const std::vector<std::vector<float>>& c
                 continue;
             }
 
-            // Aktualizuj min/max chunk
+            // Update per-channel statistics
+            ChannelStats& stats = chunkChannelStats[channelIndex];
+            stats.min = std::min(stats.min, value);
+            stats.max = std::max(stats.max, value);
+
+            // Aktualizuj min/max chunk (global)
             chunkMin = std::min(chunkMin, value);
             chunkMax = std::max(chunkMax, value);
 
@@ -132,6 +168,17 @@ void AutoScaleManager::updateStatistics(const std::vector<std::vector<float>>& c
         }
 
         m_totalSamplesProcessed++;
+    }
+
+    // Update global per-channel statistics
+    for (auto it = chunkChannelStats.constBegin(); it != chunkChannelStats.constEnd(); ++it)
+    {
+        int channelIndex = it.key();
+        const ChannelStats& chunkStats = it.value();
+
+        ChannelStats& globalStats = m_channelStats[channelIndex];
+        globalStats.min = std::min(globalStats.min, chunkStats.min);
+        globalStats.max = std::max(globalStats.max, chunkStats.max);
     }
 
     // Aktualizuj globalne min/max
@@ -267,6 +314,59 @@ double AutoScaleManager::calculateOptimalScaleFactor(double dataRange, double ta
     return scale;
 }
 
+double AutoScaleManager::calculateRobustRange() const
+{
+    if (m_channelStats.isEmpty())
+    {
+        // Fallback to global range
+        return m_globalMax - m_globalMin;
+    }
+
+    // Collect all channel ranges
+    QVector<double> ranges;
+    ranges.reserve(m_channelStats.size());
+
+    for (auto it = m_channelStats.constBegin(); it != m_channelStats.constEnd(); ++it)
+    {
+        double range = it.value().range();
+        if (std::isfinite(range) && range > 0)
+        {
+            ranges.append(range);
+        }
+    }
+
+    if (ranges.isEmpty())
+    {
+        return m_globalMax - m_globalMin;
+    }
+
+    // Sort ranges to find percentiles
+    std::sort(ranges.begin(), ranges.end());
+
+    // Use 75th percentile (Q3) instead of max to be robust against outliers
+    // This way even if a few channels have crazy values, scaling will be based on "normal" channels
+    int q3Index = static_cast<int>(ranges.size() * 0.75);
+    q3Index = std::min(q3Index, ranges.size() - 1);
+
+    double robustRange = ranges[q3Index];
+
+    // Additional safety: if median is much smaller than Q3, use median instead
+    // This handles the case where most channels are normal but a few are extreme
+    int medianIndex = ranges.size() / 2;
+    double medianRange = ranges[medianIndex];
+
+    // If Q3 is more than 10x median, something is probably wrong with outlier channels
+    // In that case, prefer median * 2 (to give some headroom)
+    if (robustRange > medianRange * 10.0 && ranges.size() > 4)
+    {
+        qDebug() << "[AutoScale] Outlier detected: Q3=" << robustRange
+                 << "median=" << medianRange << "- using median*2";
+        robustRange = medianRange * 2.0;
+    }
+
+    return robustRange;
+}
+
 double AutoScaleManager::dataRangeInMicrovolts() const
 {
     double range = m_calibratedRange;
@@ -370,23 +470,8 @@ QVector<QVector<double>> AutoScaleManager::scaleChunk(const std::vector<std::vec
         result[ch].reserve(numSamples);
     }
 
-    // Centrum danych (do wycentrowania przed skalowaniem)
-    double dataCenter = (m_calibratedMax + m_calibratedMin) / 2.0;
-
-    // Jeśli nie ma kalibracji, użyj aktualnych globalnych wartości
-    if (m_calibrationState == CalibrationState::NotStarted)
-    {
-        if (std::isfinite(m_globalMin) && std::isfinite(m_globalMax))
-        {
-            dataCenter = (m_globalMax + m_globalMin) / 2.0;
-        }
-        else
-        {
-            dataCenter = 0.0;
-        }
-    }
-
     // Całkowity współczynnik skalowania = bazowy * gain (użytkownik)
+    // TEN SAM dla wszystkich kanałów!
     const double totalScale = m_scaleFactor * gain;
 
     // Przetwórz wszystkie kanały i próbki
@@ -404,6 +489,18 @@ QVector<QVector<double>> AutoScaleManager::scaleChunk(const std::vector<std::vec
             continue;
         }
 
+        // PER-CHANNEL CENTERING: Each channel is centered around its own midpoint
+        // This handles channels with different DC offsets correctly
+        double channelCenter = 0.0;
+        if (m_channelStats.contains(channelIndex))
+        {
+            const ChannelStats& stats = m_channelStats[channelIndex];
+            if (std::isfinite(stats.min) && std::isfinite(stats.max))
+            {
+                channelCenter = (stats.max + stats.min) / 2.0;
+            }
+        }
+
         // Offset dla tego kanału (kanał 0 na górze, ostatni na dole)
         double offset = (numChannels - 1 - ch) * channelSpacing;
 
@@ -411,8 +508,9 @@ QVector<QVector<double>> AutoScaleManager::scaleChunk(const std::vector<std::vec
         {
             double rawValue = static_cast<double>(chunk[s][channelIndex]);
 
-            // 1. Wycentruj dane (odejmij środek zakresu)
-            double centered = rawValue - dataCenter;
+            // 1. Wycentruj dane względem WŁASNEGO centrum kanału
+            //    (usuwa DC offset specyficzny dla tego kanału)
+            double centered = rawValue - channelCenter;
 
             // 2. Przeskaluj: bazowy współczynnik * gain (użytkownik)
             //    Ten sam współczynnik dla WSZYSTKICH kanałów!
