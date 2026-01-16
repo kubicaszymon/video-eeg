@@ -55,8 +55,14 @@ void AmplifierSetupBackend::refreshAmplifiersList()
 {
     if(m_manager)
     {
+        m_isLoading = true;
+        emit isLoadingChanged();
+
         m_amplifiers = m_manager->RefreshAmplifiersList();
         emit availableAmplifiersChanged();
+
+        m_isLoading = false;
+        emit isLoadingChanged();
     }
     else
     {
@@ -76,9 +82,10 @@ void AmplifierSetupBackend::setSelectedAmplifierIndex(int index)
 
 const Amplifier* AmplifierSetupBackend::GetCurrentAmplifier() const
 {
-    if(m_amplifiers.empty() || m_selectedAmplifierIndex.value() >= m_amplifiers.size())
+    int index = m_selectedAmplifierIndex.value();
+    if(m_amplifiers.empty() || index < 0 || index >= m_amplifiers.size())
     {
         return nullptr;
     }
-    return &m_amplifiers[m_selectedAmplifierIndex];
+    return &m_amplifiers[index];
 }

@@ -143,8 +143,6 @@ signals:
     void isConnectedChanged();
 
 private:
-    void initializeBuffers(int numChannels, int numSamples);
-
     Amplifier* amplifier_ = nullptr;
     AmplifierManager* amplifier_manager_ = nullptr;
     QVariantList m_channels;
@@ -156,11 +154,8 @@ private:
     double m_samplingRate = 0.0;  // Will be set from LSL stream info
     double m_timeWindowSeconds = 10.0;  // Default 10 second window
 
-    // Pre-allocated buffers to avoid runtime memory allocations
-    QVector<QVector<double>> m_scaledDataBuffer;
+    // Cached channel indices to avoid repeated QVariant::toInt() calls
     QVector<int> m_channelIndexCache;
-    int m_lastNumChannels = 0;
-    int m_lastBufferSize = 0;
 
     // Auto-scale manager
     AutoScaleManager* m_autoScaleManager = nullptr;
