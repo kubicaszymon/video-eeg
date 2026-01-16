@@ -73,44 +73,6 @@ void EegBackend::onStreamDisconnected()
     emit isConnectedChanged();
 }
 
-void EegBackend::initializeBuffers(int numChannels, int numSamples)
-{
-    // Only reallocate if size changed significantly
-    if (numChannels != m_lastNumChannels || numSamples > m_lastBufferSize)
-    {
-        m_scaledDataBuffer.resize(numChannels);
-
-        // Pre-allocate with some extra capacity to avoid frequent reallocations
-        int reserveSize = numSamples * 2;
-        for (int ch = 0; ch < numChannels; ++ch)
-        {
-            m_scaledDataBuffer[ch].clear();
-            m_scaledDataBuffer[ch].reserve(reserveSize);
-        }
-
-        m_lastNumChannels = numChannels;
-        m_lastBufferSize = reserveSize;
-    }
-    else
-    {
-        // Just clear existing buffers for reuse
-        for (int ch = 0; ch < numChannels; ++ch)
-        {
-            m_scaledDataBuffer[ch].clear();
-        }
-    }
-
-    // Cache channel indices to avoid repeated QVariant::toInt() calls
-    if (m_channelIndexCache.size() != numChannels)
-    {
-        m_channelIndexCache.resize(numChannels);
-        for (int i = 0; i < numChannels; ++i)
-        {
-            m_channelIndexCache[i] = m_channels[i].toInt();
-        }
-    }
-}
-
 void EegBackend::generateTestData()
 {
     if (!m_dataModel) return;
@@ -367,6 +329,12 @@ void EegBackend::setTimeWindowSeconds(double newTimeWindowSeconds)
     if (m_dataModel)
     {
         m_dataModel->setTimeWindowSeconds(m_timeWindowSeconds);
+    }
+
+    // Clear markers when time window changes (buffer is reset)
+    if (m_markerManager)
+    {
+        m_markerManager->clearMarkers();
     }
 }
 

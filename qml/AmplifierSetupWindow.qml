@@ -15,7 +15,6 @@ Window {
     signal accepted(amplifierId: string, channels: var)
     signal rejected()
 
-    property int loading: Globals.status
     property var channelSelectionModel: []
     property int selectedCameraIndex: -1
     property string savePath: ""
@@ -39,17 +38,6 @@ Window {
             channelSelectionModel = []
             for (var i = 0; i < backend.currentChannels.length; i++) {
                 channelSelectionModel.push(false)
-            }
-        }
-    }
-
-    Timer {
-        id: timer
-        running: true
-        repeat: true
-        onTriggered: {
-            if(window.loading === Globals.Loading){
-                Globals.status = Globals.Ready
             }
         }
     }
@@ -233,7 +221,7 @@ Window {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 color: "#80000000"
-                visible: window.loading === Globals.Loading
+                visible: backend.isLoading
                 z: 1000
 
                 ColumnLayout {
@@ -342,13 +330,11 @@ Window {
                     showBack: false
                     showRefresh: true
                     refreshText: "🔄 Refresh"
-                    refreshEnabled: !window.loading
+                    refreshEnabled: !backend.isLoading
                     nextEnabled: backend.selectedAmplifierIndex !== -1
                     nextColor: accentColor
 
                     onRefreshClicked: {
-                        Globals.status = Globals.Loading
-                        timer.restart()
                         backend.refreshAmplifiersList()
                     }
                     onCancelClicked: {

@@ -185,6 +185,7 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
 
     // Update write position for cursor
     m_writePosition = endWriteIndex;
+    emit writePositionChanged();
 
     // Create gap after write position (clear ahead)
     for (int g = 1; g <= GAP_SIZE; ++g)

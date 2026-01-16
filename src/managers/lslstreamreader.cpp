@@ -8,10 +8,6 @@ LSLStreamReader::LSLStreamReader(QObject* parent)
 LSLStreamReader::~LSLStreamReader()
 {
     onStopReading();
-    if(inlet_)
-    {
-        delete inlet_;
-    }
 }
 
 void LSLStreamReader::onStartReading()

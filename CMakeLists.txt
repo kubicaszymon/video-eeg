@@ -65,9 +65,6 @@ qt_add_qml_module(appvideoEeg
         src/managers/markermanager.h
         src/managers/markermanager.cpp
 
-        src/globals.h
-        src/globals.cpp
-
         src/models/amplifiermodel.h
         src/models/eegdatamodel.h
         src/models/eegdatamodel.cpp
