@@ -534,21 +534,8 @@ Window {
                                     id: selectAllCheckbox
                                     text: "Select all"
                                     font.pixelSize: 11
-
-                                    Component.onCompleted: {
-                                        checked = areAllChannelsSelected()
-                                    }
-
-                                    Connections {
-                                        target: window
-                                        function onChannelSelectionModelChanged() {
-                                            selectAllCheckbox.checked = areAllChannelsSelected()
-                                        }
-                                    }
-
-                                    onClicked: {
-                                        selectAllChannels(checked)
-                                    }
+                                    checked: areAllChannelsSelected()
+                                    onClicked: selectAllChannels(checked)
                                 }
                             }
                         }
@@ -576,13 +563,6 @@ Window {
                                         return index % 2 === 0 ? "white" : "#f8f9fa"
                                     }
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        onClicked: {
-                                            toggleChannel(index)
-                                        }
-                                    }
-
                                     RowLayout {
                                         anchors.fill: parent
                                         anchors.leftMargin: 20
@@ -605,9 +585,7 @@ Window {
 
                                         CheckBox {
                                             checked: channelSelectionModel[index] || false
-                                            onClicked: {
-                                                setChannelSelection(index, checked)
-                                            }
+                                            onClicked: setChannelSelection(index, checked)
                                         }
                                     }
                                 }
