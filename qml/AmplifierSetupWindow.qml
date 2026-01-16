@@ -37,10 +37,13 @@ Window {
         id: backend
 
         onCurrentChannelsChanged: {
-            channelSelectionModel = []
+            var newModel = []
             for (var i = 0; i < backend.currentChannels.length; i++) {
-                channelSelectionModel.push(false)
+                newModel.push(false)
             }
+            channelSelectionModel = newModel
+            channelUpdateCounter++
+            console.log("Channels changed, initialized model with", newModel.length, "channels")
         }
     }
 
@@ -86,12 +89,13 @@ Window {
 
     function selectAllChannels(selectAll) {
         var newModel = []
-        for (var i = 0; i < channelSelectionModel.length; i++) {
+        var channelCount = backend.currentChannels.length
+        for (var i = 0; i < channelCount; i++) {
             newModel.push(selectAll)
         }
         channelSelectionModel = newModel
         channelUpdateCounter++
-        console.log("Select all:", selectAll, "counter:", channelUpdateCounter)
+        console.log("Select all:", selectAll, "channelCount:", channelCount, "counter:", channelUpdateCounter)
     }
 
     function getSelectedChannelsList() {
