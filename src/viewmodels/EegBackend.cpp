@@ -330,6 +330,12 @@ void EegBackend::setTimeWindowSeconds(double newTimeWindowSeconds)
     {
         m_dataModel->setTimeWindowSeconds(m_timeWindowSeconds);
     }
+
+    // Clear markers when time window changes (buffer is reset)
+    if (m_markerManager)
+    {
+        m_markerManager->clearMarkers();
+    }
 }
 
 // Auto-scale getters and setters
