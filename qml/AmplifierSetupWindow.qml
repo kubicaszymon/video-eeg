@@ -18,6 +18,8 @@ Window {
     property var channelSelectionModel: []
     property int selectedCameraIndex: -1
     property string savePath: ""
+    property int currentStep: 1
+    property int channelUpdateCounter: 0  // Trigger do wymuszenia aktualizacji UI
 
     // Mock cameras (replace with real backend)
     property var availableCameras: ["Built-in Camera", "USB Camera HD", "Logitech C920"]
@@ -35,10 +37,13 @@ Window {
         id: backend
 
         onCurrentChannelsChanged: {
-            channelSelectionModel = []
+            var newModel = []
             for (var i = 0; i < backend.currentChannels.length; i++) {
-                channelSelectionModel.push(false)
+                newModel.push(false)
             }
+            channelSelectionModel = newModel
+            channelUpdateCounter++
+            console.log("Channels changed, initialized model with", newModel.length, "channels")
         }
     }
 
@@ -51,7 +56,13 @@ Window {
         }
     }
 
+    function isChannelSelected(idx) {
+        void(channelUpdateCounter)  // Dependency na uupdatecounter
+        return channelSelectionModel[idx] === true
+    }
+
     function getSelectedChannelsCount() {
+        void(channelUpdateCounter)
         var count = 0
         for (var i = 0; i < channelSelectionModel.length; i++) {
             if (channelSelectionModel[i]) count++
@@ -59,16 +70,32 @@ Window {
         return count
     }
 
-    function toggleChannel(index) {
-        channelSelectionModel[index] = !channelSelectionModel[index]
-        channelSelectionModel = channelSelectionModel.slice()
+    function areAllChannelsSelected() {
+        void(channelUpdateCounter)
+        if (channelSelectionModel.length === 0) return false
+        for (var i = 0; i < channelSelectionModel.length; i++) {
+            if (!channelSelectionModel[i]) return false
+        }
+        return true
     }
 
-    function selectAllChannels(checked) {
-        for (var i = 0; i < channelSelectionModel.length; i++) {
-            channelSelectionModel[i] = checked
+    function toggleChannel(index) {
+        var newModel = channelSelectionModel.slice()
+        newModel[index] = !newModel[index]
+        channelSelectionModel = newModel
+        channelUpdateCounter++
+        console.log("Toggle channel", index, "->", newModel[index], "counter:", channelUpdateCounter)
+    }
+
+    function selectAllChannels(selectAll) {
+        var newModel = []
+        var channelCount = backend.currentChannels.length
+        for (var i = 0; i < channelCount; i++) {
+            newModel.push(selectAll)
         }
-        channelSelectionModel = channelSelectionModel.slice()
+        channelSelectionModel = newModel
+        channelUpdateCounter++
+        console.log("Select all:", selectAll, "channelCount:", channelCount, "counter:", channelUpdateCounter)
     }
 
     function getSelectedChannelsList() {
@@ -82,11 +109,7 @@ Window {
     }
 
     function getCurrentStepNumber() {
-        if (stackView.currentItem === amplifierSelectionPage) return 1
-        if (stackView.currentItem === channelSelectionPage) return 2
-        if (stackView.currentItem === cameraSelectionPage) return 3
-        if (stackView.currentItem === summaryPage) return 4
-        return 1
+        return currentStep
     }
 
     function getCurrentStepTitle() {
@@ -215,31 +238,144 @@ Window {
                     PropertyAnimation { property: "opacity"; from: 1; to: 0; duration: 200 }
                 }
             }
+        }
 
-            // LOADING OVERLAY
+        // LOADING OVERLAY - positioned over entire window content
+        Rectangle {
+            anchors.fill: parent
+            color: "#cc1a1a2e"
+            visible: backend.isLoading
+            opacity: backend.isLoading ? 1 : 0
+            z: 1000
+
+            Behavior on opacity {
+                NumberAnimation { duration: 200 }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {} // Block clicks
+            }
+
             Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: "#80000000"
-                visible: backend.isLoading
-                z: 1000
+                anchors.centerIn: parent
+                width: 280
+                height: 200
+                radius: 16
+                color: cardColor
+                border.color: accentColor
+                border.width: 2
+
+                layer.enabled: true
 
                 ColumnLayout {
                     anchors.centerIn: parent
-                    spacing: 15
+                    spacing: 20
 
-                    BusyIndicator {
+                    // Custom spinning loader
+                    Item {
                         Layout.alignment: Qt.AlignHCenter
-                        running: parent.parent.visible
                         Layout.preferredWidth: 60
                         Layout.preferredHeight: 60
+
+                        Rectangle {
+                            id: spinnerOuter
+                            anchors.centerIn: parent
+                            width: 60
+                            height: 60
+                            radius: 30
+                            color: "transparent"
+                            border.color: borderColor
+                            border.width: 4
+                        }
+
+                        Rectangle {
+                            id: spinnerArc
+                            anchors.centerIn: parent
+                            width: 60
+                            height: 60
+                            radius: 30
+                            color: "transparent"
+                            border.color: accentColor
+                            border.width: 4
+
+                            Rectangle {
+                                width: 32
+                                height: 32
+                                color: cardColor
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            Rectangle {
+                                width: 32
+                                height: 32
+                                color: cardColor
+                                anchors.bottom: parent.bottom
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+
+                            RotationAnimation on rotation {
+                                from: 0
+                                to: 360
+                                duration: 1000
+                                loops: Animation.Infinite
+                                running: backend.isLoading
+                            }
+                        }
+
+                        Label {
+                            anchors.centerIn: parent
+                            text: "🔍"
+                            font.pixelSize: 20
+                        }
                     }
 
-                    Label {
-                        text: "Scanning devices..."
-                        font.pixelSize: 14
-                        color: "white"
+                    ColumnLayout {
                         Layout.alignment: Qt.AlignHCenter
+                        spacing: 6
+
+                        Label {
+                            text: "Scanning for devices..."
+                            font.pixelSize: 15
+                            font.bold: true
+                            color: textColor
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+
+                        Label {
+                            text: "Looking for EEG amplifiers"
+                            font.pixelSize: 12
+                            color: "#7f8c8d"
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+                    }
+
+                    // Animated dots
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 6
+
+                        Repeater {
+                            model: 3
+
+                            Rectangle {
+                                width: 8
+                                height: 8
+                                radius: 4
+                                color: accentColor
+
+                                SequentialAnimation on opacity {
+                                    loops: Animation.Infinite
+                                    running: backend.isLoading
+
+                                    PauseAnimation { duration: index * 200 }
+                                    NumberAnimation { from: 0.3; to: 1; duration: 300 }
+                                    NumberAnimation { from: 1; to: 0.3; duration: 300 }
+                                    PauseAnimation { duration: (2 - index) * 200 }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -341,7 +477,10 @@ Window {
                         rejected()
                         window.close()
                     }
-                    onNextClicked: stackView.push(channelSelectionPage)
+                    onNextClicked: {
+                        currentStep = 2
+                        stackView.push(channelSelectionPage)
+                    }
                 }
             }
         }
@@ -353,6 +492,16 @@ Window {
 
         Rectangle {
             color: bgColor
+
+            // Local properties that react to channelUpdateCounter
+            property bool allSelected: {
+                void(channelUpdateCounter)
+                return areAllChannelsSelected()
+            }
+            property int selectedCount: {
+                void(channelUpdateCounter)
+                return getSelectedChannelsCount()
+            }
 
             ColumnLayout {
                 anchors.fill: parent
@@ -376,6 +525,7 @@ Window {
                         anchors.fill: parent
                         spacing: 0
 
+                        // Header row
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 50
@@ -386,7 +536,6 @@ Window {
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
                                 anchors.rightMargin: 20
-                                spacing: 0
 
                                 Label {
                                     text: "No."
@@ -404,12 +553,52 @@ Window {
                                     Layout.fillWidth: true
                                 }
 
-                                CheckBox {
-                                    text: "Select all"
-                                    font.pixelSize: 11
-                                    checked: false
-                                    onClicked: {
-                                        selectAllChannels(checked)
+                                // Select All checkbox
+                                Rectangle {
+                                    width: selectAllRow.width + 16
+                                    height: 30
+                                    radius: 4
+                                    color: selectAllMouse.containsMouse ? hoverColor : "transparent"
+
+                                    Row {
+                                        id: selectAllRow
+                                        anchors.centerIn: parent
+                                        spacing: 8
+
+                                        Rectangle {
+                                            width: 18
+                                            height: 18
+                                            radius: 3
+                                            border.color: allSelected ? accentColor : "#bdc3c7"
+                                            border.width: 2
+                                            color: allSelected ? accentColor : "white"
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "✓"
+                                                font.pixelSize: 14
+                                                font.bold: true
+                                                color: "white"
+                                                visible: allSelected
+                                            }
+                                        }
+
+                                        Text {
+                                            text: "Select all"
+                                            font.pixelSize: 12
+                                            color: textColor
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: selectAllMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            selectAllChannels(!allSelected)
+                                        }
                                     }
                                 }
                             }
@@ -421,29 +610,28 @@ Window {
                             color: borderColor
                         }
 
+                        // Channel list
                         ScrollView {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             clip: true
 
                             ListView {
+                                id: channelListView
                                 model: backend.currentChannels
                                 spacing: 0
 
                                 delegate: Rectangle {
-                                    width: ListView.view.width
+                                    id: channelRow
+                                    width: channelListView.width
                                     height: 45
-                                    color: {
-                                        if (channelSelectionModel[index]) return "#e8f4f8"
-                                        return index % 2 === 0 ? "white" : "#f8f9fa"
+
+                                    property bool isSelected: {
+                                        void(channelUpdateCounter)
+                                        return isChannelSelected(index)
                                     }
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        onClicked: {
-                                            toggleChannel(index)
-                                        }
-                                    }
+                                    color: isSelected ? "#e8f4f8" : (index % 2 === 0 ? "white" : "#f8f9fa")
 
                                     RowLayout {
                                         anchors.fill: parent
@@ -465,11 +653,40 @@ Window {
                                             Layout.fillWidth: true
                                         }
 
-                                        CheckBox {
-                                            checked: channelSelectionModel[index] || false
-                                            onClicked: {
-                                                toggleChannel(index)
+                                        // Channel checkbox
+                                        Rectangle {
+                                            width: 18
+                                            height: 18
+                                            radius: 3
+                                            border.color: channelRow.isSelected ? accentColor : "#bdc3c7"
+                                            border.width: 2
+                                            color: channelRow.isSelected ? accentColor : "white"
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "✓"
+                                                font.pixelSize: 14
+                                                font.bold: true
+                                                color: "white"
+                                                visible: channelRow.isSelected
                                             }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    toggleChannel(index)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Make whole row clickable
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        z: -1
+                                        onClicked: {
+                                            toggleChannel(index)
                                         }
                                     }
                                 }
@@ -480,16 +697,22 @@ Window {
 
                 NavigationBar {
                     showBack: true
-                    middleText: getSelectedChannelsCount() + " / " + backend.currentChannels.length + " selected"
-                    nextEnabled: getSelectedChannelsCount() > 0
+                    middleText: selectedCount + " / " + backend.currentChannels.length + " selected"
+                    nextEnabled: selectedCount > 0
                     nextColor: accentColor
 
-                    onBackClicked: stackView.pop()
+                    onBackClicked: {
+                        currentStep = 1
+                        stackView.pop()
+                    }
                     onCancelClicked: {
                         rejected()
                         window.close()
                     }
-                    onNextClicked: stackView.push(cameraSelectionPage)
+                    onNextClicked: {
+                        currentStep = 3
+                        stackView.push(cameraSelectionPage)
+                    }
                 }
             }
         }
@@ -607,12 +830,18 @@ Window {
                     nextColor: accentColor
 
                     onRefreshClicked: { /* TODO: refresh cameras */ }
-                    onBackClicked: stackView.pop()
+                    onBackClicked: {
+                        currentStep = 2
+                        stackView.pop()
+                    }
                     onCancelClicked: {
                         rejected()
                         window.close()
                     }
-                    onNextClicked: stackView.push(summaryPage)
+                    onNextClicked: {
+                        currentStep = 4
+                        stackView.push(summaryPage)
+                    }
                 }
             }
         }
@@ -812,7 +1041,10 @@ Window {
                     nextText: "✓ Start Examination"
                     nextColor: successColor
 
-                    onBackClicked: stackView.pop()
+                    onBackClicked: {
+                        currentStep = 3
+                        stackView.pop()
+                    }
                     onCancelClicked: {
                         rejected()
                         window.close()

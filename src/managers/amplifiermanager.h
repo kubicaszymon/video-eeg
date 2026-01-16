@@ -8,8 +8,8 @@
 #include <QThread>
 
 #include "lslstreamreader.h"
+#include "amplifiermodel.h"
 
-struct Amplifier;
 struct Channel;
 
 /*
@@ -30,6 +30,7 @@ public:
     AmplifierManager& operator=(const AmplifierManager&) = delete;
 
     QList<Amplifier> RefreshAmplifiersList();
+    void RefreshAmplifiersListAsync();
     Amplifier* GetAmplifierById(QString id);
 
     void StartStream(const QString amplifier_id);
@@ -45,6 +46,7 @@ signals:
     void StopLSLReading();
 
     void AcquisitionStatusChanged();
+    void AmplifiersListRefreshed(const QList<Amplifier>& amplifiers);
     void DataReceived(const std::vector<std::vector<float>>& chunk);
     void SamplingRateDetected(double samplingRate);
     void StreamConnected();
@@ -54,10 +56,14 @@ public slots:
     void onProcessData(const std::vector<std::vector<float>>& chunk);
     void onSamplingRateDetected(double samplingRate);
 
+private slots:
+    void onScanProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
+
 private:
     AmplifierManager(QObject* parent = nullptr);
     ~AmplifierManager();
 
+    QProcess* scan_process_ = nullptr;
     QProcess* stream_process_ = nullptr;
     // TODO DO ZMIANY NA JAKIS SET OPTIONS CZY COS TAKIEGO
     QString svarog_path_{"C:\\Program Files (x86)\\Svarog Streamer\\svarog_streamer\\svarog_streamer.exe"};
