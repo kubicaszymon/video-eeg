@@ -530,12 +530,45 @@ Window {
                                     Layout.fillWidth: true
                                 }
 
-                                CheckBox {
-                                    id: selectAllCheckbox
-                                    text: "Select all"
-                                    font.pixelSize: 11
-                                    checked: areAllChannelsSelected()
-                                    onClicked: selectAllChannels(checked)
+                                Row {
+                                    spacing: 8
+
+                                    Rectangle {
+                                        width: 18
+                                        height: 18
+                                        radius: 3
+                                        border.color: areAllChannelsSelected() ? accentColor : "#bdc3c7"
+                                        border.width: 1
+                                        color: areAllChannelsSelected() ? accentColor : "white"
+
+                                        Label {
+                                            anchors.centerIn: parent
+                                            text: "✓"
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                            color: "white"
+                                            visible: areAllChannelsSelected()
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: selectAllChannels(!areAllChannelsSelected())
+                                        }
+                                    }
+
+                                    Label {
+                                        text: "Select all"
+                                        font.pixelSize: 11
+                                        color: textColor
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: selectAllChannels(!areAllChannelsSelected())
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -583,9 +616,28 @@ Window {
                                             Layout.fillWidth: true
                                         }
 
-                                        CheckBox {
-                                            checked: channelSelectionModel[index] || false
-                                            onClicked: setChannelSelection(index, checked)
+                                        Rectangle {
+                                            width: 18
+                                            height: 18
+                                            radius: 3
+                                            border.color: channelSelectionModel[index] ? accentColor : "#bdc3c7"
+                                            border.width: 1
+                                            color: channelSelectionModel[index] ? accentColor : "white"
+
+                                            Label {
+                                                anchors.centerIn: parent
+                                                text: "✓"
+                                                font.pixelSize: 12
+                                                font.bold: true
+                                                color: "white"
+                                                visible: channelSelectionModel[index] || false
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: toggleChannel(index)
+                                            }
                                         }
                                     }
                                 }
