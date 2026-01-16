@@ -59,6 +59,14 @@ Window {
         return count
     }
 
+    function areAllChannelsSelected() {
+        if (channelSelectionModel.length === 0) return false
+        for (var i = 0; i < channelSelectionModel.length; i++) {
+            if (!channelSelectionModel[i]) return false
+        }
+        return true
+    }
+
     function toggleChannel(index) {
         channelSelectionModel[index] = !channelSelectionModel[index]
         channelSelectionModel = channelSelectionModel.slice()
@@ -215,31 +223,144 @@ Window {
                     PropertyAnimation { property: "opacity"; from: 1; to: 0; duration: 200 }
                 }
             }
+        }
 
-            // LOADING OVERLAY
+        // LOADING OVERLAY - positioned over entire window content
+        Rectangle {
+            anchors.fill: parent
+            color: "#cc1a1a2e"
+            visible: backend.isLoading
+            opacity: backend.isLoading ? 1 : 0
+            z: 1000
+
+            Behavior on opacity {
+                NumberAnimation { duration: 200 }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {} // Block clicks
+            }
+
             Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: "#80000000"
-                visible: backend.isLoading
-                z: 1000
+                anchors.centerIn: parent
+                width: 280
+                height: 200
+                radius: 16
+                color: cardColor
+                border.color: accentColor
+                border.width: 2
+
+                layer.enabled: true
 
                 ColumnLayout {
                     anchors.centerIn: parent
-                    spacing: 15
+                    spacing: 20
 
-                    BusyIndicator {
+                    // Custom spinning loader
+                    Item {
                         Layout.alignment: Qt.AlignHCenter
-                        running: parent.parent.visible
                         Layout.preferredWidth: 60
                         Layout.preferredHeight: 60
+
+                        Rectangle {
+                            id: spinnerOuter
+                            anchors.centerIn: parent
+                            width: 60
+                            height: 60
+                            radius: 30
+                            color: "transparent"
+                            border.color: borderColor
+                            border.width: 4
+                        }
+
+                        Rectangle {
+                            id: spinnerArc
+                            anchors.centerIn: parent
+                            width: 60
+                            height: 60
+                            radius: 30
+                            color: "transparent"
+                            border.color: accentColor
+                            border.width: 4
+
+                            Rectangle {
+                                width: 32
+                                height: 32
+                                color: cardColor
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            Rectangle {
+                                width: 32
+                                height: 32
+                                color: cardColor
+                                anchors.bottom: parent.bottom
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+
+                            RotationAnimation on rotation {
+                                from: 0
+                                to: 360
+                                duration: 1000
+                                loops: Animation.Infinite
+                                running: backend.isLoading
+                            }
+                        }
+
+                        Label {
+                            anchors.centerIn: parent
+                            text: "🔍"
+                            font.pixelSize: 20
+                        }
                     }
 
-                    Label {
-                        text: "Scanning devices..."
-                        font.pixelSize: 14
-                        color: "white"
+                    ColumnLayout {
                         Layout.alignment: Qt.AlignHCenter
+                        spacing: 6
+
+                        Label {
+                            text: "Scanning for devices..."
+                            font.pixelSize: 15
+                            font.bold: true
+                            color: textColor
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+
+                        Label {
+                            text: "Looking for EEG amplifiers"
+                            font.pixelSize: 12
+                            color: "#7f8c8d"
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+                    }
+
+                    // Animated dots
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 6
+
+                        Repeater {
+                            model: 3
+
+                            Rectangle {
+                                width: 8
+                                height: 8
+                                radius: 4
+                                color: accentColor
+
+                                SequentialAnimation on opacity {
+                                    loops: Animation.Infinite
+                                    running: backend.isLoading
+
+                                    PauseAnimation { duration: index * 200 }
+                                    NumberAnimation { from: 0.3; to: 1; duration: 300 }
+                                    NumberAnimation { from: 1; to: 0.3; duration: 300 }
+                                    PauseAnimation { duration: (2 - index) * 200 }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -405,9 +526,10 @@ Window {
                                 }
 
                                 CheckBox {
+                                    id: selectAllCheckbox
                                     text: "Select all"
                                     font.pixelSize: 11
-                                    checked: false
+                                    checked: areAllChannelsSelected()
                                     onClicked: {
                                         selectAllChannels(checked)
                                     }

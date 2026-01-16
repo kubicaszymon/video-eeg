@@ -46,6 +46,51 @@ QList<Amplifier> AmplifierManager::RefreshAmplifiersList()
     return rv;
 }
 
+void AmplifierManager::RefreshAmplifiersListAsync()
+{
+    qInfo() << "Starting async amplifier scan...";
+
+    if(scan_process_ && scan_process_->state() == QProcess::Running)
+    {
+        qDebug() << "Scan already in progress";
+        return;
+    }
+
+    if(scan_process_)
+    {
+        scan_process_->deleteLater();
+        scan_process_ = nullptr;
+    }
+
+    scan_process_ = new QProcess(this);
+    scan_process_->setProgram(svarog_path_);
+    scan_process_->setArguments({"-l"});
+
+    connect(scan_process_, &QProcess::finished, this, &AmplifierManager::onScanProcessFinished);
+
+    scan_process_->start();
+}
+
+void AmplifierManager::onScanProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    Q_UNUSED(exitCode)
+    Q_UNUSED(exitStatus)
+
+    QList<Amplifier> rv{};
+
+    if(scan_process_)
+    {
+        QByteArray output = scan_process_->readAllStandardOutput();
+        rv = ParseRawOutputToAmplifiers(output);
+        amplifiers_ = rv;
+
+        scan_process_->deleteLater();
+        scan_process_ = nullptr;
+    }
+
+    emit AmplifiersListRefreshed(rv);
+}
+
 Amplifier* AmplifierManager::GetAmplifierById(QString id)
 {
     auto it = std::find_if(amplifiers_.begin(), amplifiers_.end(),[&](Amplifier& amp) {

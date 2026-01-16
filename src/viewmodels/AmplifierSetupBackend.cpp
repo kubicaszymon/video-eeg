@@ -5,6 +5,12 @@ AmplifierSetupBackend::AmplifierSetupBackend(QObject *parent)
     : QObject{parent}, m_manager{AmplifierManager::instance()}
 {
     qInfo() << "AmplifierSetupBackend " << this << " created!";
+
+    if(m_manager)
+    {
+        connect(m_manager, &AmplifierManager::AmplifiersListRefreshed,
+                this, &AmplifierSetupBackend::onAmplifiersListRefreshed);
+    }
 }
 
 AmplifierSetupBackend::~AmplifierSetupBackend()
@@ -58,16 +64,21 @@ void AmplifierSetupBackend::refreshAmplifiersList()
         m_isLoading = true;
         emit isLoadingChanged();
 
-        m_amplifiers = m_manager->RefreshAmplifiersList();
-        emit availableAmplifiersChanged();
-
-        m_isLoading = false;
-        emit isLoadingChanged();
+        m_manager->RefreshAmplifiersListAsync();
     }
     else
     {
         qWarning() << "AmplifierSetupBackend: amplifierManager is nullptr";
     }
+}
+
+void AmplifierSetupBackend::onAmplifiersListRefreshed(const QList<Amplifier>& amplifiers)
+{
+    m_amplifiers = amplifiers;
+    emit availableAmplifiersChanged();
+
+    m_isLoading = false;
+    emit isLoadingChanged();
 }
 
 void AmplifierSetupBackend::setSelectedAmplifierIndex(int index)

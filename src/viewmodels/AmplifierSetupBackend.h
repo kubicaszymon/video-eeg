@@ -38,6 +38,9 @@ signals:
     void currentChannelsChanged();
     void isLoadingChanged();
 
+private slots:
+    void onAmplifiersListRefreshed(const QList<Amplifier>& amplifiers);
+
 private:
     const Amplifier* GetCurrentAmplifier() const;
 
