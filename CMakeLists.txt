@@ -69,6 +69,9 @@ qt_add_qml_module(appvideoEeg
         src/models/eegdatamodel.h
         src/models/eegdatamodel.cpp
 
+        src/utils/eegdisplayscaler.h
+        src/utils/eegdisplayscaler.cpp
+
     RESOURCES
         notes
 )

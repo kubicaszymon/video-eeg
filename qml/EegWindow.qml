@@ -63,7 +63,7 @@ ApplicationWindow {
         // Screen.pixelDensity returns pixels per millimeter, convert to DPI (pixels per inch)
         var screenDpi = Screen.pixelDensity * 25.4
         console.log("Screen DPI detected:", screenDpi)
-        backend.setScreenDpi(screenDpi)
+        backend.scaler.screenDpi = screenDpi
 
         backend.registerDataModel(eegGraph.dataModel)
         eegGraph.selectedChannels = channels
@@ -381,7 +381,7 @@ ApplicationWindow {
                                             }
 
                                             Label {
-                                                text: backend.sensitivity.toFixed(0) + " μV/mm"
+                                                text: backend.scaler.sensitivity.toFixed(0) + " μV/mm"
                                                 font.pixelSize: 11
                                                 font.bold: true
                                                 color: accentColor
@@ -391,8 +391,8 @@ ApplicationWindow {
                                         ComboBox {
                                             id: sensitivityCombo
                                             Layout.fillWidth: true
-                                            model: backend.sensitivityOptions
-                                            currentIndex: backend.sensitivityOptions.indexOf(backend.sensitivity)
+                                            model: backend.scaler.sensitivityOptions
+                                            currentIndex: backend.scaler.sensitivityOptions.indexOf(backend.scaler.sensitivity)
 
                                             displayText: currentValue + " μV/mm"
 
@@ -403,7 +403,7 @@ ApplicationWindow {
                                             }
 
                                             onActivated: function(index) {
-                                                backend.sensitivity = backend.sensitivityOptions[index]
+                                                backend.scaler.sensitivity = backend.scaler.sensitivityOptions[index]
                                             }
                                         }
 
@@ -659,7 +659,7 @@ ApplicationWindow {
                         anchors.margins: 30
                         width: 80
                         // Height of scale bar = 100 μV × displayGain (px/μV)
-                        height: Math.max(100 * backend.displayGain, 20) + 40
+                        height: Math.max(100 * backend.scaler.displayGain, 20) + 40
                         color: "#1a2332"
                         radius: 6
                         border.color: "#2d3e50"
@@ -675,7 +675,7 @@ ApplicationWindow {
                             Rectangle {
                                 id: scaleBarLine
                                 width: 3
-                                height: Math.max(100 * backend.displayGain, 20)
+                                height: Math.max(100 * backend.scaler.displayGain, 20)
                                 color: accentColor
                                 anchors.horizontalCenter: parent.horizontalCenter
 
@@ -809,7 +809,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "📊 Sensitivity: " + backend.sensitivity.toFixed(0) + " μV/mm"
+                        text: "📊 Sensitivity: " + backend.scaler.sensitivity.toFixed(0) + " μV/mm"
                         font.pixelSize: 10
                         color: accentColor
                     }

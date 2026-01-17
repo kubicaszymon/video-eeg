@@ -4,99 +4,91 @@
 #include <QObject>
 #include <QVariantMap>
 #include <QVector>
-#include <QList>
 #include <QtQml/qqmlregistration.h>
 #include "amplifiermodel.h"
 #include "amplifiermanager.h"
 #include "eegdatamodel.h"
 #include "markermanager.h"
+#include "eegdisplayscaler.h"
 
+/**
+ * @brief EegBackend - Main backend for EEG window
+ *
+ * Responsibilities:
+ * - Stream connection management (start/stop, connection state)
+ * - Channel selection and configuration
+ * - Data routing from LSL stream to display model
+ * - Marker management
+ *
+ * Delegates scaling logic to EegDisplayScaler.
+ */
 class EegBackend : public QObject
 {
     Q_OBJECT
     QML_ELEMENT
 
+    // Channel configuration
     Q_PROPERTY(QVariantList channels READ channels WRITE setChannels NOTIFY channelsChanged FINAL)
+    Q_PROPERTY(QStringList channelNames READ channelNames NOTIFY channelsChanged FINAL)
+
+    // Amplifier identification
     Q_PROPERTY(int amplifierIdx READ amplifierIdx WRITE setAmplifierIdx NOTIFY amplifierIdxChanged FINAL)
     Q_PROPERTY(QString amplifierId READ amplifierId WRITE setAmplifierId NOTIFY amplifierIdChanged FINAL)
 
-    // Changed to double to handle dynamic values from QML
+    // Display configuration
     Q_PROPERTY(double spacing READ spacing WRITE setSpacing NOTIFY spacingChanged FINAL)
-
-    // Sampling rate from LSL stream (read-only, set automatically)
-    Q_PROPERTY(double samplingRate READ samplingRate NOTIFY samplingRateChanged FINAL)
-
-    // Time window in seconds (default 10)
     Q_PROPERTY(double timeWindowSeconds READ timeWindowSeconds WRITE setTimeWindowSeconds NOTIFY timeWindowSecondsChanged FINAL)
 
-    // Channel names for display (read-only, derived from selected channels)
-    Q_PROPERTY(QStringList channelNames READ channelNames NOTIFY channelsChanged FINAL)
+    // Stream info (read-only)
+    Q_PROPERTY(double samplingRate READ samplingRate NOTIFY samplingRateChanged FINAL)
 
-    // Marker manager - do zarządzania znacznikami na wykresie
-    Q_PROPERTY(MarkerManager* markerManager READ markerManager CONSTANT FINAL)
-
-    // Stream connection state - do wyświetlania loadingu
+    // Connection state
     Q_PROPERTY(bool isConnecting READ isConnecting NOTIFY isConnectingChanged FINAL)
     Q_PROPERTY(bool isConnected READ isConnected NOTIFY isConnectedChanged FINAL)
 
-    // Display scaling properties
-    // Sensitivity in μV/mm - controls vertical scaling
-    Q_PROPERTY(double sensitivity READ sensitivity WRITE setSensitivity NOTIFY sensitivityChanged FINAL)
-    // Available sensitivity values for UI
-    Q_PROPERTY(QList<double> sensitivityOptions READ sensitivityOptions CONSTANT FINAL)
-    // Screen DPI (read-only, detected from system)
-    Q_PROPERTY(double screenDpi READ screenDpi NOTIFY screenDpiChanged FINAL)
-    // Display gain in px/μV (read-only, calculated from sensitivity and DPI)
-    Q_PROPERTY(double displayGain READ displayGain NOTIFY displayGainChanged FINAL)
+    // Sub-components exposed to QML
+    Q_PROPERTY(MarkerManager* markerManager READ markerManager CONSTANT FINAL)
+    Q_PROPERTY(EegDisplayScaler* scaler READ scaler CONSTANT FINAL)
 
 public:
     explicit EegBackend(QObject *parent = nullptr);
     ~EegBackend();
 
+    // Initialization
     Q_INVOKABLE void registerDataModel(EegDataModel* dataModel);
     Q_INVOKABLE void startStream();
-
     Q_INVOKABLE void generateTestData();
 
-    // Dodaj znacznik w aktualnej pozycji zapisu danych
+    // Markers
     Q_INVOKABLE void addMarker(const QString& type);
 
-    QVariantList GetChannelNames() const;
+    // Channel getters/setters
     QVariantList channels() const;
+    void setChannels(const QVariantList &newChannels);
     QStringList channelNames() const;
 
-    void setChannels(const QVariantList &newChannels);
-
+    // Amplifier getters/setters
     int amplifierIdx() const;
     void setAmplifierIdx(int newAmplifierIdx);
-
-    double spacing() const;
-    void setSpacing(double newSpacing);
-
     QString amplifierId() const;
     void setAmplifierId(const QString &newAmplifierId);
 
-    double samplingRate() const;
-
+    // Display configuration getters/setters
+    double spacing() const;
+    void setSpacing(double newSpacing);
     double timeWindowSeconds() const;
     void setTimeWindowSeconds(double newTimeWindowSeconds);
 
-    // Marker manager getter
-    MarkerManager* markerManager() const { return m_markerManager; }
+    // Stream info
+    double samplingRate() const;
 
-    // Stream connection state getters
+    // Connection state
     bool isConnecting() const { return m_isConnecting; }
     bool isConnected() const { return m_isConnected; }
 
-    // Display scaling getters/setters
-    double sensitivity() const;
-    void setSensitivity(double newSensitivity);
-    QList<double> sensitivityOptions() const;
-    double screenDpi() const;
-    double displayGain() const;
-
-    // Set screen DPI (called from QML after getting actual screen DPI)
-    Q_INVOKABLE void setScreenDpi(double dpi);
+    // Sub-components
+    MarkerManager* markerManager() const { return m_markerManager; }
+    EegDisplayScaler* scaler() const { return m_scaler; }
 
 public slots:
     void onStreamConnected();
@@ -105,58 +97,47 @@ public slots:
     void DataReceived(const std::vector<std::vector<float>>& chunk);
 
 signals:
-    void updateData(const std::vector<std::vector<float>>& chunk);
-
     void channelsChanged();
-
     void amplifierIdxChanged();
-
     void amplifierIdChanged();
-
     void spacingChanged();
-
     void samplingRateChanged();
-
     void timeWindowSecondsChanged();
-
-    // Stream connection signals
     void isConnectingChanged();
     void isConnectedChanged();
 
-    // Display scaling signals
-    void sensitivityChanged();
-    void screenDpiChanged();
-    void displayGainChanged();
-
 private:
+    // Helper methods
+    void updateChannelIndexCache();
+    void updateMarkersAfterWrite(int prevWritePos, int newWritePos);
+
+    // Amplifier connection
     Amplifier* amplifier_ = nullptr;
     AmplifierManager* amplifier_manager_ = nullptr;
+
+    // Channel configuration
     QVariantList m_channels;
-    int m_amplifierIdx = 0;
-
-    EegDataModel* m_dataModel = nullptr;
-    double m_spacing = 100.0;  // Default value, will be overwritten by QML
-    QString m_amplifierId;
-    double m_samplingRate = 0.0;  // Will be set from LSL stream info
-    double m_timeWindowSeconds = 10.0;  // Default 10 second window
-
-    // Cached channel indices to avoid repeated QVariant::toInt() calls
     QVector<int> m_channelIndexCache;
+    int m_amplifierIdx = 0;
+    QString m_amplifierId;
 
-    // Marker manager
-    MarkerManager* m_markerManager = nullptr;
+    // Display configuration
+    double m_spacing = 100.0;
+    double m_timeWindowSeconds = 10.0;
 
-    // Stream connection state
+    // Stream info
+    double m_samplingRate = 0.0;
+
+    // Connection state
     bool m_isConnecting = false;
     bool m_isConnected = false;
 
-    // Display scaling
-    double m_sensitivity = 10.0;  // Default 10 μV/mm
-    double m_screenDpi = 96.0;    // Default 96 DPI, will be updated from QML
-    static const QList<double> s_sensitivityOptions;
+    // Data model
+    EegDataModel* m_dataModel = nullptr;
 
-    // Helper to calculate display gain
-    void updateDisplayGain();
+    // Sub-components (owned)
+    MarkerManager* m_markerManager = nullptr;
+    EegDisplayScaler* m_scaler = nullptr;
 };
 
 #endif // EEGBACKEND_H
