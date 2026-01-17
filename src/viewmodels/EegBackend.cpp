@@ -12,22 +12,8 @@ EegBackend::EegBackend(QObject *parent)
     connect(amplifier_manager_, &AmplifierManager::StreamConnected, this, &EegBackend::onStreamConnected, Qt::QueuedConnection);
     connect(amplifier_manager_, &AmplifierManager::StreamDisconnected, this, &EegBackend::onStreamDisconnected, Qt::QueuedConnection);
 
-    // Initialize auto-scale manager
-    m_autoScaleManager = new AutoScaleManager(this);
-
     // Initialize marker manager
     m_markerManager = new MarkerManager(this);
-
-    // Connect auto-scale signals
-    connect(m_autoScaleManager, &AutoScaleManager::scaleFactorChanged, this, [this]() {
-        emit scaleFactorChanged();
-    });
-    connect(m_autoScaleManager, &AutoScaleManager::detectedUnitChanged, this, [this]() {
-        emit scaleUnitChanged();
-    });
-    connect(m_autoScaleManager, &AutoScaleManager::calibrationStateChanged, this, [this]() {
-        emit scaleCalibrationChanged();
-    });
 }
 
 EegBackend::~EegBackend()
@@ -144,41 +130,54 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
         }
     }
 
-    if (!m_autoScaleManager)
-        return;
+    // Prepare data with channel offsets (raw data, no scaling)
+    QVector<QVector<double>> data(numSelectedChannels);
 
-    // Process chunk through AutoScaleManager
-    // This updates statistics and calculates optimal scaling
-    m_autoScaleManager->processChunk(chunk, m_channelIndexCache);
+    for (int ch = 0; ch < numSelectedChannels; ++ch)
+    {
+        data[ch].reserve(numSamples);
 
-    // Get scaled data with proper offsets
-    // AutoScaleManager applies: baseScale * gain (user controlled)
-    // The SAME factor for ALL channels!
-    QVector<QVector<double>> scaledData = m_autoScaleManager->scaleChunk(
-        chunk, m_channelIndexCache, channelSpacing, m_gain);
+        int channelIndex = m_channelIndexCache[ch];
 
-    // Zapamiętaj poprzednią pozycję przed zapisem
+        if (channelIndex < 0 || channelIndex >= totalChunkChannels)
+        {
+            // Channel out of range - fill with zeros
+            for (int s = 0; s < numSamples; ++s)
+            {
+                data[ch].append(0.0);
+            }
+            continue;
+        }
+
+        // Offset for this channel (channel 0 at the top, last at the bottom)
+        double offset = (numSelectedChannels - 1 - ch) * channelSpacing;
+
+        for (int s = 0; s < numSamples; ++s)
+        {
+            double rawValue = static_cast<double>(chunk[s][channelIndex]);
+
+            // Just add offset for channel separation, no scaling
+            data[ch].append(rawValue + offset);
+        }
+    }
+
+    // Remember position before write
     int prevWritePos = m_dataModel->writePosition();
 
     // Send to data model
-    m_dataModel->updateAllData(scaledData);
+    m_dataModel->updateAllData(data);
 
-    // Pobierz nową pozycję po zapisie
+    // Get new position after write
     int newWritePos = m_dataModel->writePosition();
 
-    // Usuń znaczniki które zostały nadpisane przez nowe dane
+    // Remove markers that were overwritten by new data
     if (m_markerManager && m_samplingRate > 0) {
-        // Oblicz zakres X który został nadpisany
-        // prevWritePos+1 to pierwszy nadpisany sample, newWritePos to ostatni
+        // Calculate X range that was overwritten
         double startX = static_cast<double>((prevWritePos + 1) % m_dataModel->maxSamples()) / m_samplingRate;
         double endX = static_cast<double>(newWritePos) / m_samplingRate;
 
         m_markerManager->removeMarkersInRange(startX, endX, m_timeWindowSeconds);
     }
-
-    // Emit data range changed for UI updates
-    emit dataRangeChanged();
-    emit scaleBarChanged();
 }
 
 QVariantList EegBackend::GetChannelNames() const
@@ -336,80 +335,4 @@ void EegBackend::setTimeWindowSeconds(double newTimeWindowSeconds)
     {
         m_markerManager->clearMarkers();
     }
-}
-
-// Auto-scale getters and setters
-
-double EegBackend::scaleFactor() const
-{
-    return m_autoScaleManager ? m_autoScaleManager->scaleFactor() : 1.0;
-}
-
-QString EegBackend::scaleUnit() const
-{
-    return m_autoScaleManager ? m_autoScaleManager->unitString() : "?";
-}
-
-bool EegBackend::scaleCalibrated() const
-{
-    return m_autoScaleManager ? m_autoScaleManager->isCalibrated() : false;
-}
-
-double EegBackend::dataRangeMin() const
-{
-    return m_autoScaleManager ? m_autoScaleManager->globalMin() : 0.0;
-}
-
-double EegBackend::dataRangeMax() const
-{
-    return m_autoScaleManager ? m_autoScaleManager->globalMax() : 0.0;
-}
-
-// Gain control
-
-double EegBackend::gain() const
-{
-    return m_gain;
-}
-
-void EegBackend::setGain(double newGain)
-{
-    // Clamp to reasonable range
-    newGain = std::clamp(newGain, 0.01, 100.0);
-
-    if (qFuzzyCompare(m_gain, newGain))
-        return;
-
-    m_gain = newGain;
-    emit gainChanged();
-    emit scaleBarChanged();
-
-    qDebug() << "[EegBackend] Gain changed to:" << m_gain;
-}
-
-// Scale bar
-
-double EegBackend::scaleBarValue() const
-{
-    if (!m_autoScaleManager)
-        return 50.0;  // Default 50 μV
-
-    return m_autoScaleManager->suggestedScaleBarValue();
-}
-
-double EegBackend::scaleBarHeight() const
-{
-    if (!m_autoScaleManager)
-        return 0.0;
-
-    double value = m_autoScaleManager->suggestedScaleBarValue();
-    return m_autoScaleManager->calculateScaleBarHeight(value, m_gain);
-}
-
-double EegBackend::dataRangeInMicrovolts() const
-{
-    if (!m_autoScaleManager)
-        return 0.0;
-
-    return m_autoScaleManager->dataRangeInMicrovolts();
 }

@@ -8,7 +8,6 @@
 #include "amplifiermodel.h"
 #include "amplifiermanager.h"
 #include "eegdatamodel.h"
-#include "autoscalemanager.h"
 #include "markermanager.h"
 
 class EegBackend : public QObject
@@ -31,21 +30,6 @@ class EegBackend : public QObject
 
     // Channel names for display (read-only, derived from selected channels)
     Q_PROPERTY(QStringList channelNames READ channelNames NOTIFY channelsChanged FINAL)
-
-    // Auto-scale properties (read-only, from AutoScaleManager)
-    Q_PROPERTY(double scaleFactor READ scaleFactor NOTIFY scaleFactorChanged FINAL)
-    Q_PROPERTY(QString scaleUnit READ scaleUnit NOTIFY scaleUnitChanged FINAL)
-    Q_PROPERTY(bool scaleCalibrated READ scaleCalibrated NOTIFY scaleCalibrationChanged FINAL)
-    Q_PROPERTY(double dataRangeMin READ dataRangeMin NOTIFY dataRangeChanged FINAL)
-    Q_PROPERTY(double dataRangeMax READ dataRangeMax NOTIFY dataRangeChanged FINAL)
-
-    // Gain - mnożnik wzmocnienia kontrolowany przez użytkownika (suwak)
-    Q_PROPERTY(double gain READ gain WRITE setGain NOTIFY gainChanged FINAL)
-
-    // Scale bar properties - do wyświetlenia wskaźnika skali na wykresie
-    Q_PROPERTY(double scaleBarValue READ scaleBarValue NOTIFY scaleBarChanged FINAL)
-    Q_PROPERTY(double scaleBarHeight READ scaleBarHeight NOTIFY scaleBarChanged FINAL)
-    Q_PROPERTY(double dataRangeInMicrovolts READ dataRangeInMicrovolts NOTIFY dataRangeChanged FINAL)
 
     // Marker manager - do zarządzania znacznikami na wykresie
     Q_PROPERTY(MarkerManager* markerManager READ markerManager CONSTANT FINAL)
@@ -86,22 +70,6 @@ public:
     double timeWindowSeconds() const;
     void setTimeWindowSeconds(double newTimeWindowSeconds);
 
-    // Auto-scale getters
-    double scaleFactor() const;
-    QString scaleUnit() const;
-    bool scaleCalibrated() const;
-    double dataRangeMin() const;
-    double dataRangeMax() const;
-
-    // Gain control
-    double gain() const;
-    void setGain(double newGain);
-
-    // Scale bar
-    double scaleBarValue() const;
-    double scaleBarHeight() const;
-    double dataRangeInMicrovolts() const;
-
     // Marker manager getter
     MarkerManager* markerManager() const { return m_markerManager; }
 
@@ -130,14 +98,6 @@ signals:
 
     void timeWindowSecondsChanged();
 
-    // Auto-scale signals
-    void scaleFactorChanged();
-    void scaleUnitChanged();
-    void scaleCalibrationChanged();
-    void dataRangeChanged();
-    void gainChanged();
-    void scaleBarChanged();
-
     // Stream connection signals
     void isConnectingChanged();
     void isConnectedChanged();
@@ -157,14 +117,8 @@ private:
     // Cached channel indices to avoid repeated QVariant::toInt() calls
     QVector<int> m_channelIndexCache;
 
-    // Auto-scale manager
-    AutoScaleManager* m_autoScaleManager = nullptr;
-
     // Marker manager
     MarkerManager* m_markerManager = nullptr;
-
-    // Gain - mnożnik kontrolowany przez użytkownika (1.0 = neutralny)
-    double m_gain = 1.0;
 
     // Stream connection state
     bool m_isConnecting = false;

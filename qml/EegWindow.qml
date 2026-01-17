@@ -368,46 +368,6 @@ ApplicationWindow {
                                             Layout.fillWidth: true
 
                                             Label {
-                                                text: "📈 Gain:"
-                                                font.pixelSize: 11
-                                                color: textSecondary
-                                                Layout.fillWidth: true
-                                            }
-
-                                            Label {
-                                                text: amplitudeSlider.value.toFixed(2) + "x"
-                                                font.pixelSize: 11
-                                                font.bold: true
-                                                color: accentColor
-                                            }
-                                        }
-
-                                        Slider {
-                                            id: amplitudeSlider
-                                            Layout.fillWidth: true
-                                            from: 0.1
-                                            to: 5.0
-                                            value: backend.gain
-                                            stepSize: 0.1
-                                            onValueChanged: backend.gain = value
-                                        }
-
-                                        Label {
-                                            text: "Increases/decreases signal amplitude"
-                                            font.pixelSize: 9
-                                            color: textSecondary
-                                            Layout.fillWidth: true
-                                        }
-                                    }
-
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 5
-
-                                        RowLayout {
-                                            Layout.fillWidth: true
-
-                                            Label {
                                                 text: "📏 Channel Spacing:"
                                                 font.pixelSize: 11
                                                 color: textSecondary
@@ -427,55 +387,6 @@ ApplicationWindow {
                                             font.pixelSize: 9
                                             color: textSecondary
                                             Layout.fillWidth: true
-                                        }
-                                    }
-                                }
-
-                                // SCALE INFO SECTION
-                                ControlSection {
-                                    title: "🔬 Scale Info"
-                                    textColor: eegWindow.textColor
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 50
-                                        color: "#1a2332"
-                                        radius: 6
-                                        border.color: backend.scaleCalibrated ? "#2d3e50" : warningColor
-                                        border.width: 1
-
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.margins: 10
-                                            spacing: 10
-
-                                            ColumnLayout {
-                                                spacing: 2
-                                                Layout.fillWidth: true
-
-                                                Label {
-                                                    text: backend.scaleCalibrated
-                                                        ? "Range: " + backend.dataRangeInMicrovolts.toFixed(0) + " μV"
-                                                        : "Waiting for data..."
-                                                    font.pixelSize: 11
-                                                    color: backend.scaleCalibrated ? textColor : textSecondary
-                                                }
-
-                                                Label {
-                                                    text: "Scale bar: " + backend.scaleBarValue.toFixed(0) + " μV"
-                                                    font.pixelSize: 9
-                                                    color: textSecondary
-                                                    visible: backend.scaleCalibrated
-                                                }
-                                            }
-
-                                            Label {
-                                                text: backend.scaleUnit
-                                                font.pixelSize: 12
-                                                font.bold: true
-                                                color: accentColor
-                                                visible: backend.scaleCalibrated
-                                            }
                                         }
                                     }
                                 }
@@ -685,63 +596,6 @@ ApplicationWindow {
                         }
                     }
 
-                    // Scale Bar - pokazuje rzeczywistą skalę sygnału
-                    Rectangle {
-                        id: scaleBarContainer
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        anchors.margins: 30
-                        width: 80
-                        height: Math.max(backend.scaleBarHeight, 20) + 40
-                        color: "#1a2332"
-                        radius: 6
-                        border.color: "#2d3e50"
-                        border.width: 1
-                        opacity: 0.95
-                        visible: backend.scaleCalibrated
-
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: 4
-
-                            // Scale bar (pionowa kreska)
-                            Rectangle {
-                                id: scaleBarLine
-                                width: 3
-                                height: Math.max(backend.scaleBarHeight, 20)
-                                color: accentColor
-                                anchors.horizontalCenter: parent.horizontalCenter
-
-                                // Górna poprzeczka
-                                Rectangle {
-                                    width: 12
-                                    height: 2
-                                    color: accentColor
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.top: parent.top
-                                }
-
-                                // Dolna poprzeczka
-                                Rectangle {
-                                    width: 12
-                                    height: 2
-                                    color: accentColor
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.bottom: parent.bottom
-                                }
-                            }
-
-                            // Etykieta wartości
-                            Label {
-                                text: backend.scaleBarValue.toFixed(0) + " μV"
-                                font.pixelSize: 11
-                                font.bold: true
-                                color: textColor
-                                anchors.horizontalCenter: parent.horizontalCenter
-                            }
-                        }
-                    }
-
                     Rectangle {
                         anchors.top: parent.top
                         anchors.right: parent.right
@@ -833,20 +687,6 @@ ApplicationWindow {
                         text: "📏 Spacing: " + eegGraph.dynamicChannelSpacing.toFixed(0)
                         font.pixelSize: 10
                         color: textSecondary
-                    }
-
-                    Rectangle {
-                        width: 1
-                        height: 20
-                        color: "#2d3e50"
-                    }
-
-                    Label {
-                        text: backend.scaleCalibrated
-                            ? ("🔬 " + backend.dataRangeInMicrovolts.toFixed(0) + " μV | Gain: " + backend.gain.toFixed(1) + "x")
-                            : "🔬 Detecting scale..."
-                        font.pixelSize: 10
-                        color: backend.scaleCalibrated ? accentColor : textSecondary
                     }
 
                     Item { Layout.fillWidth: true }
