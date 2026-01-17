@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <cmath>
 
-// Available sensitivity values in μV/mm
-const QList<double> EegBackend::s_sensitivityOptions = {7.0, 10.0, 15.0, 20.0, 30.0, 50.0, 70.0, 100.0};
+// Available sensitivity values in μV/mm (standard EEG sensitivity steps)
+const QList<double> EegBackend::s_sensitivityOptions = {1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0, 50.0, 100.0};
 
 EegBackend::EegBackend(QObject *parent)
     : QObject{parent}, amplifier_manager_{AmplifierManager::instance()}
@@ -165,7 +165,9 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
             double rawValue = static_cast<double>(chunk[s][channelIndex]);
 
             // Scale by display gain (px/μV) and add channel offset
-            double scaledValue = rawValue * gain + offset;
+            // IMPORTANT: Subtract scaled value from offset so positive μV goes UP on screen
+            // (Qt/QML Y-axis increases downward, but in EEG positive voltage should go up)
+            double scaledValue = offset - (rawValue * gain);
 
             data[ch].append(scaledValue);
         }
