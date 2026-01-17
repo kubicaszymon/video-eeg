@@ -59,6 +59,12 @@ ApplicationWindow {
         console.log("Channels count:", channelCount)
         console.log("Amplifier ID:", amplifierId)
 
+        // Set screen DPI from actual screen pixel density
+        // Screen.pixelDensity returns pixels per millimeter, convert to DPI (pixels per inch)
+        var screenDpi = Screen.pixelDensity * 25.4
+        console.log("Screen DPI detected:", screenDpi)
+        backend.setScreenDpi(screenDpi)
+
         backend.registerDataModel(eegGraph.dataModel)
         eegGraph.selectedChannels = channels
         backend.startStream()
@@ -368,6 +374,55 @@ ApplicationWindow {
                                             Layout.fillWidth: true
 
                                             Label {
+                                                text: "📊 Sensitivity:"
+                                                font.pixelSize: 11
+                                                color: textSecondary
+                                                Layout.fillWidth: true
+                                            }
+
+                                            Label {
+                                                text: backend.sensitivity.toFixed(0) + " μV/mm"
+                                                font.pixelSize: 11
+                                                font.bold: true
+                                                color: accentColor
+                                            }
+                                        }
+
+                                        ComboBox {
+                                            id: sensitivityCombo
+                                            Layout.fillWidth: true
+                                            model: backend.sensitivityOptions
+                                            currentIndex: backend.sensitivityOptions.indexOf(backend.sensitivity)
+
+                                            displayText: currentValue + " μV/mm"
+
+                                            delegate: ItemDelegate {
+                                                width: sensitivityCombo.width
+                                                text: modelData + " μV/mm"
+                                                highlighted: sensitivityCombo.highlightedIndex === index
+                                            }
+
+                                            onActivated: function(index) {
+                                                backend.sensitivity = backend.sensitivityOptions[index]
+                                            }
+                                        }
+
+                                        Label {
+                                            text: "Lower values = more sensitive"
+                                            font.pixelSize: 9
+                                            color: textSecondary
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 5
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+
+                                            Label {
                                                 text: "📏 Channel Spacing:"
                                                 font.pixelSize: 11
                                                 color: textSecondary
@@ -596,6 +651,64 @@ ApplicationWindow {
                         }
                     }
 
+                    // Scale Bar - shows current sensitivity scale
+                    Rectangle {
+                        id: scaleBarContainer
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.margins: 30
+                        width: 80
+                        // Height of scale bar = 100 μV × displayGain (px/μV)
+                        height: Math.max(100 * backend.displayGain, 20) + 40
+                        color: "#1a2332"
+                        radius: 6
+                        border.color: "#2d3e50"
+                        border.width: 1
+                        opacity: 0.95
+                        visible: backend.isConnected
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            // Scale bar (vertical line representing 100 μV)
+                            Rectangle {
+                                id: scaleBarLine
+                                width: 3
+                                height: Math.max(100 * backend.displayGain, 20)
+                                color: accentColor
+                                anchors.horizontalCenter: parent.horizontalCenter
+
+                                // Top cap
+                                Rectangle {
+                                    width: 12
+                                    height: 2
+                                    color: accentColor
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.top: parent.top
+                                }
+
+                                // Bottom cap
+                                Rectangle {
+                                    width: 12
+                                    height: 2
+                                    color: accentColor
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.bottom: parent.bottom
+                                }
+                            }
+
+                            // Value label
+                            Label {
+                                text: "100 μV"
+                                font.pixelSize: 11
+                                font.bold: true
+                                color: textColor
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+                        }
+                    }
+
                     Rectangle {
                         anchors.top: parent.top
                         anchors.right: parent.right
@@ -687,6 +800,18 @@ ApplicationWindow {
                         text: "📏 Spacing: " + eegGraph.dynamicChannelSpacing.toFixed(0)
                         font.pixelSize: 10
                         color: textSecondary
+                    }
+
+                    Rectangle {
+                        width: 1
+                        height: 20
+                        color: "#2d3e50"
+                    }
+
+                    Label {
+                        text: "📊 Sensitivity: " + backend.sensitivity.toFixed(0) + " μV/mm"
+                        font.pixelSize: 10
+                        color: accentColor
                     }
 
                     Item { Layout.fillWidth: true }

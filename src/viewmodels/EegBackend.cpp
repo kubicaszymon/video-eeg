@@ -2,6 +2,10 @@
 
 #include <qtimer.h>
 #include <algorithm>
+#include <cmath>
+
+// Available sensitivity values in μV/mm
+const QList<double> EegBackend::s_sensitivityOptions = {7.0, 10.0, 15.0, 20.0, 30.0, 50.0, 70.0, 100.0};
 
 EegBackend::EegBackend(QObject *parent)
     : QObject{parent}, amplifier_manager_{AmplifierManager::instance()}
@@ -120,6 +124,9 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
     const double channelSpacing = m_spacing;
     const int totalChunkChannels = static_cast<int>(chunk[0].size());
 
+    // Calculate display gain: G[px/μV] = DPI / (25.4 × Sensitivity[μV/mm])
+    const double gain = displayGain();
+
     // Update channel index cache if needed
     if (m_channelIndexCache.size() != numSelectedChannels)
     {
@@ -130,7 +137,7 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
         }
     }
 
-    // Prepare data with channel offsets (raw data, no scaling)
+    // Prepare data with scaling and channel offsets
     QVector<QVector<double>> data(numSelectedChannels);
 
     for (int ch = 0; ch < numSelectedChannels; ++ch)
@@ -154,10 +161,13 @@ void EegBackend::DataReceived(const std::vector<std::vector<float>>& chunk)
 
         for (int s = 0; s < numSamples; ++s)
         {
+            // Raw value is in μV
             double rawValue = static_cast<double>(chunk[s][channelIndex]);
 
-            // Just add offset for channel separation, no scaling
-            data[ch].append(rawValue + offset);
+            // Scale by display gain (px/μV) and add channel offset
+            double scaledValue = rawValue * gain + offset;
+
+            data[ch].append(scaledValue);
         }
     }
 
@@ -335,4 +345,70 @@ void EegBackend::setTimeWindowSeconds(double newTimeWindowSeconds)
     {
         m_markerManager->clearMarkers();
     }
+}
+
+// Display scaling implementation
+
+double EegBackend::sensitivity() const
+{
+    return m_sensitivity;
+}
+
+void EegBackend::setSensitivity(double newSensitivity)
+{
+    // Validate against available options
+    if (!s_sensitivityOptions.contains(newSensitivity))
+    {
+        qWarning() << "[EegBackend] Invalid sensitivity value:" << newSensitivity;
+        return;
+    }
+
+    if (qFuzzyCompare(m_sensitivity, newSensitivity))
+        return;
+
+    m_sensitivity = newSensitivity;
+    emit sensitivityChanged();
+    emit displayGainChanged();
+
+    qDebug() << "[EegBackend] Sensitivity changed to:" << m_sensitivity << "μV/mm, displayGain:" << displayGain() << "px/μV";
+}
+
+QList<double> EegBackend::sensitivityOptions() const
+{
+    return s_sensitivityOptions;
+}
+
+double EegBackend::screenDpi() const
+{
+    return m_screenDpi;
+}
+
+void EegBackend::setScreenDpi(double dpi)
+{
+    if (dpi <= 0)
+    {
+        qWarning() << "[EegBackend] Invalid DPI value:" << dpi;
+        return;
+    }
+
+    if (qFuzzyCompare(m_screenDpi, dpi))
+        return;
+
+    m_screenDpi = dpi;
+    emit screenDpiChanged();
+    emit displayGainChanged();
+
+    qDebug() << "[EegBackend] Screen DPI set to:" << m_screenDpi << ", displayGain:" << displayGain() << "px/μV";
+}
+
+double EegBackend::displayGain() const
+{
+    // G[px/μV] = DPI / (25.4 × Sensitivity[μV/mm])
+    // This converts μV to pixels based on physical display parameters
+    return m_screenDpi / (25.4 * m_sensitivity);
+}
+
+void EegBackend::updateDisplayGain()
+{
+    emit displayGainChanged();
 }

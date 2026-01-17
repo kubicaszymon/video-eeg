@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QVariantMap>
 #include <QVector>
+#include <QList>
 #include <QtQml/qqmlregistration.h>
 #include "amplifiermodel.h"
 #include "amplifiermanager.h"
@@ -37,6 +38,16 @@ class EegBackend : public QObject
     // Stream connection state - do wyświetlania loadingu
     Q_PROPERTY(bool isConnecting READ isConnecting NOTIFY isConnectingChanged FINAL)
     Q_PROPERTY(bool isConnected READ isConnected NOTIFY isConnectedChanged FINAL)
+
+    // Display scaling properties
+    // Sensitivity in μV/mm - controls vertical scaling
+    Q_PROPERTY(double sensitivity READ sensitivity WRITE setSensitivity NOTIFY sensitivityChanged FINAL)
+    // Available sensitivity values for UI
+    Q_PROPERTY(QList<double> sensitivityOptions READ sensitivityOptions CONSTANT FINAL)
+    // Screen DPI (read-only, detected from system)
+    Q_PROPERTY(double screenDpi READ screenDpi NOTIFY screenDpiChanged FINAL)
+    // Display gain in px/μV (read-only, calculated from sensitivity and DPI)
+    Q_PROPERTY(double displayGain READ displayGain NOTIFY displayGainChanged FINAL)
 
 public:
     explicit EegBackend(QObject *parent = nullptr);
@@ -77,6 +88,16 @@ public:
     bool isConnecting() const { return m_isConnecting; }
     bool isConnected() const { return m_isConnected; }
 
+    // Display scaling getters/setters
+    double sensitivity() const;
+    void setSensitivity(double newSensitivity);
+    QList<double> sensitivityOptions() const;
+    double screenDpi() const;
+    double displayGain() const;
+
+    // Set screen DPI (called from QML after getting actual screen DPI)
+    Q_INVOKABLE void setScreenDpi(double dpi);
+
 public slots:
     void onStreamConnected();
     void onStreamDisconnected();
@@ -102,6 +123,11 @@ signals:
     void isConnectingChanged();
     void isConnectedChanged();
 
+    // Display scaling signals
+    void sensitivityChanged();
+    void screenDpiChanged();
+    void displayGainChanged();
+
 private:
     Amplifier* amplifier_ = nullptr;
     AmplifierManager* amplifier_manager_ = nullptr;
@@ -123,6 +149,14 @@ private:
     // Stream connection state
     bool m_isConnecting = false;
     bool m_isConnected = false;
+
+    // Display scaling
+    double m_sensitivity = 10.0;  // Default 10 μV/mm
+    double m_screenDpi = 96.0;    // Default 96 DPI, will be updated from QML
+    static const QList<double> s_sensitivityOptions;
+
+    // Helper to calculate display gain
+    void updateDisplayGain();
 };
 
 #endif // EEGBACKEND_H
