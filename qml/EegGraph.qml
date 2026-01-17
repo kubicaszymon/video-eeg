@@ -19,6 +19,12 @@ Rectangle {
     // Marker manager reference (set from parent)
     property var markerManager: null
 
+    // Display scaler reference (for calibration bar)
+    property var scaler: null
+
+    // Calibration bar value in μV (configurable)
+    property real calibrationValue: 50.0
+
     // Channel colors - shared between legend and graph
     readonly property var channelColors: [
         "#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4",
@@ -293,6 +299,117 @@ Rectangle {
                                 color: "white"
                             }
                         }
+                    }
+                }
+            }
+
+            // Calibration bar - professional "step" calibrator at the start of the graph
+            // Shows exact voltage scale based on current sensitivity setting
+            Item {
+                id: calibrationBar
+                anchors.left: eegGraph.left
+                anchors.top: eegGraph.top
+                anchors.bottom: eegGraph.bottom
+                anchors.margins: 16
+                width: 60
+                visible: scaler !== null && selectedChannels.length > 0
+
+                // Calculate calibration step height in pixels
+                // Height = calibrationValue[μV] × displayGain[px/μV]
+                readonly property real stepHeight: scaler ? calibrationValue * scaler.displayGain : 50
+
+                // Draw calibration step using Canvas for precise rendering
+                Canvas {
+                    id: calibrationCanvas
+                    anchors.fill: parent
+                    anchors.topMargin: 10
+                    anchors.bottomMargin: 30
+
+                    onPaint: {
+                        var ctx = getContext("2d")
+                        ctx.reset()
+
+                        var stepH = calibrationBar.stepHeight
+                        var centerY = height / 2
+
+                        // Step waveform: baseline -> up -> plateau -> down -> baseline
+                        var lineWidth = 2
+                        var plateauWidth = 20
+                        var baselineWidth = 10
+
+                        ctx.strokeStyle = "#4a90e2"
+                        ctx.lineWidth = lineWidth
+                        ctx.lineCap = "square"
+                        ctx.lineJoin = "miter"
+
+                        ctx.beginPath()
+
+                        // Starting baseline (left)
+                        ctx.moveTo(5, centerY)
+                        ctx.lineTo(5 + baselineWidth, centerY)
+
+                        // Step up (positive μV goes UP on screen)
+                        ctx.lineTo(5 + baselineWidth, centerY - stepH)
+
+                        // Plateau at top
+                        ctx.lineTo(5 + baselineWidth + plateauWidth, centerY - stepH)
+
+                        // Step down
+                        ctx.lineTo(5 + baselineWidth + plateauWidth, centerY)
+
+                        // Ending baseline (right)
+                        ctx.lineTo(5 + baselineWidth + plateauWidth + baselineWidth, centerY)
+
+                        ctx.stroke()
+
+                        // Draw height indicator line (vertical with caps)
+                        var indicatorX = 5 + baselineWidth + plateauWidth + baselineWidth + 8
+                        ctx.strokeStyle = "#8a9cb5"
+                        ctx.lineWidth = 1
+
+                        ctx.beginPath()
+                        // Vertical line
+                        ctx.moveTo(indicatorX, centerY)
+                        ctx.lineTo(indicatorX, centerY - stepH)
+                        // Top cap
+                        ctx.moveTo(indicatorX - 3, centerY - stepH)
+                        ctx.lineTo(indicatorX + 3, centerY - stepH)
+                        // Bottom cap
+                        ctx.moveTo(indicatorX - 3, centerY)
+                        ctx.lineTo(indicatorX + 3, centerY)
+                        ctx.stroke()
+                    }
+
+                    // Repaint when displayGain changes
+                    Connections {
+                        target: scaler
+                        function onDisplayGainChanged() {
+                            calibrationCanvas.requestPaint()
+                        }
+                    }
+
+                    Component.onCompleted: requestPaint()
+                }
+
+                // Calibration value label
+                Rectangle {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: calibrationCanvas.bottom
+                    anchors.bottomMargin: -25
+                    width: calibLabel.width + 10
+                    height: calibLabel.height + 6
+                    radius: 3
+                    color: "#1a2332"
+                    border.color: "#2d3e50"
+                    border.width: 1
+
+                    Label {
+                        id: calibLabel
+                        anchors.centerIn: parent
+                        text: calibrationValue.toFixed(0) + " μV"
+                        font.pixelSize: 10
+                        font.bold: true
+                        color: "#4a90e2"
                     }
                 }
             }

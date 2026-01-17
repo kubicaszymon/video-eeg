@@ -490,6 +490,7 @@ ApplicationWindow {
                         timeWindowSeconds: timeSlider.value
                         channelNames: backend.channelNames
                         markerManager: backend.markerManager
+                        scaler: backend.scaler
                     }
 
                     // Loading Overlay - pokazuje się gdy czekamy na połączenie ze streamem
@@ -647,64 +648,6 @@ ApplicationWindow {
                                         anchors.horizontalCenter: parent.horizontalCenter
                                     }
                                 }
-                            }
-                        }
-                    }
-
-                    // Scale Bar - shows current sensitivity scale
-                    Rectangle {
-                        id: scaleBarContainer
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        anchors.margins: 30
-                        width: 80
-                        // Height of scale bar = 100 μV × displayGain (px/μV)
-                        height: Math.max(100 * backend.scaler.displayGain, 20) + 40
-                        color: "#1a2332"
-                        radius: 6
-                        border.color: "#2d3e50"
-                        border.width: 1
-                        opacity: 0.95
-                        visible: backend.isConnected
-
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: 4
-
-                            // Scale bar (vertical line representing 100 μV)
-                            Rectangle {
-                                id: scaleBarLine
-                                width: 3
-                                height: Math.max(100 * backend.scaler.displayGain, 20)
-                                color: accentColor
-                                anchors.horizontalCenter: parent.horizontalCenter
-
-                                // Top cap
-                                Rectangle {
-                                    width: 12
-                                    height: 2
-                                    color: accentColor
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.top: parent.top
-                                }
-
-                                // Bottom cap
-                                Rectangle {
-                                    width: 12
-                                    height: 2
-                                    color: accentColor
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.bottom: parent.bottom
-                                }
-                            }
-
-                            // Value label
-                            Label {
-                                text: "100 μV"
-                                font.pixelSize: 11
-                                font.bold: true
-                                color: textColor
-                                anchors.horizontalCenter: parent.horizontalCenter
                             }
                         }
                     }
