@@ -48,12 +48,16 @@ signals:
     void acquisitionStatusChanged();
     void amplifiersListRefreshed(const QList<Amplifier>& amplifiers);
     void dataReceived(const std::vector<std::vector<float>>& chunk);
+    void dataReceivedWithTimestamps(const std::vector<std::vector<float>>& chunk,
+                                     const std::vector<double>& timestamps);
     void samplingRateDetected(double samplingRate);
     void streamConnected();
     void streamDisconnected();
 
 public slots:
     void onProcessData(const std::vector<std::vector<float>>& chunk);
+    void onProcessDataWithTimestamps(const std::vector<std::vector<float>>& chunk,
+                                      const std::vector<double>& timestamps);
     void onSamplingRateDetected(double samplingRate);
 
 private slots:

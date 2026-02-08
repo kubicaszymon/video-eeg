@@ -17,6 +17,8 @@ public:
 
 signals:
     void dataReceived(const std::vector<std::vector<float>>& chunk);
+    void dataReceivedWithTimestamps(const std::vector<std::vector<float>>& chunk,
+                                     const std::vector<double>& timestamps);
     void errorOccurred(const QString& error);
     void streamConnected();
     void streamDisconnected();

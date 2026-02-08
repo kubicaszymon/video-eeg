@@ -1,4 +1,5 @@
 #include "lslstreamreader.h"
+#include "eegsyncmanager.h"
 #include <QDebug>
 
 LSLStreamReader::LSLStreamReader(QObject* parent)
@@ -34,6 +35,10 @@ void LSLStreamReader::onStartReading()
 
         m_inlet = new lsl::stream_inlet(info);
         qDebug() << "Connected to LSL stream";
+
+        // Provide inlet to SyncManager for time_correction()
+        EegSyncManager::instance()->setLslInlet(m_inlet);
+
         emit samplingRateDetected(samplingRate);
         emit streamConnected();
 
@@ -52,6 +57,7 @@ void LSLStreamReader::onStopReading()
 
     if(m_inlet)
     {
+        EegSyncManager::instance()->setLslInlet(nullptr);
         delete m_inlet;
         m_inlet = nullptr;
         emit streamDisconnected();
@@ -61,16 +67,19 @@ void LSLStreamReader::onStopReading()
 void LSLStreamReader::readLoop()
 {
     std::vector<std::vector<float>> chunk;
+    std::vector<double> timestamps;
 
     while(m_isRunning)
     {
         try
         {
-            m_inlet->pull_chunk(chunk);
+            m_inlet->pull_chunk(chunk, timestamps);
             if(!chunk.empty())
             {
                 emit dataReceived(chunk);
+                emit dataReceivedWithTimestamps(chunk, timestamps);
                 chunk.clear();
+                timestamps.clear();
             }
         }
         catch(const std::exception& e)

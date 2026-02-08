@@ -46,6 +46,9 @@ qt_add_qml_module(appvideoEeg
         qml/components/eeg/ControlSection.qml
         qml/components/eeg/MarkerButton.qml
 
+        # Sync components
+        qml/components/sync/SyncMonitorPanel.qml
+
         # Main components
         qml/components/main/PatientListItem.qml
         qml/components/main/PanelHeader.qml
@@ -72,6 +75,9 @@ qt_add_qml_module(appvideoEeg
 
         src/managers/cameramanager.h
         src/managers/cameramanager.cpp
+
+        src/managers/eegsyncmanager.h
+        src/managers/eegsyncmanager.cpp
 
         src/models/amplifiermodel.h
         src/models/eegdatamodel.h

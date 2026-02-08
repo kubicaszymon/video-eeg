@@ -10,6 +10,7 @@
 #include "eegdatamodel.h"
 #include "markermanager.h"
 #include "eegdisplayscaler.h"
+#include "eegsyncmanager.h"
 
 /**
  * @brief EegBackend - Main backend for EEG window
@@ -96,6 +97,8 @@ public slots:
     void onStreamDisconnected();
     void onSamplingRateDetected(double samplingRate);
     void onDataReceived(const std::vector<std::vector<float>>& chunk);
+    void onDataReceivedWithTimestamps(const std::vector<std::vector<float>>& chunk,
+                                       const std::vector<double>& timestamps);
 
 signals:
     void channelsChanged();

@@ -24,6 +24,7 @@ ApplicationWindow {
 
     property bool isRecording: false
     property bool isPaused: false
+    property bool showSyncMonitor: false
     property int recordingTime: 0
     property string currentPatientName: "Jan Kowalski"
 
@@ -694,6 +695,17 @@ ApplicationWindow {
                             }
                         }
                     }
+
+                    // Sync Monitor Panel (developer overlay)
+                    SyncMonitorPanel {
+                        id: syncMonitorPanel
+                        anchors.bottom: parent.bottom
+                        anchors.right: parent.right
+                        anchors.margins: 15
+                        visible: showSyncMonitor
+                        z: 50
+                        onCloseRequested: showSyncMonitor = false
+                    }
                 }
             }
 
@@ -764,6 +776,22 @@ ApplicationWindow {
                     }
 
                     Item { Layout.fillWidth: true }
+
+                    // Sync Monitor toggle button
+                    Button {
+                        text: (showSyncMonitor ? "Hide" : "Show") + " Sync"
+                        font.pixelSize: 10
+                        implicitHeight: 26
+                        palette.button: showSyncMonitor ? accentColor : "#2d3e50"
+                        palette.buttonText: showSyncMonitor ? "white" : textSecondary
+                        onClicked: showSyncMonitor = !showSyncMonitor
+                    }
+
+                    Rectangle {
+                        width: 1
+                        height: 20
+                        color: "#2d3e50"
+                    }
 
                     Rectangle {
                         width: 12

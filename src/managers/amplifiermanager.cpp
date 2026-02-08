@@ -128,6 +128,7 @@ void AmplifierManager::startStream(const QString& amplifierId)
         m_lslReader->moveToThread(m_lslThread);
 
         connect(m_lslReader.get(), &LSLStreamReader::dataReceived, this, &AmplifierManager::onProcessData);
+        connect(m_lslReader.get(), &LSLStreamReader::dataReceivedWithTimestamps, this, &AmplifierManager::onProcessDataWithTimestamps);
         connect(m_lslReader.get(), &LSLStreamReader::samplingRateDetected, this, &AmplifierManager::onSamplingRateDetected);
         connect(m_lslReader.get(), &LSLStreamReader::streamConnected, this, &AmplifierManager::streamConnected);
         connect(m_lslReader.get(), &LSLStreamReader::streamDisconnected, this, &AmplifierManager::streamDisconnected);
@@ -203,6 +204,12 @@ void AmplifierManager::setSvarogPath(const QString& newSvarogPath)
 void AmplifierManager::onProcessData(const std::vector<std::vector<float>>& chunk)
 {
     emit dataReceived(chunk);
+}
+
+void AmplifierManager::onProcessDataWithTimestamps(const std::vector<std::vector<float>>& chunk,
+                                                    const std::vector<double>& timestamps)
+{
+    emit dataReceivedWithTimestamps(chunk, timestamps);
 }
 
 void AmplifierManager::onSamplingRateDetected(double samplingRate)

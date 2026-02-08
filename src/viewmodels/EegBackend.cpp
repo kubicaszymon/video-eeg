@@ -19,6 +19,8 @@ EegBackend::EegBackend(QObject *parent)
             this, &EegBackend::onStreamConnected, Qt::QueuedConnection);
     connect(m_amplifierManager, &AmplifierManager::streamDisconnected,
             this, &EegBackend::onStreamDisconnected, Qt::QueuedConnection);
+    connect(m_amplifierManager, &AmplifierManager::dataReceivedWithTimestamps,
+            this, &EegBackend::onDataReceivedWithTimestamps, Qt::QueuedConnection);
 }
 
 EegBackend::~EegBackend()
@@ -95,6 +97,8 @@ void EegBackend::onSamplingRateDetected(double samplingRate)
             m_dataModel->setSamplingRate(samplingRate);
             m_dataModel->setTimeWindowSeconds(m_timeWindowSeconds);
         }
+
+        EegSyncManager::instance()->setSamplingRate(samplingRate);
     }
 }
 
@@ -124,6 +128,16 @@ void EegBackend::onDataReceived(const std::vector<std::vector<float>>& chunk)
 
     // Clean up overwritten markers
     updateMarkersAfterWrite(prevWritePos, m_dataModel->writePosition());
+}
+
+void EegBackend::onDataReceivedWithTimestamps(const std::vector<std::vector<float>>& chunk,
+                                                const std::vector<double>& timestamps)
+{
+    if (chunk.empty() || timestamps.empty() || m_channels.isEmpty())
+        return;
+
+    updateChannelIndexCache();
+    EegSyncManager::instance()->addEegSamples(chunk, timestamps, m_channelIndexCache);
 }
 
 void EegBackend::updateChannelIndexCache()
