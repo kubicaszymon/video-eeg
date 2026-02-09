@@ -13,7 +13,7 @@ Window {
     title: qsTr("⚡ EEG Examination Configuration")
     modality: Qt.ApplicationModal
 
-    signal accepted(amplifierId: string, channels: var, cameraId: string)
+    signal accepted(config: var)
     signal rejected()
 
     property var channelSelectionModel: []
@@ -60,13 +60,24 @@ Window {
         visible: false  // Hidden, used only to provide sink
     }
 
-    FileDialog {
+    FolderDialog {
         id: folderDialog
-        fileMode: FileDialog.SaveFile
-        nameFilters: ["Video files (*.mp4 *.avi)"]
+        title: "Select Recording Save Folder"
         onAccepted: {
-            savePath = selectedFile.toString().replace("file:///", "")
+            savePath = selectedFolder.toString().replace("file:///", "")
         }
+    }
+
+    function generateSessionName() {
+        var now = new Date()
+        function pad(n) { return n < 10 ? "0" + n : "" + n }
+        return "REC_" +
+               now.getFullYear() +
+               pad(now.getMonth() + 1) +
+               pad(now.getDate()) + "_" +
+               pad(now.getHours()) +
+               pad(now.getMinutes()) +
+               pad(now.getSeconds())
     }
 
     function isChannelSelected(idx) {
@@ -1265,7 +1276,7 @@ Window {
 
                                     TextField {
                                         Layout.fillWidth: true
-                                        text: savePath || "Select location..."
+                                        text: savePath || "Select save folder..."
                                         readOnly: true
                                         font.pixelSize: 11
                                     }
@@ -1276,6 +1287,13 @@ Window {
                                         Layout.preferredHeight: 35
                                         onClicked: folderDialog.open()
                                     }
+                                }
+
+                                Label {
+                                    text: savePath ? "Session: " + generateSessionName() : "Please select a save folder"
+                                    font.pixelSize: 11
+                                    color: savePath ? "#27ae60" : "#e74c3c"
+                                    Layout.fillWidth: true
                                 }
                             }
                         }
@@ -1295,6 +1313,7 @@ Window {
                         rejected()
                         window.close()
                     }
+                    nextEnabled: savePath !== ""
                     onNextClicked: {
                         var selectedChannels = []
                         for (var i = 0; i < channelSelectionModel.length; i++) {
@@ -1303,9 +1322,19 @@ Window {
                             }
                         }
                         var cameraId = backend.getSelectedCameraId()
+                        var config = {
+                            amplifierId: backend.getSelectedAmplifierId(),
+                            channels: selectedChannels,
+                            cameraId: cameraId,
+                            saveFolderPath: savePath,
+                            sessionName: generateSessionName(),
+                            channelNames: getSelectedChannelsList()
+                        }
                         console.log("Starting examination with", selectedChannels.length, "channels")
                         console.log("Camera ID:", cameraId || "none")
-                        accepted(backend.getSelectedAmplifierId(), selectedChannels, cameraId)
+                        console.log("Save path:", savePath)
+                        console.log("Session:", config.sessionName)
+                        accepted(config)
                         window.close()
                     }
                 }

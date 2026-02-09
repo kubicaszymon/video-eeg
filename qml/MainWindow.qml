@@ -4,7 +4,7 @@ import QtQuick.Layouts
 
 Item {
     id: mainWindow
-    signal eegWindowOpen(amplifierId: string, channels: var, cameraId: string)
+    signal eegWindowOpen(config: var)
 
     // Hospital colors
     readonly property color bgColor: "#f5f7fa"
@@ -329,8 +329,8 @@ Item {
 
     AmplifierSetupWindow {
         id: amplifierSetupWindow
-        onAccepted: function(amplifier, channels, cameraId) {
-            eegWindowOpen(amplifier, channels, cameraId)
+        onAccepted: function(config) {
+            eegWindowOpen(config)
         }
 
         onRejected: {

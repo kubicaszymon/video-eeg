@@ -24,16 +24,19 @@ ApplicationWindow {
         target: contentLoader.item
         ignoreUnknownSignals: true
 
-        function onEegWindowOpen(amplifier, channels, cameraId) {
-            console.log("Opening EEG window with amplifier:", amplifier, "channels:", channels, "camera:", cameraId)
+        function onEegWindowOpen(config) {
+            console.log("Opening EEG window with config:", JSON.stringify(config))
 
             // Create EegWindow dynamically
             var component = Qt.createComponent("EegWindow.qml")
             if (component.status === Component.Ready) {
                 eegWindowInstance = component.createObject(null, {
-                    "amplifierId": amplifier,
-                    "channels": channels,
-                    "cameraId": cameraId || ""
+                    "amplifierId": config.amplifierId,
+                    "channels": config.channels,
+                    "cameraId": config.cameraId || "",
+                    "saveFolderPath": config.saveFolderPath || "",
+                    "sessionName": config.sessionName || "",
+                    "channelNamesList": config.channelNames || []
                 })
 
                 // Connect to examinationEnded signal

@@ -22,8 +22,13 @@ ApplicationWindow {
     property int channelCount: channels.length
     property string cameraId: ""
 
-    property bool isRecording: false
-    property bool isPaused: false
+    // Session config passed from AmplifierSetupWindow
+    property string saveFolderPath: ""
+    property string sessionName: ""
+    property var channelNamesList: []
+
+    property bool isRecording: RecordingManager.isRecording
+    property bool isPaused: RecordingManager.isPaused
     property int recordingTime: 0
     property string currentPatientName: "Jan Kowalski"
 
@@ -247,14 +252,32 @@ ApplicationWindow {
 
                                         onClicked: {
                                             if (isRecording) {
-                                                isRecording = false
-                                                isPaused = false
+                                                RecordingManager.stopRecording()
                                                 recordingTime = 0
                                             } else {
-                                                isRecording = true
-                                                isPaused = false
-                                                recordingTime = 0
+                                                var success = RecordingManager.startRecording(
+                                                    saveFolderPath,
+                                                    sessionName.length > 0 ? sessionName : generateSessionName(),
+                                                    channelNamesList,
+                                                    cameraId,
+                                                    backend.samplingRate
+                                                )
+                                                if (success) {
+                                                    recordingTime = 0
+                                                }
                                             }
+                                        }
+
+                                        function generateSessionName() {
+                                            var now = new Date()
+                                            function pad(n) { return n < 10 ? "0" + n : "" + n }
+                                            return "REC_" +
+                                                   now.getFullYear() +
+                                                   pad(now.getMonth() + 1) +
+                                                   pad(now.getDate()) + "_" +
+                                                   pad(now.getHours()) +
+                                                   pad(now.getMinutes()) +
+                                                   pad(now.getSeconds())
                                         }
                                     }
 
@@ -266,7 +289,13 @@ ApplicationWindow {
                                         enabled: isRecording
                                         palette.button: warningColor
                                         palette.buttonText: "white"
-                                        onClicked: isPaused = !isPaused
+                                        onClicked: {
+                                            if (isPaused) {
+                                                RecordingManager.resumeRecording()
+                                            } else {
+                                                RecordingManager.pauseRecording()
+                                            }
+                                        }
                                     }
 
                                     Button {
@@ -764,6 +793,21 @@ ApplicationWindow {
                         color: accentColor
                     }
 
+                    Rectangle {
+                        width: 1
+                        height: 20
+                        color: "#2d3e50"
+                        visible: isRecording
+                    }
+
+                    Label {
+                        text: "💾 Disk: " + RecordingManager.diskSpaceMB + " MB"
+                        font.pixelSize: 10
+                        color: RecordingManager.diskSpaceMB > 1000 ? textSecondary :
+                               (RecordingManager.diskSpaceMB > 500 ? warningColor : dangerColor)
+                        visible: isRecording
+                    }
+
                     Item { Layout.fillWidth: true }
 
                     Rectangle {
@@ -788,6 +832,116 @@ ApplicationWindow {
                     }
                 }
             }
+        }
+    }
+
+    // Recording Manager connections
+    Connections {
+        target: RecordingManager
+
+        function onRecordingStopped(sessionName, savePath, duration, eegSize, videoSize, eegSamples, videoFrames, markerCount) {
+            summaryDialog.sessionNameText = sessionName
+            summaryDialog.savePathText = savePath
+            summaryDialog.durationText = duration
+            summaryDialog.eegSizeText = eegSize
+            summaryDialog.videoSizeText = videoSize
+            summaryDialog.eegSamplesText = eegSamples
+            summaryDialog.videoFramesText = videoFrames
+            summaryDialog.markerCountText = markerCount
+            summaryDialog.open()
+        }
+
+        function onRecordingError(error) {
+            errorDialog.text = error
+            errorDialog.open()
+        }
+    }
+
+    // Recording Summary Dialog
+    Dialog {
+        id: summaryDialog
+        title: "Recording Complete"
+        modal: true
+        anchors.centerIn: parent
+        width: 500
+        standardButtons: Dialog.Ok
+
+        property string sessionNameText: ""
+        property string savePathText: ""
+        property string durationText: ""
+        property string eegSizeText: ""
+        property string videoSizeText: ""
+        property int eegSamplesText: 0
+        property int videoFramesText: 0
+        property int markerCountText: 0
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 12
+
+            Label {
+                text: "Session: " + summaryDialog.sessionNameText
+                font.pixelSize: 13
+                font.bold: true
+                color: textColor
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: "#2d3e50" }
+
+            GridLayout {
+                columns: 2
+                columnSpacing: 20
+                rowSpacing: 8
+                Layout.fillWidth: true
+
+                Label { text: "Duration:"; color: textSecondary; font.pixelSize: 12 }
+                Label { text: summaryDialog.durationText; color: textColor; font.bold: true; font.pixelSize: 12 }
+
+                Label { text: "EEG Samples:"; color: textSecondary; font.pixelSize: 12 }
+                Label { text: summaryDialog.eegSamplesText.toLocaleString(); color: textColor; font.pixelSize: 12 }
+
+                Label { text: "Video Frames:"; color: textSecondary; font.pixelSize: 12 }
+                Label { text: summaryDialog.videoFramesText.toLocaleString(); color: textColor; font.pixelSize: 12 }
+
+                Label { text: "Markers:"; color: textSecondary; font.pixelSize: 12 }
+                Label { text: summaryDialog.markerCountText; color: textColor; font.pixelSize: 12 }
+
+                Label { text: "EEG File Size:"; color: textSecondary; font.pixelSize: 12 }
+                Label { text: summaryDialog.eegSizeText; color: textColor; font.pixelSize: 12 }
+
+                Label { text: "Video File Size:"; color: textSecondary; font.pixelSize: 12 }
+                Label { text: summaryDialog.videoSizeText; color: textColor; font.pixelSize: 12 }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: "#2d3e50" }
+
+            Label {
+                text: "Saved in: " + summaryDialog.savePathText
+                font.pixelSize: 11
+                color: textSecondary
+                wrapMode: Text.WrapAnywhere
+                Layout.fillWidth: true
+            }
+        }
+    }
+
+    // Recording Error Dialog
+    Dialog {
+        id: errorDialog
+        title: "Recording Error"
+        modal: true
+        anchors.centerIn: parent
+        width: 400
+        standardButtons: Dialog.Ok
+
+        property alias text: errorLabel.text
+
+        Label {
+            id: errorLabel
+            wrapMode: Text.WordWrap
+            color: dangerColor
+            font.pixelSize: 13
+            Layout.fillWidth: true
         }
     }
 
@@ -1063,6 +1217,9 @@ ApplicationWindow {
     // Handle EegWindow closing
     onClosing: function(close) {
         console.log("EegWindow closing, stopping streams")
+        if (RecordingManager.isRecording) {
+            RecordingManager.stopRecording()
+        }
         backend.stopStream()
         if (videoWindow.visible) {
             CameraManager.stopCapture()
