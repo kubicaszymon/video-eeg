@@ -19,8 +19,6 @@ EegBackend::EegBackend(QObject *parent)
             this, &EegBackend::onStreamConnected, Qt::QueuedConnection);
     connect(m_amplifierManager, &AmplifierManager::streamDisconnected,
             this, &EegBackend::onStreamDisconnected, Qt::QueuedConnection);
-    connect(m_amplifierManager, &AmplifierManager::dataReceivedWithTimestamps,
-            this, &EegBackend::onDataReceivedWithTimestamps, Qt::QueuedConnection);
 }
 
 EegBackend::~EegBackend()
@@ -106,7 +104,8 @@ void EegBackend::onSamplingRateDetected(double samplingRate)
 // Data processing
 // ============================================================================
 
-void EegBackend::onDataReceived(const std::vector<std::vector<float>>& chunk)
+void EegBackend::onDataReceived(const std::vector<std::vector<float>>& chunk,
+                                 const std::vector<double>& timestamps)
 {
     if (chunk.empty() || chunk[0].empty() || m_channels.isEmpty() || !m_dataModel)
     {
@@ -116,28 +115,19 @@ void EegBackend::onDataReceived(const std::vector<std::vector<float>>& chunk)
     // Update channel index cache if needed
     updateChannelIndexCache();
 
-    // Delegate transformation to scaler
+    // 1) Display: transform and send to data model
     QVector<QVector<double>> scaledData = m_scaler->transformChunk(
         chunk, m_channelIndexCache, m_spacing);
 
-    // Store current write position for marker cleanup
     int prevWritePos = m_dataModel->writePosition();
-
-    // Send transformed data to model
     m_dataModel->updateAllData(scaledData);
-
-    // Clean up overwritten markers
     updateMarkersAfterWrite(prevWritePos, m_dataModel->writePosition());
-}
 
-void EegBackend::onDataReceivedWithTimestamps(const std::vector<std::vector<float>>& chunk,
-                                                const std::vector<double>& timestamps)
-{
-    if (chunk.empty() || timestamps.empty() || m_channels.isEmpty())
-        return;
-
-    updateChannelIndexCache();
-    EegSyncManager::instance()->addEegSamples(chunk, timestamps, m_channelIndexCache);
+    // 2) Sync buffer: raw data with timestamps to SyncManager
+    if (!timestamps.empty())
+    {
+        EegSyncManager::instance()->addEegSamples(chunk, timestamps, m_channelIndexCache);
+    }
 }
 
 void EegBackend::updateChannelIndexCache()

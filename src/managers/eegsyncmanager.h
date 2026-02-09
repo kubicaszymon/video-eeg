@@ -7,6 +7,7 @@
 #include <QVector>
 #include <QVariantMap>
 #include <QVariantList>
+#include <QQmlEngine>
 #include <QtQml/qqmlregistration.h>
 #include <deque>
 #include <vector>
@@ -137,7 +138,7 @@ private:
     void updateTimeCorrection();
     EegTimestampedSample nearestNeighbor(double adjustedTs) const;
     EegTimestampedSample linearInterpolate(double adjustedTs) const;
-    void updateRunningAverage(double offsetMs);
+    void updateRunningAverage(double offsetMs) const;
 
     static EegSyncManager* s_instance;
 

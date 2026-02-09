@@ -96,9 +96,8 @@ public slots:
     void onStreamConnected();
     void onStreamDisconnected();
     void onSamplingRateDetected(double samplingRate);
-    void onDataReceived(const std::vector<std::vector<float>>& chunk);
-    void onDataReceivedWithTimestamps(const std::vector<std::vector<float>>& chunk,
-                                       const std::vector<double>& timestamps);
+    void onDataReceived(const std::vector<std::vector<float>>& chunk,
+                        const std::vector<double>& timestamps);
 
 signals:
     void channelsChanged();

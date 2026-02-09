@@ -3,6 +3,7 @@
 
 #include "amplifiermodel.h"
 #include "amplifiermanager.h"
+#include "eegsyncmanager.h"
 #include <lsl_cpp.h>
 #include <qtimer.h>
 
@@ -128,7 +129,9 @@ void AmplifierManager::startStream(const QString& amplifierId)
         m_lslReader->moveToThread(m_lslThread);
 
         connect(m_lslReader.get(), &LSLStreamReader::dataReceived, this, &AmplifierManager::onProcessData);
-        connect(m_lslReader.get(), &LSLStreamReader::dataReceivedWithTimestamps, this, &AmplifierManager::onProcessDataWithTimestamps);
+        connect(m_lslReader.get(), &LSLStreamReader::inletReady, this, [](lsl::stream_inlet* inlet) {
+            EegSyncManager::instance()->setLslInlet(inlet);
+        });
         connect(m_lslReader.get(), &LSLStreamReader::samplingRateDetected, this, &AmplifierManager::onSamplingRateDetected);
         connect(m_lslReader.get(), &LSLStreamReader::streamConnected, this, &AmplifierManager::streamConnected);
         connect(m_lslReader.get(), &LSLStreamReader::streamDisconnected, this, &AmplifierManager::streamDisconnected);
@@ -201,15 +204,10 @@ void AmplifierManager::setSvarogPath(const QString& newSvarogPath)
     m_svarogPath = newSvarogPath;
 }
 
-void AmplifierManager::onProcessData(const std::vector<std::vector<float>>& chunk)
+void AmplifierManager::onProcessData(const std::vector<std::vector<float>>& chunk,
+                                      const std::vector<double>& timestamps)
 {
-    emit dataReceived(chunk);
-}
-
-void AmplifierManager::onProcessDataWithTimestamps(const std::vector<std::vector<float>>& chunk,
-                                                    const std::vector<double>& timestamps)
-{
-    emit dataReceivedWithTimestamps(chunk, timestamps);
+    emit dataReceived(chunk, timestamps);
 }
 
 void AmplifierManager::onSamplingRateDetected(double samplingRate)
