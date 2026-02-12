@@ -1,6 +1,8 @@
 #include "EegBackend.h"
+#include "recordingmanager.h"
 #include <QDebug>
 #include <QtMath>
+#include <lsl_cpp.h>
 
 EegBackend::EegBackend(QObject *parent)
     : QObject{parent}
@@ -128,6 +130,9 @@ void EegBackend::onDataReceived(const std::vector<std::vector<float>>& chunk,
     {
         EegSyncManager::instance()->addEegSamples(chunk, timestamps, m_channelIndexCache);
     }
+
+    // 3) Recording: route raw data to RecordingManager if active
+    RecordingManager::instance()->writeEegData(chunk, timestamps, m_channelIndexCache);
 }
 
 void EegBackend::updateChannelIndexCache()
@@ -173,6 +178,10 @@ void EegBackend::addMarker(const QString& type)
 
     qInfo() << "[EegBackend] Adding marker" << type << "at X:" << xPosition;
     m_markerManager->addMarkerAtPosition(type, xPosition, xPosition);
+
+    // Write to recording if active
+    QString label = MarkerManager::getLabelForType(type);
+    RecordingManager::instance()->writeMarker(type, label, lsl::local_clock());
 }
 
 // ============================================================================

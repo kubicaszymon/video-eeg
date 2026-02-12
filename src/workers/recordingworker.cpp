@@ -1,0 +1,258 @@
+#include "recordingworker.h"
+
+#include <QFileInfo>
+#include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QDebug>
+
+RecordingWorker::RecordingWorker(QObject* parent)
+    : QObject(parent)
+{
+}
+
+RecordingWorker::~RecordingWorker()
+{
+    // Ensure files are closed if worker is destroyed unexpectedly
+    if (m_eegFile.isOpen())
+        m_eegFile.close();
+    if (m_markersFile.isOpen())
+        m_markersFile.close();
+    if (m_framesFile.isOpen())
+        m_framesFile.close();
+}
+
+void RecordingWorker::initializeFiles(const QString& eegPath,
+                                       const QString& markersPath,
+                                       const QString& framesPath,
+                                       const QString& metadataPath,
+                                       const QStringList& channelNames,
+                                       const QString& sessionName,
+                                       double samplingRate)
+{
+    m_sessionName = sessionName;
+    m_savePath = QFileInfo(eegPath).absolutePath();
+    m_sampleCount = 0;
+    m_markerCount = 0;
+    m_frameCount = 0;
+
+    // Open EEG file
+    m_eegFile.setFileName(eegPath);
+    if (!m_eegFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        emit filesInitialized(false, "Cannot open EEG file: " + eegPath);
+        return;
+    }
+    m_eegStream.setDevice(&m_eegFile);
+
+    // Open markers file
+    m_markersFile.setFileName(markersPath);
+    if (!m_markersFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        m_eegFile.close();
+        emit filesInitialized(false, "Cannot open markers file: " + markersPath);
+        return;
+    }
+    m_markersStream.setDevice(&m_markersFile);
+
+    // Open frames file
+    m_framesFile.setFileName(framesPath);
+    if (!m_framesFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        m_eegFile.close();
+        m_markersFile.close();
+        emit filesInitialized(false, "Cannot open frames file: " + framesPath);
+        return;
+    }
+    m_framesStream.setDevice(&m_framesFile);
+
+    // Write headers
+    writeEegHeader(channelNames, sessionName, samplingRate);
+    writeMarkersHeader();
+    writeFramesHeader();
+    writeMetadata(sessionName, channelNames, samplingRate);
+
+    // Flush headers immediately
+    m_eegStream.flush();
+    m_markersStream.flush();
+    m_framesStream.flush();
+
+    qDebug() << "[RecordingWorker] Files initialized:" << eegPath;
+    emit filesInitialized(true, QString());
+}
+
+void RecordingWorker::writeEegBatch(const QVector<QVector<float>>& samples,
+                                     const QVector<double>& timestamps)
+{
+    if (!m_eegFile.isOpen() || samples.isEmpty())
+        return;
+
+    for (int i = 0; i < samples.size(); ++i) {
+        // Write LSL timestamp with full precision
+        m_eegStream << QString::number(timestamps[i], 'f', 6);
+
+        // Write channel values
+        const auto& channelValues = samples[i];
+        for (int ch = 0; ch < channelValues.size(); ++ch) {
+            m_eegStream << ',' << QString::number(channelValues[ch], 'f', 4);
+        }
+        m_eegStream << '\n';
+    }
+
+    m_sampleCount += samples.size();
+
+    // Flush to disk
+    m_eegStream.flush();
+    m_eegFile.flush();
+
+    emit batchWritten(samples.size(), m_eegFile.size());
+}
+
+void RecordingWorker::writePauseMarker(const QString& type,
+                                        double lslTimestamp,
+                                        double sessionTimeSec)
+{
+    // Write to EEG CSV as inline marker
+    if (m_eegFile.isOpen()) {
+        m_eegStream << type << ',' << QString::number(lslTimestamp, 'f', 6) << '\n';
+        m_eegStream.flush();
+        m_eegFile.flush();
+    }
+
+    // Write to markers CSV
+    if (m_markersFile.isOpen()) {
+        m_markersStream << type << ",,"
+                        << QString::number(lslTimestamp, 'f', 6) << ','
+                        << QString::number(sessionTimeSec, 'f', 3) << '\n';
+        m_markersStream.flush();
+        m_markersFile.flush();
+    }
+}
+
+void RecordingWorker::writeMarker(const QString& type,
+                                   const QString& label,
+                                   double lslTimestamp,
+                                   double sessionTimeSec)
+{
+    if (!m_markersFile.isOpen())
+        return;
+
+    m_markersStream << type << ','
+                    << label << ','
+                    << QString::number(lslTimestamp, 'f', 6) << ','
+                    << QString::number(sessionTimeSec, 'f', 3) << '\n';
+    m_markersStream.flush();
+    m_markersFile.flush();
+    m_markerCount++;
+}
+
+void RecordingWorker::writeFrameTimestamp(double lslTimestamp,
+                                          qint64 frameNumber,
+                                          const QString& segmentFile)
+{
+    if (!m_framesFile.isOpen())
+        return;
+
+    m_framesStream << frameNumber << ','
+                   << QString::number(lslTimestamp, 'f', 6) << ','
+                   << segmentFile << '\n';
+
+    m_frameCount++;
+
+    // Flush frames file periodically (every 100 frames)
+    if (m_frameCount % 100 == 0) {
+        m_framesStream.flush();
+        m_framesFile.flush();
+    }
+}
+
+void RecordingWorker::closeFiles(double durationSeconds, qint64 videoFileSizeBytes)
+{
+    RecordingSummary summary;
+    summary.sessionName = m_sessionName;
+    summary.savePath = m_savePath;
+    summary.durationSeconds = durationSeconds;
+    summary.eegSamples = m_sampleCount;
+    summary.videoFrames = m_frameCount;
+    summary.markerCount = static_cast<int>(m_markerCount);
+
+    // Flush and close all files
+    if (m_eegFile.isOpen()) {
+        m_eegStream.flush();
+        summary.eegFileSizeBytes = m_eegFile.size();
+        m_eegFile.close();
+    }
+
+    if (m_markersFile.isOpen()) {
+        m_markersStream.flush();
+        m_markersFile.close();
+    }
+
+    if (m_framesFile.isOpen()) {
+        m_framesStream.flush();
+        m_framesFile.close();
+    }
+
+    summary.videoFileSizeBytes = videoFileSizeBytes;
+    summary.endTime = QDateTime::currentDateTime().toString(Qt::ISODate);
+
+    qDebug() << "[RecordingWorker] Files closed. EEG samples:" << m_sampleCount
+             << "Markers:" << m_markerCount << "Frames:" << m_frameCount;
+
+    emit filesClosed(summary);
+}
+
+void RecordingWorker::writeEegHeader(const QStringList& channelNames,
+                                      const QString& sessionName,
+                                      double samplingRate)
+{
+    m_eegStream << "# SessionName: " << sessionName << '\n';
+    m_eegStream << "# SamplingRate: " << QString::number(samplingRate, 'f', 1) << '\n';
+    m_eegStream << "# StartTime: " << QDateTime::currentDateTime().toString(Qt::ISODate) << '\n';
+    m_eegStream << "# Channels: " << channelNames.size() << '\n';
+
+    // Column header
+    m_eegStream << "LSL_Timestamp";
+    for (const auto& name : channelNames) {
+        m_eegStream << ',' << name;
+    }
+    m_eegStream << '\n';
+}
+
+void RecordingWorker::writeMarkersHeader()
+{
+    m_markersStream << "Type,Label,LSL_Timestamp,SessionTimeSec\n";
+}
+
+void RecordingWorker::writeFramesHeader()
+{
+    m_framesStream << "FrameNumber,LSL_Timestamp,SegmentFile\n";
+}
+
+void RecordingWorker::writeMetadata(const QString& sessionName,
+                                     const QStringList& channelNames,
+                                     double samplingRate)
+{
+    QString metadataPath = m_savePath + "/" + sessionName + "_metadata.json";
+    QFile metaFile(metadataPath);
+    if (!metaFile.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+
+    QJsonObject root;
+    root["sessionName"] = sessionName;
+    root["startTime"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    root["samplingRate"] = samplingRate;
+    root["channelCount"] = channelNames.size();
+
+    QJsonArray chArray;
+    for (const auto& name : channelNames)
+        chArray.append(name);
+    root["channelNames"] = chArray;
+
+    root["eegFormat"] = "CSV";
+    root["videoFormat"] = "MKV (H.264)";
+    root["timestampDomain"] = "LSL";
+    root["version"] = "1.0";
+
+    QJsonDocument doc(root);
+    metaFile.write(doc.toJson(QJsonDocument::Indented));
+    metaFile.close();
+}

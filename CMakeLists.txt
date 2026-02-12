@@ -76,10 +76,18 @@ qt_add_qml_module(appvideoEeg
         src/managers/eegsyncmanager.h
         src/managers/eegsyncmanager.cpp
 
+        src/managers/recordingmanager.h
+        src/managers/recordingmanager.cpp
+
+        src/workers/recordingworker.h
+        src/workers/recordingworker.cpp
+
         src/models/amplifiermodel.h
         src/models/eegdatamodel.h
         src/models/eegdatamodel.cpp
         src/models/videoframepacket.h
+        src/models/sessionconfig.h
+        src/models/recordingsummary.h
 
         src/utils/eegdisplayscaler.h
         src/utils/eegdisplayscaler.cpp
@@ -93,6 +101,7 @@ target_include_directories(appvideoEeg PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/viewmodels
     ${CMAKE_CURRENT_SOURCE_DIR}/src/models
     ${CMAKE_CURRENT_SOURCE_DIR}/src/managers
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/workers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utils
 )
 
