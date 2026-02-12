@@ -103,6 +103,20 @@ signals:
                          int markerCount);
     void recordingError(const QString& error);
 
+    // Worker thread signals (connected with QueuedConnection)
+    void requestInitFiles(const QString& eegPath, const QString& markersPath,
+                          const QString& framesPath, const QString& metadataPath,
+                          const QStringList& channelNames, const QString& sessionName,
+                          double samplingRate);
+    void requestWriteEegBatch(const QVector<QVector<float>>& samples,
+                              const QVector<double>& timestamps);
+    void requestWritePauseMarker(const QString& type, double lslTimestamp, double sessionTimeSec);
+    void requestWriteMarker(const QString& type, const QString& label,
+                            double lslTimestamp, double sessionTimeSec);
+    void requestWriteFrameTimestamp(double lslTimestamp, qint64 frameNumber,
+                                    const QString& segmentFile);
+    void requestCloseFiles(double durationSeconds, qint64 videoFileSizeBytes);
+
 private slots:
     void onFilesInitialized(bool success, const QString& error);
     void onBatchWritten(int sampleCount, qint64 eegFileSize);
@@ -112,6 +126,7 @@ private slots:
     void onFlushTimer();
     void onDiskCheckTimer();
     void onStatsTimer();
+    void onCameraCapturingChanged();
 
 private:
     void flushEegBatch();
@@ -139,6 +154,7 @@ private:
     double m_pauseStartLslTime = 0.0;
     double m_totalPausedDuration = 0.0;
     int m_videoSegmentCount = 1;
+    bool m_pendingVideoStart = false;
 
     // EEG batching
     QVector<QVector<float>> m_eegBatch;

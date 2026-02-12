@@ -30,9 +30,20 @@ RecordingManager* RecordingManager::create(QQmlEngine* qmlEngine, QJSEngine* jsE
 RecordingManager::RecordingManager(QObject* parent)
     : QObject(parent)
 {
+    // CRITICAL: Always update s_instance to the latest constructed object.
+    // In Qt 6, QML_SINGLETON may create its own instance (bypassing create()).
+    // If instance() was called earlier from C++, a different object exists.
+    // Delete the old one and point s_instance to this (the QML-managed one).
+    if (s_instance && s_instance != this) {
+        qDebug() << "[RecordingManager] Replacing old C++ instance with QML instance";
+        delete s_instance;
+    }
+    s_instance = this;
+
     qRegisterMetaType<RecordingSummary>("RecordingSummary");
     qRegisterMetaType<QVector<QVector<float>>>("QVector<QVector<float>>");
     qRegisterMetaType<QVector<double>>("QVector<double>");
+    qRegisterMetaType<QVector<float>>("QVector<float>");
 
     // Flush timer - forces EEG batch write every 5 seconds
     m_flushTimer = new QTimer(this);
@@ -95,6 +106,7 @@ bool RecordingManager::startRecording(const QString& saveFolderPath,
     m_totalPausedDuration = 0.0;
     m_pauseStartLslTime = 0.0;
     m_videoSegmentCount = 1;
+    m_pendingVideoStart = false;
     m_recordedSamples = 0;
     m_recordedFrames = 0;
     m_eegFileSize = 0;
@@ -108,7 +120,7 @@ bool RecordingManager::startRecording(const QString& saveFolderPath,
     m_worker = new RecordingWorker();
     m_worker->moveToThread(m_workerThread);
 
-    // Connect worker signals
+    // Connect worker response signals
     connect(m_worker, &RecordingWorker::filesInitialized,
             this, &RecordingManager::onFilesInitialized, Qt::QueuedConnection);
     connect(m_worker, &RecordingWorker::batchWritten,
@@ -118,31 +130,53 @@ bool RecordingManager::startRecording(const QString& saveFolderPath,
     connect(m_worker, &RecordingWorker::errorOccurred,
             this, &RecordingManager::onWorkerError, Qt::QueuedConnection);
 
+    // Connect command signals to worker slots (type-safe, no invokeMethod)
+    connect(this, &RecordingManager::requestInitFiles,
+            m_worker, &RecordingWorker::initializeFiles, Qt::QueuedConnection);
+    connect(this, &RecordingManager::requestWriteEegBatch,
+            m_worker, &RecordingWorker::writeEegBatch, Qt::QueuedConnection);
+    connect(this, &RecordingManager::requestWritePauseMarker,
+            m_worker, &RecordingWorker::writePauseMarker, Qt::QueuedConnection);
+    connect(this, &RecordingManager::requestWriteMarker,
+            m_worker, &RecordingWorker::writeMarker, Qt::QueuedConnection);
+    connect(this, &RecordingManager::requestWriteFrameTimestamp,
+            m_worker, &RecordingWorker::writeFrameTimestamp, Qt::QueuedConnection);
+    connect(this, &RecordingManager::requestCloseFiles,
+            m_worker, &RecordingWorker::closeFiles, Qt::QueuedConnection);
+
     // Clean up worker when thread finishes
     connect(m_workerThread, &QThread::finished, m_worker, &QObject::deleteLater);
 
     m_workerThread->start();
 
-    // Initialize files on worker thread
-    QMetaObject::invokeMethod(m_worker, "initializeFiles",
-                              Qt::QueuedConnection,
-                              Q_ARG(QString, m_config.eegFilePath()),
-                              Q_ARG(QString, m_config.markersFilePath()),
-                              Q_ARG(QString, m_config.framesFilePath()),
-                              Q_ARG(QString, m_config.metadataFilePath()),
-                              Q_ARG(QStringList, channelNames),
-                              Q_ARG(QString, sessionName),
-                              Q_ARG(double, samplingRate));
+    // Initialize files via signal (type-safe cross-thread)
+    emit requestInitFiles(m_config.eegFilePath(),
+                          m_config.markersFilePath(),
+                          m_config.framesFilePath(),
+                          m_config.metadataFilePath(),
+                          channelNames,
+                          sessionName,
+                          samplingRate);
 
     // Start video recording if camera is selected
     if (!cameraId.isEmpty()) {
-        startVideoRecording();
+        auto* cam = CameraManager::instance();
 
-        // Connect to CameraManager for frame timestamps
-        connect(CameraManager::instance(), &CameraManager::frameTimestampUpdated,
+        // Connect frame timestamps for sync CSV
+        connect(cam, &CameraManager::frameTimestampUpdated,
                 this, [this]() {
             onFrameReady(CameraManager::instance()->lastFrameTimestamp());
         });
+
+        // Start video recorder only when camera is actually capturing
+        if (cam->isCapturing()) {
+            startVideoRecording();
+        } else {
+            m_pendingVideoStart = true;
+            connect(cam, &CameraManager::isCapturingChanged,
+                    this, &RecordingManager::onCameraCapturingChanged);
+            qDebug() << "[RecordingManager] Waiting for camera to start capturing...";
+        }
     }
 
     m_isRecording = true;
@@ -155,7 +189,8 @@ bool RecordingManager::startRecording(const QString& saveFolderPath,
     m_diskCheckTimer->start();
     m_statsTimer->start();
 
-    qDebug() << "[RecordingManager] Recording started:" << sessionName;
+    qDebug() << "[RecordingManager] Recording started:" << sessionName
+             << "this:" << this << "s_instance:" << s_instance;
     emit recordingStarted(sessionName);
     return true;
 }
@@ -173,11 +208,7 @@ void RecordingManager::pauseRecording()
 
     // Write pause marker
     double sessTime = sessionTimeSec(m_pauseStartLslTime);
-    QMetaObject::invokeMethod(m_worker, "writePauseMarker",
-                              Qt::QueuedConnection,
-                              Q_ARG(QString, "PAUSE_START"),
-                              Q_ARG(double, m_pauseStartLslTime),
-                              Q_ARG(double, sessTime));
+    emit requestWritePauseMarker("PAUSE_START", m_pauseStartLslTime, sessTime);
 
     // Stop video recording
     stopVideoRecording();
@@ -197,11 +228,7 @@ void RecordingManager::resumeRecording()
 
     // Write resume marker
     double sessTime = sessionTimeSec(resumeTime);
-    QMetaObject::invokeMethod(m_worker, "writePauseMarker",
-                              Qt::QueuedConnection,
-                              Q_ARG(QString, "PAUSE_STOP"),
-                              Q_ARG(double, resumeTime),
-                              Q_ARG(double, sessTime));
+    emit requestWritePauseMarker("PAUSE_STOP", resumeTime, sessTime);
 
     // Start new video segment
     if (!m_config.cameraId.isEmpty()) {
@@ -230,10 +257,13 @@ void RecordingManager::stopRecording()
     // Stop video
     stopVideoRecording();
 
-    // Disconnect camera frame signal
+    // Disconnect camera signals
     if (!m_config.cameraId.isEmpty()) {
-        disconnect(CameraManager::instance(), &CameraManager::frameTimestampUpdated,
-                   this, nullptr);
+        auto* cam = CameraManager::instance();
+        disconnect(cam, &CameraManager::frameTimestampUpdated, this, nullptr);
+        disconnect(cam, &CameraManager::isCapturingChanged,
+                   this, &RecordingManager::onCameraCapturingChanged);
+        m_pendingVideoStart = false;
     }
 
     // Calculate video file size (sum of all segments)
@@ -247,10 +277,7 @@ void RecordingManager::stopRecording()
 
     // Close files on worker thread
     double duration = recordedDurationSec();
-    QMetaObject::invokeMethod(m_worker, "closeFiles",
-                              Qt::QueuedConnection,
-                              Q_ARG(double, duration),
-                              Q_ARG(qint64, totalVideoSize));
+    emit requestCloseFiles(duration, totalVideoSize);
 
     m_isRecording = false;
     emit isRecordingChanged();
@@ -268,6 +295,14 @@ void RecordingManager::writeEegData(const std::vector<std::vector<float>>& chunk
                                      const std::vector<double>& timestamps,
                                      const QVector<int>& channelIndices)
 {
+    static int callCount = 0;
+    if (++callCount <= 5) {
+        qDebug() << "[RecordingManager] writeEegData call#" << callCount
+                 << "isRecording:" << m_isRecording
+                 << "this:" << this << "s_instance:" << s_instance
+                 << "chunk:" << chunk.size() << "chIdx:" << channelIndices.size();
+    }
+
     if (!m_isRecording || m_isPaused)
         return;
 
@@ -300,12 +335,7 @@ void RecordingManager::writeMarker(const QString& type, const QString& label,
         return;
 
     double sessTime = sessionTimeSec(lslTimestamp);
-    QMetaObject::invokeMethod(m_worker, "writeMarker",
-                              Qt::QueuedConnection,
-                              Q_ARG(QString, type),
-                              Q_ARG(QString, label),
-                              Q_ARG(double, lslTimestamp),
-                              Q_ARG(double, sessTime));
+    emit requestWriteMarker(type, label, lslTimestamp, sessTime);
 }
 
 double RecordingManager::recordedDurationSec() const
@@ -344,6 +374,8 @@ void RecordingManager::onFilesInitialized(bool success, const QString& error)
         qWarning() << "[RecordingManager] File init failed:" << error;
         emit recordingError(error);
         stopRecording();
+    } else {
+        qDebug() << "[RecordingManager] Files initialized successfully";
     }
 }
 
@@ -385,11 +417,7 @@ void RecordingManager::onFrameReady(double lslTimestamp)
     m_recordedFrames++;
     QString segmentFile = QFileInfo(m_config.videoSegmentFilePath(m_videoSegmentCount)).fileName();
 
-    QMetaObject::invokeMethod(m_worker, "writeFrameTimestamp",
-                              Qt::QueuedConnection,
-                              Q_ARG(double, lslTimestamp),
-                              Q_ARG(qint64, m_recordedFrames),
-                              Q_ARG(QString, segmentFile));
+    emit requestWriteFrameTimestamp(lslTimestamp, m_recordedFrames, segmentFile);
 }
 
 void RecordingManager::onFlushTimer()
@@ -428,6 +456,18 @@ void RecordingManager::onStatsTimer()
     emit statsUpdated();
 }
 
+void RecordingManager::onCameraCapturingChanged()
+{
+    auto* cam = CameraManager::instance();
+    if (cam->isCapturing() && m_pendingVideoStart && m_isRecording) {
+        m_pendingVideoStart = false;
+        startVideoRecording();
+        disconnect(cam, &CameraManager::isCapturingChanged,
+                   this, &RecordingManager::onCameraCapturingChanged);
+        qDebug() << "[RecordingManager] Camera now capturing, video recording started";
+    }
+}
+
 // --- Private methods ---
 
 void RecordingManager::flushEegBatch()
@@ -435,11 +475,15 @@ void RecordingManager::flushEegBatch()
     if (m_eegBatch.isEmpty() || !m_worker)
         return;
 
-    // Move batch data to worker
-    QMetaObject::invokeMethod(m_worker, "writeEegBatch",
-                              Qt::QueuedConnection,
-                              Q_ARG(QVector<QVector<float>>, m_eegBatch),
-                              Q_ARG(QVector<double>, m_timestampBatch));
+    // Capture batch data by value into lambda — this bypasses
+    // QVector<QVector<float>> metatype registration issues entirely
+    QVector<QVector<float>> batchCopy = m_eegBatch;
+    QVector<double> timestampsCopy = m_timestampBatch;
+    RecordingWorker* worker = m_worker;
+
+    QMetaObject::invokeMethod(worker, [worker, batchCopy, timestampsCopy]() {
+        worker->writeEegBatch(batchCopy, timestampsCopy);
+    }, Qt::QueuedConnection);
 
     m_eegBatch.clear();
     m_timestampBatch.clear();
@@ -504,6 +548,6 @@ void RecordingManager::cleanupWorkerThread()
         m_workerThread->wait(5000);
         delete m_workerThread;
         m_workerThread = nullptr;
-        m_worker = nullptr; // Deleted by QThread::finished → deleteLater
+        m_worker = nullptr; // Deleted by QThread::finished -> deleteLater
     }
 }

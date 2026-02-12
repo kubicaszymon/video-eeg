@@ -860,10 +860,11 @@ ApplicationWindow {
     // Recording Summary Dialog
     Dialog {
         id: summaryDialog
-        title: "Recording Complete"
+        title: ""
         modal: true
         anchors.centerIn: parent
-        width: 500
+        width: 520
+        padding: 0
         standardButtons: Dialog.Ok
 
         property string sessionNameText: ""
@@ -875,52 +876,231 @@ ApplicationWindow {
         property int videoFramesText: 0
         property int markerCountText: 0
 
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 12
+        background: Rectangle {
+            color: "#1a2332"
+            radius: 12
+            border.color: "#2d3e50"
+            border.width: 1
+        }
 
-            Label {
-                text: "Session: " + summaryDialog.sessionNameText
-                font.pixelSize: 13
-                font.bold: true
-                color: textColor
+        contentItem: ColumnLayout {
+            spacing: 0
+
+            // Header with green success bar
+            Rectangle {
+                Layout.fillWidth: true
+                height: 60
+                color: "#27ae60"
+                radius: 12
+
+                // Square off bottom corners
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 12
+                    color: parent.color
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 20
+                    spacing: 12
+
+                    Label {
+                        text: "Recording Complete"
+                        font.pixelSize: 18
+                        font.bold: true
+                        color: "white"
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Label {
+                        text: summaryDialog.durationText
+                        font.pixelSize: 22
+                        font.bold: true
+                        color: "white"
+                        font.family: "Consolas"
+                    }
+                }
             }
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: "#2d3e50" }
-
-            GridLayout {
-                columns: 2
-                columnSpacing: 20
-                rowSpacing: 8
+            // Session name
+            Rectangle {
                 Layout.fillWidth: true
+                height: 36
+                color: "#1e2d3d"
 
-                Label { text: "Duration:"; color: textSecondary; font.pixelSize: 12 }
-                Label { text: summaryDialog.durationText; color: textColor; font.bold: true; font.pixelSize: 12 }
-
-                Label { text: "EEG Samples:"; color: textSecondary; font.pixelSize: 12 }
-                Label { text: summaryDialog.eegSamplesText.toLocaleString(); color: textColor; font.pixelSize: 12 }
-
-                Label { text: "Video Frames:"; color: textSecondary; font.pixelSize: 12 }
-                Label { text: summaryDialog.videoFramesText.toLocaleString(); color: textColor; font.pixelSize: 12 }
-
-                Label { text: "Markers:"; color: textSecondary; font.pixelSize: 12 }
-                Label { text: summaryDialog.markerCountText; color: textColor; font.pixelSize: 12 }
-
-                Label { text: "EEG File Size:"; color: textSecondary; font.pixelSize: 12 }
-                Label { text: summaryDialog.eegSizeText; color: textColor; font.pixelSize: 12 }
-
-                Label { text: "Video File Size:"; color: textSecondary; font.pixelSize: 12 }
-                Label { text: summaryDialog.videoSizeText; color: textColor; font.pixelSize: 12 }
+                Label {
+                    anchors.fill: parent
+                    anchors.leftMargin: 20
+                    text: summaryDialog.sessionNameText
+                    font.pixelSize: 12
+                    font.family: "Consolas"
+                    color: "#8e9baa"
+                    verticalAlignment: Text.AlignVCenter
+                }
             }
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: "#2d3e50" }
-
-            Label {
-                text: "Saved in: " + summaryDialog.savePathText
-                font.pixelSize: 11
-                color: textSecondary
-                wrapMode: Text.WrapAnywhere
+            // Stats grid
+            Item {
                 Layout.fillWidth: true
+                Layout.preferredHeight: statsGrid.height + 30
+                Layout.leftMargin: 20
+                Layout.rightMargin: 20
+                Layout.topMargin: 15
+
+                GridLayout {
+                    id: statsGrid
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    columns: 3
+                    columnSpacing: 12
+                    rowSpacing: 12
+
+                    // EEG Card
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 80
+                        color: "#1e2d3d"
+                        radius: 8
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 4
+
+                            Label {
+                                text: "EEG DATA"
+                                font.pixelSize: 10
+                                font.bold: true
+                                color: "#3498db"
+                                font.letterSpacing: 1
+                            }
+
+                            Label {
+                                text: summaryDialog.eegSamplesText.toLocaleString()
+                                font.pixelSize: 20
+                                font.bold: true
+                                color: "white"
+                            }
+
+                            Label {
+                                text: "samples / " + summaryDialog.eegSizeText
+                                font.pixelSize: 10
+                                color: "#8e9baa"
+                            }
+                        }
+                    }
+
+                    // Video Card
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 80
+                        color: "#1e2d3d"
+                        radius: 8
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 4
+
+                            Label {
+                                text: "VIDEO"
+                                font.pixelSize: 10
+                                font.bold: true
+                                color: "#e74c3c"
+                                font.letterSpacing: 1
+                            }
+
+                            Label {
+                                text: summaryDialog.videoFramesText.toLocaleString()
+                                font.pixelSize: 20
+                                font.bold: true
+                                color: "white"
+                            }
+
+                            Label {
+                                text: "frames / " + summaryDialog.videoSizeText
+                                font.pixelSize: 10
+                                color: "#8e9baa"
+                            }
+                        }
+                    }
+
+                    // Markers Card
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 80
+                        color: "#1e2d3d"
+                        radius: 8
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 4
+
+                            Label {
+                                text: "MARKERS"
+                                font.pixelSize: 10
+                                font.bold: true
+                                color: "#f39c12"
+                                font.letterSpacing: 1
+                            }
+
+                            Label {
+                                text: summaryDialog.markerCountText
+                                font.pixelSize: 20
+                                font.bold: true
+                                color: "white"
+                            }
+
+                            Label {
+                                text: "events"
+                                font.pixelSize: 10
+                                color: "#8e9baa"
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Save path
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: 20
+                Layout.rightMargin: 20
+                Layout.topMargin: 8
+                Layout.bottomMargin: 15
+                height: 36
+                color: "#1e2d3d"
+                radius: 6
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    spacing: 6
+
+                    Label {
+                        text: "SAVED"
+                        font.pixelSize: 9
+                        font.bold: true
+                        color: "#27ae60"
+                        font.letterSpacing: 1
+                    }
+
+                    Label {
+                        text: summaryDialog.savePathText
+                        font.pixelSize: 11
+                        color: "#8e9baa"
+                        elide: Text.ElideMiddle
+                        Layout.fillWidth: true
+                    }
+                }
             }
         }
     }
@@ -928,20 +1108,58 @@ ApplicationWindow {
     // Recording Error Dialog
     Dialog {
         id: errorDialog
-        title: "Recording Error"
+        title: ""
         modal: true
         anchors.centerIn: parent
-        width: 400
+        width: 420
+        padding: 0
         standardButtons: Dialog.Ok
 
         property alias text: errorLabel.text
 
-        Label {
-            id: errorLabel
-            wrapMode: Text.WordWrap
-            color: dangerColor
-            font.pixelSize: 13
-            Layout.fillWidth: true
+        background: Rectangle {
+            color: "#1a2332"
+            radius: 10
+            border.color: "#e74c3c"
+            border.width: 1
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 0
+
+            Rectangle {
+                Layout.fillWidth: true
+                height: 44
+                color: "#e74c3c"
+                radius: 10
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 10
+                    color: parent.color
+                }
+
+                Label {
+                    anchors.fill: parent
+                    anchors.leftMargin: 16
+                    text: "Recording Error"
+                    font.pixelSize: 15
+                    font.bold: true
+                    color: "white"
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+            Label {
+                id: errorLabel
+                Layout.fillWidth: true
+                Layout.margins: 16
+                wrapMode: Text.WordWrap
+                color: "#ecf0f1"
+                font.pixelSize: 13
+            }
         }
     }
 
