@@ -1,3 +1,12 @@
+/*
+ * ==========================================================================
+ *  recordingworker.cpp — Background Thread Disk I/O Implementation
+ * ==========================================================================
+ *  See recordingworker.h for architecture overview, file format specification,
+ *  batching rationale, and flush policy.
+ * ==========================================================================
+ */
+
 #include "recordingworker.h"
 
 #include <QFileInfo>
@@ -99,7 +108,10 @@ void RecordingWorker::writeEegBatch(const QVector<QVector<float>>& samples,
 
     m_sampleCount += samples.size();
 
-    // Flush to disk
+    // Double flush: QTextStream::flush() empties Qt's internal write buffer
+    // to the OS page cache. QFile::flush() calls fsync()/FlushFileBuffers()
+    // to commit the page cache to physical media. Both are needed for
+    // data durability on unexpected power loss during a 24-hour recording.
     m_eegStream.flush();
     m_eegFile.flush();
 
@@ -157,7 +169,10 @@ void RecordingWorker::writeFrameTimestamp(double lslTimestamp,
 
     m_frameCount++;
 
-    // Flush frames file periodically (every 100 frames)
+    // Deferred flush: at 30 fps, flushing every frame would generate 30 fsync
+    // calls per second. Flushing every 100 frames reduces this to 0.3/sec at the
+    // cost of a maximum ~3.3 s window of unsynced frame index data — acceptable
+    // given that the EEG data (which is more critical) flushes every batch.
     if (m_frameCount % 100 == 0) {
         m_framesStream.flush();
         m_framesFile.flush();

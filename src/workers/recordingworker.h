@@ -1,3 +1,46 @@
+/*
+ * ==========================================================================
+ *  recordingworker.h — Background Thread Disk I/O Worker
+ * ==========================================================================
+ *
+ *  PURPOSE:
+ *    Performs all file system operations for a recording session on a
+ *    dedicated QThread. This offloads every disk write from the main thread,
+ *    ensuring EEG display updates and UI responsiveness are unaffected
+ *    even during 24-hour recordings with high-frequency flushes.
+ *
+ *  DESIGN PATTERN:
+ *    Worker-Thread (QObject + moveToThread). RecordingWorker is created on
+ *    the main thread then moved: worker->moveToThread(m_workerThread).
+ *    All public slots execute on m_workerThread's event loop.
+ *    Communication is strictly signal-driven:
+ *      Main thread → worker:  emit requestXxx() signals (QueuedConnection)
+ *      Worker → main thread:  emit filesInitialized() / batchWritten() / etc.
+ *
+ *  FILES MANAGED (per session):
+ *    1. EEG CSV     — LSL_Timestamp + channel values per sample.
+ *       Special:      PAUSE_START / PAUSE_STOP in-band marker rows.
+ *       Precision:    6 dp timestamps (μs); 4 dp amplitudes (0.1 μV).
+ *    2. Markers CSV — Type, Label, LSL_Timestamp, SessionTimeSec.
+ *       Flushed immediately: markers are clinically critical annotations.
+ *    3. Frames CSV  — FrameNumber, LSL_Timestamp, SegmentFile.
+ *       Flushed every 100 frames (avoids 30 fsync/sec at 30 fps).
+ *    4. Metadata JSON — Written once at session open time.
+ *
+ *  BATCHING RATIONALE:
+ *    RecordingManager accumulates EEG_BATCH_SIZE (100) samples before
+ *    invoking writeEegBatch(), reducing writes to ~2-3 per second.
+ *    A 5-second watchdog timer in RecordingManager ensures that data is
+ *    never held in the batch for more than 5 seconds.
+ *
+ *  FLUSH POLICY:
+ *    QTextStream::flush() + QFile::flush() are called after every write.
+ *    QTextStream flushes to the OS buffer; QFile::flush() calls fsync,
+ *    ensuring data survives power loss. The double flush is intentional.
+ *
+ * ==========================================================================
+ */
+
 #ifndef RECORDINGWORKER_H
 #define RECORDINGWORKER_H
 
@@ -8,18 +51,6 @@
 #include <QStringList>
 #include "recordingsummary.h"
 
-/**
- * @brief RecordingWorker - Background thread worker for disk I/O
- *
- * Runs on a dedicated QThread. All public slots are invoked via
- * Qt::QueuedConnection from RecordingManager on the main thread.
- *
- * Handles:
- * - EEG CSV writing with batched flush
- * - Markers CSV writing (immediate flush)
- * - Video frame index CSV writing
- * - File lifecycle (open, write headers, close, summary)
- */
 class RecordingWorker : public QObject
 {
     Q_OBJECT
@@ -29,16 +60,10 @@ public:
     ~RecordingWorker();
 
 public slots:
-    /**
-     * @brief Open all output files and write CSV headers
-     * @param eegPath Path for EEG CSV file
-     * @param markersPath Path for markers CSV file
-     * @param framesPath Path for frame index CSV file
-     * @param metadataPath Path for metadata JSON file
-     * @param channelNames List of EEG channel names
-     * @param sessionName Session identifier
-     * @param samplingRate EEG sampling rate in Hz
-     */
+    /* Opens all output files and writes CSV/JSON headers.
+     * Must be the first slot invoked after the worker thread starts.
+     * Emits filesInitialized(true) on success; filesInitialized(false, error)
+     * on failure, leaving all previously opened files cleanly closed. */
     void initializeFiles(const QString& eegPath,
                          const QString& markersPath,
                          const QString& framesPath,
@@ -47,36 +72,28 @@ public slots:
                          const QString& sessionName,
                          double samplingRate);
 
-    /**
-     * @brief Write a batch of EEG samples to CSV
-     * @param samples Flattened: samples[sampleIdx] = vector of channel values
-     * @param timestamps LSL timestamp per sample
-     */
+    /* Writes a batch of EEG samples to the EEG CSV and flushes to disk.
+     * @param samples     [sampleIdx][channelIdx], selected channels only
+     * @param timestamps  LSL timestamp per sample row */
     void writeEegBatch(const QVector<QVector<float>>& samples,
                        const QVector<double>& timestamps);
 
-    /**
-     * @brief Write a PAUSE_START or PAUSE_STOP line in EEG and markers CSV
-     */
+    /* Writes PAUSE_START or PAUSE_STOP to both the EEG CSV (in-band) and
+     * the markers CSV so analysis software can detect boundaries in either file. */
     void writePauseMarker(const QString& type, double lslTimestamp, double sessionTimeSec);
 
-    /**
-     * @brief Write an event marker to markers CSV
-     */
+    /* Writes a single clinical event marker. Flushed immediately to disk
+     * because markers are safety-critical annotations (e.g. seizure onset). */
     void writeMarker(const QString& type, const QString& label,
                      double lslTimestamp, double sessionTimeSec);
 
-    /**
-     * @brief Write a video frame timestamp to frames CSV
-     */
+    /* Appends a frame entry to the frames CSV.
+     * @param segmentFile  MKV basename for this frame (changes on pause/resume) */
     void writeFrameTimestamp(double lslTimestamp, qint64 frameNumber,
-                            const QString& segmentFile);
+                             const QString& segmentFile);
 
-    /**
-     * @brief Close all files, compute summary
-     * @param durationSeconds Total recording duration
-     * @param videoFileSizeBytes Total video file size
-     */
+    /* Flushes and closes all files, builds RecordingSummary, emits filesClosed().
+     * @param videoFileSizeBytes  Summed size of all MKV segments (from main thread) */
     void closeFiles(double durationSeconds, qint64 videoFileSizeBytes);
 
 signals:

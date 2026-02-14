@@ -1,3 +1,12 @@
+/*
+ * ==========================================================================
+ *  eegdatamodel.cpp — Circular Buffer Display Model Implementation
+ * ==========================================================================
+ *  See eegdatamodel.h for architecture overview, buffer layout, and
+ *  performance optimization rationale.
+ * ==========================================================================
+ */
+
 #include "eegdatamodel.h"
 #include <QtCore/qnumeric.h>
 #include <algorithm>
@@ -5,11 +14,19 @@
 EegDataModel::EegDataModel()
 {
     qInfo() << "EEGDATAMODEL CREATED " << this;
+    /* Start the elapsed timer immediately so that the first emitDataChanged()
+     * call has a valid reference point for rate-limiting. */
     m_updateTimer.start();
 }
 
+// ============================================================================
+// QAbstractTableModel Interface
+// ============================================================================
+
 int EegDataModel::rowCount(const QModelIndex &parent) const
 {
+    /* Returns 0 before first data arrival (buffer not yet allocated),
+     * then returns the fixed buffer size for the remainder of the session. */
     Q_UNUSED(parent);
     if (!m_bufferInitialized || m_data.empty())
     {
@@ -20,12 +37,17 @@ int EegDataModel::rowCount(const QModelIndex &parent) const
 
 int EegDataModel::columnCount(const QModelIndex &parent) const
 {
+    /* Column count = 1 (X-axis time column) + N (one per EEG channel).
+     * Returns 0 before the buffer is initialized. */
     Q_UNUSED(parent);
     return m_data.size();
 }
 
 QVariant EegDataModel::data(const QModelIndex &index, int role) const
 {
+    /* Called by QML's LineSeries/XYSeries to fetch individual data points.
+     * Only Qt::DisplayRole is supported — returns the raw double value.
+     * Returns an invalid QVariant for out-of-bounds or non-display requests. */
     if (!index.isValid()) return QVariant();
 
     if (role == Qt::DisplayRole)
@@ -41,6 +63,10 @@ QVariant EegDataModel::data(const QModelIndex &index, int role) const
     return QVariant();
 }
 
+// ============================================================================
+// Buffer Management
+// ============================================================================
+
 void EegDataModel::initializeBuffer(int numChannels)
 {
     if (m_bufferInitialized && m_numChannels == numChannels && !m_data.empty() && m_data[0].size() == m_maxSamples)
@@ -48,23 +74,23 @@ void EegDataModel::initializeBuffer(int numChannels)
         return;
     }
 
-    // Use beginResetModel only during initialization
     beginResetModel();
 
+    /* Allocate columns: [0]=X-axis + [1..N]=channels.
+     * All vectors are pre-sized to m_maxSamples for zero-reallocation writes. */
     m_data.clear();
     m_data.resize(numChannels + 1);
 
-    // Pre-allocate all vectors with exact size
     for (int col = 0; col <= numChannels; ++col)
     {
         m_data[col].resize(m_maxSamples);
     }
 
-    // Initialize X-axis column with time in SECONDS and set gap values for channels
-    // X-axis: sample_index / sampling_rate = time in seconds
+    /* Initialize X-axis with time values; fill channel columns with GAP_VALUE
+     * so the initial waveform appears blank (no spurious lines). */
     for (int i = 0; i < m_maxSamples; ++i)
     {
-        m_data[0][i] = static_cast<double>(i) / m_samplingRate;  // Time in seconds
+        m_data[0][i] = static_cast<double>(i) / m_samplingRate;
         for (int ch = 0; ch < numChannels; ++ch)
         {
             m_data[ch + 1][i] = GAP_VALUE;
@@ -84,14 +110,25 @@ void EegDataModel::initializeBuffer(int numChannels)
             << m_timeWindowSeconds << "seconds window";
 }
 
+// ============================================================================
+// Rate-Limited UI Notification
+// ============================================================================
+
 void EegDataModel::emitDataChanged(int startRow, int endRow)
 {
-    // Rate limit UI updates to prevent overload
+    /*
+     * At 256 Hz with 20ms LSL poll intervals, updateAllData() is called ~50
+     * times per second with ~5 samples each. Without rate limiting, this would
+     * trigger 50 dataChanged signals per second. The QML renderer cannot keep
+     * up, causing frame drops and input lag.
+     *
+     * Solution: accumulate changed-row ranges and flush at most once per 16ms.
+     * Pending ranges are merged (union of min/max) so no changes are lost.
+     */
     qint64 elapsed = m_updateTimer.elapsed();
 
     if (elapsed < MIN_UPDATE_INTERVAL_MS)
     {
-        // Accumulate the range of changed rows
         if (m_pendingUpdate)
         {
             m_pendingStartRow = std::min(m_pendingStartRow, startRow);
@@ -106,7 +143,6 @@ void EegDataModel::emitDataChanged(int startRow, int endRow)
         return;
     }
 
-    // Include any pending updates
     if (m_pendingUpdate)
     {
         startRow = std::min(m_pendingStartRow, startRow);
@@ -114,7 +150,6 @@ void EegDataModel::emitDataChanged(int startRow, int endRow)
         m_pendingUpdate = false;
     }
 
-    // Emit incremental dataChanged signal instead of full model reset
     QModelIndex topLeft = index(startRow, 0);
     QModelIndex bottomRight = index(endRow, m_data.size() - 1);
     emit QAbstractItemModel::dataChanged(topLeft, bottomRight);
@@ -122,8 +157,13 @@ void EegDataModel::emitDataChanged(int startRow, int endRow)
     m_updateTimer.restart();
 }
 
+// ============================================================================
+// Min/Max Tracking
+// ============================================================================
+
 void EegDataModel::updateMinMaxCache(double value)
 {
+    /* Skip GAP_VALUE sentinels — they would corrupt the Y-axis range. */
     if (value >= GAP_VALUE) return;
 
     bool changed = false;
@@ -144,6 +184,10 @@ void EegDataModel::updateMinMaxCache(double value)
     }
 }
 
+// ============================================================================
+// Primary Data Entry
+// ============================================================================
+
 void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
 {
     if (incomingData.isEmpty() || incomingData[0].isEmpty())
@@ -154,7 +198,6 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
     int newSamples = incomingData[0].size();
     int numChannels = incomingData.size();
 
-    // Initialize buffer if needed (only happens once or on channel count change)
     if (!m_bufferInitialized || m_numChannels != numChannels)
     {
         initializeBuffer(numChannels);
@@ -162,19 +205,17 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
 
     int startWriteIndex = m_currentIndex % m_maxSamples;
 
-    // Write incoming data to circular buffer
+    /* Write incoming samples into the circular buffer.
+     * m_currentIndex is a monotonic counter; modulo gives the buffer position. */
     for (int s = 0; s < newSamples; ++s)
     {
         int writeIndex = m_currentIndex % m_maxSamples;
 
-        // X-axis: time in seconds (writeIndex / samplingRate)
         m_data[0][writeIndex] = static_cast<double>(writeIndex) / m_samplingRate;
         for (int ch = 0; ch < numChannels; ++ch)
         {
             double value = incomingData[ch][s];
             m_data[ch + 1][writeIndex] = value;
-
-            // Update min/max cache incrementally
             updateMinMaxCache(value);
         }
 
@@ -183,11 +224,12 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
 
     int endWriteIndex = (m_currentIndex - 1 + m_maxSamples) % m_maxSamples;
 
-    // Update write position for cursor
     m_writePosition = endWriteIndex;
     emit writePositionChanged();
 
-    // Create gap after write position (clear ahead)
+    /* Write GAP_VALUE ahead of the cursor to create the visual line break.
+     * This is what gives the EEG display its characteristic "sweeping" appearance
+     * where the cursor erases old data as it moves forward. */
     for (int g = 1; g <= GAP_SIZE; ++g)
     {
         int gapIndex = (endWriteIndex + g) % m_maxSamples;
@@ -197,29 +239,34 @@ void EegDataModel::updateAllData(const QVector<QVector<double>>& incomingData)
         }
     }
 
-    // Calculate the range of changed rows for incremental update
+    /* Determine the row range that changed for incremental notification.
+     * On wraparound (rare), fall back to full-buffer notification. */
     int changedStart, changedEnd;
 
     if (startWriteIndex <= endWriteIndex)
     {
-        // No wraparound - simple case
         changedStart = startWriteIndex;
         changedEnd = std::min(endWriteIndex + GAP_SIZE, m_maxSamples - 1);
     }
     else
     {
-        // Wraparound occurred - update whole buffer
-        // This happens rarely, only when we cross the buffer boundary
         changedStart = 0;
         changedEnd = m_maxSamples - 1;
     }
 
-    // Emit incremental update with rate limiting
     emitDataChanged(changedStart, changedEnd);
 }
 
+// ============================================================================
+// Property Accessors
+// ============================================================================
+
 double EegDataModel::minValue() const
 {
+    /* Returns a safe default (0.0) before any real data has arrived.
+     * Once data starts flowing, returns the smallest Y pixel value seen.
+     * Note: this cache only grows (monotonic) — it never shrinks, which means
+     * the Y-axis range may become overly wide after large transients. */
     if (m_cachedMin == std::numeric_limits<double>::infinity())
     {
         return 0.0;
@@ -229,6 +276,9 @@ double EegDataModel::minValue() const
 
 double EegDataModel::maxValue() const
 {
+    /* Returns a safe default (1000.0) before any data arrives.
+     * The 1000.0 default provides a reasonable initial chart range
+     * for typical channel spacing values. */
     if (m_cachedMax == -std::numeric_limits<double>::infinity())
     {
         return 1000.0;
@@ -248,6 +298,9 @@ double EegDataModel::samplingRate() const
 
 void EegDataModel::setSamplingRate(double newSamplingRate)
 {
+    /* Called by EegBackend::onSamplingRateDetected() once the LSL stream
+     * reports its actual hardware sampling rate. This triggers a full buffer
+     * reallocation because m_maxSamples depends on the rate. */
     if (newSamplingRate <= 0 || qFuzzyCompare(m_samplingRate, newSamplingRate))
         return;
 
@@ -264,6 +317,9 @@ double EegDataModel::timeWindowSeconds() const
 
 void EegDataModel::setTimeWindowSeconds(double newTimeWindowSeconds)
 {
+    /* Called when the user changes the display time window from the control
+     * panel (e.g. 10s → 5s). Triggers buffer reallocation since the number
+     * of samples to store changes proportionally. */
     if (newTimeWindowSeconds <= 0 || qFuzzyCompare(m_timeWindowSeconds, newTimeWindowSeconds))
         return;
 
@@ -282,7 +338,6 @@ void EegDataModel::recalculateMaxSamples()
 {
     int newMaxSamples = static_cast<int>(m_samplingRate * m_timeWindowSeconds);
 
-    // Ensure minimum buffer size
     if (newMaxSamples < 100)
     {
         newMaxSamples = 100;
@@ -298,10 +353,12 @@ void EegDataModel::recalculateMaxSamples()
         m_maxSamples = newMaxSamples;
         emit maxSamplesChanged();
 
-        // Force buffer reinitialization with new size
+        /* Changing the buffer size requires full reinitialization.
+         * This discards all current data — acceptable because the time
+         * window change implies a new viewing context. */
         if (m_bufferInitialized && m_numChannels > 0)
         {
-            m_bufferInitialized = false;  // Force reinitialize
+            m_bufferInitialized = false;
             initializeBuffer(m_numChannels);
         }
     }

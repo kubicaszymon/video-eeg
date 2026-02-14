@@ -1,3 +1,12 @@
+/*
+ * ==========================================================================
+ *  recordingmanager.cpp — Recording Session Coordinator Implementation
+ * ==========================================================================
+ *  See recordingmanager.h for the full architecture overview, threading model,
+ *  pause/resume video segmentation design, and EEG batching rationale.
+ * ==========================================================================
+ */
+
 #include "recordingmanager.h"
 #include "recordingworker.h"
 #include "cameramanager.h"
@@ -30,16 +39,22 @@ RecordingManager* RecordingManager::create(QQmlEngine* qmlEngine, QJSEngine* jsE
 RecordingManager::RecordingManager(QObject* parent)
     : QObject(parent)
 {
-    // CRITICAL: Always update s_instance to the latest constructed object.
-    // In Qt 6, QML_SINGLETON may create its own instance (bypassing create()).
-    // If instance() was called earlier from C++, a different object exists.
-    // Delete the old one and point s_instance to this (the QML-managed one).
+    // CRITICAL — Qt 6 singleton double-construction guard:
+    // QML_SINGLETON + the create() factory pattern can result in two instances:
+    // one created early by C++ code calling instance(), and one created later
+    // by the QML engine calling create(). The QML engine's instance must win
+    // because it is the one QML property bindings will hold a reference to.
+    // We delete the old C++ instance and redirect s_instance to this object.
     if (s_instance && s_instance != this) {
         qDebug() << "[RecordingManager] Replacing old C++ instance with QML instance";
         delete s_instance;
     }
     s_instance = this;
 
+    // Register all complex types that cross thread boundaries via QueuedConnection.
+    // Without registration, Qt silently drops signals carrying these types.
+    // See MEMORY.md: "Qt::QueuedConnection signals with complex types are
+    // silently dropped unless registered with qRegisterMetaType<T>()."
     qRegisterMetaType<RecordingSummary>("RecordingSummary");
     qRegisterMetaType<QVector<QVector<float>>>("QVector<QVector<float>>");
     qRegisterMetaType<QVector<double>>("QVector<double>");
@@ -475,11 +490,17 @@ void RecordingManager::flushEegBatch()
     if (m_eegBatch.isEmpty() || !m_worker)
         return;
 
-    // Capture batch data by value into lambda — this bypasses
-    // QVector<QVector<float>> metatype registration issues entirely
-    QVector<QVector<float>> batchCopy = m_eegBatch;
-    QVector<double> timestampsCopy = m_timestampBatch;
-    RecordingWorker* worker = m_worker;
+    // Lambda capture approach instead of emit requestWriteEegBatch():
+    // QVector<QVector<float>> is a nested template type. Even after
+    // qRegisterMetaType<QVector<QVector<float>>>(), Qt's queued signal
+    // delivery can silently drop the payload if the argument type is not
+    // recognized correctly by the meta-object system.
+    // Capturing the data by value in a lambda and using invokeMethod with
+    // Qt::QueuedConnection sidesteps the metatype machinery entirely —
+    // the lambda owns the data and delivers it directly to the worker slot.
+    QVector<QVector<float>> batchCopy      = m_eegBatch;
+    QVector<double>         timestampsCopy = m_timestampBatch;
+    RecordingWorker*        worker         = m_worker;
 
     QMetaObject::invokeMethod(worker, [worker, batchCopy, timestampsCopy]() {
         worker->writeEegBatch(batchCopy, timestampsCopy);
@@ -504,7 +525,12 @@ void RecordingManager::startVideoRecording()
     m_videoRecorder = new QMediaRecorder(this);
     cameraMgr->captureSession()->setRecorder(m_videoRecorder);
 
-    // Configure encoder: H.264 in MKV container
+    // H.264 in Matroska (MKV) container:
+    // H.264 chosen for broad hardware encoder support (NVENC, Intel QSV, VA-API)
+    // and near-universal playback compatibility in clinical review software.
+    // Matroska (MKV) chosen over MP4 because MKV containers are recoverable
+    // after an unclean close (power loss), while MP4 requires the moov atom
+    // to be written at the end — a partially written MP4 is unplayable.
     QMediaFormat format;
     format.setFileFormat(QMediaFormat::Matroska);
     format.setVideoCodec(QMediaFormat::VideoCodec::H264);
@@ -537,6 +563,10 @@ void RecordingManager::stopVideoRecording()
 
 double RecordingManager::sessionTimeSec(double lslTimestamp) const
 {
+    // Converts an absolute LSL timestamp to a session-relative time in seconds
+    // with paused intervals excluded. This gives the "recording clock" value
+    // written to the markers and frames CSVs — it matches what a human reading
+    // the EEG waveform would see on the time axis, skipping over paused segments.
     double elapsed = lslTimestamp - m_sessionStartLslTime;
     return elapsed - m_totalPausedDuration;
 }

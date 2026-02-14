@@ -1,3 +1,48 @@
+/*
+ * ==========================================================================
+ *  AmplifierSetupBackend.h — Settings Window ViewModel
+ * ==========================================================================
+ *
+ *  PURPOSE:
+ *    The ViewModel for the AmplifierSetupWindow (settings/configuration dialog).
+ *    Provides a single, cohesive data interface to QML for both amplifier
+ *    selection (LSL streams) and camera selection/preview. The window is
+ *    shown before a recording session and collects the session configuration.
+ *
+ *  DESIGN PATTERN:
+ *    MVVM ViewModel (QML_ELEMENT) — created per-window by QML, destroyed when
+ *    the window closes. The destructor stops any active camera preview so the
+ *    camera is released before the recording window takes over.
+ *
+ *    Facade — wraps both AmplifierManager and CameraManager behind a single
+ *    class. QML only needs to know about AmplifierSetupBackend; it never
+ *    binds to the two singletons directly from the setup window.
+ *
+ *  SESSION CONFIGURATION FLOW:
+ *    1. User opens AmplifierSetupWindow (creates this ViewModel).
+ *    2. User clicks "Scan" → refreshAmplifiersList() → async LSL discovery.
+ *    3. User selects amplifier → channels populated via AmplifierManager.
+ *    4. User selects camera → preview started via CameraManager.
+ *    5. User clicks "Start" → QML collects getSelectedAmplifierId(),
+ *       getSelectedCameraId(), getCurrentChannels() and passes them to
+ *       EegWindow/main.qml as a JS config object → RecordingManager.
+ *
+ *  CAMERA PREVIEW LIFECYCLE:
+ *    startCameraPreview() → CameraManager::startPreview() (hardware on)
+ *    The QML VideoOutput in the settings window is connected to
+ *    CameraManager::captureSession() directly (not via this class).
+ *    When the window closes, ~AmplifierSetupBackend() calls stopPreview()
+ *    so the camera hardware is idle before EegWindow's VideoBackend starts.
+ *
+ *  DATA FLOW:
+ *    AmplifierManager::amplifiersListRefreshed(QList<Amplifier>)
+ *      → onAmplifiersListRefreshed()    — updates m_amplifiers, notifies QML
+ *    CameraManager signals (availableCamerasChanged, etc.)
+ *      → re-emitted directly            — no state transformation needed
+ *
+ * ==========================================================================
+ */
+
 #ifndef AMPLIFIERSETUPBACKEND_H
 #define AMPLIFIERSETUPBACKEND_H
 
@@ -14,13 +59,15 @@ class AmplifierSetupBackend : public QObject
     Q_OBJECT
     QML_ELEMENT
 
-    // Amplifier properties
+    // --- Amplifier discovery and selection ---
     Q_PROPERTY(QVariantList availableAmplifiers READ getAvailableAmplifiers NOTIFY availableAmplifiersChanged FINAL)
     Q_PROPERTY(int selectedAmplifierIndex READ getSelectedAmplifierIndex WRITE setSelectedAmplifierIndex NOTIFY selectedAmplifierIndexChanged FINAL)
     Q_PROPERTY(QVariantList currentChannels READ getCurrentChannels NOTIFY selectedAmplifierIndexChanged FINAL)
     Q_PROPERTY(bool isLoading READ isLoading NOTIFY isLoadingChanged FINAL)
 
-    // Camera properties - expose CameraManager functionality
+    // --- Camera selection and preview ---
+    // cameraManager is CONSTANT because the singleton never changes; QML VideoOutput
+    // can bind captureSession from it once and never needs to re-evaluate.
     Q_PROPERTY(CameraManager* cameraManager READ cameraManager CONSTANT FINAL)
     Q_PROPERTY(QVariantList availableCameras READ availableCameras NOTIFY availableCamerasChanged FINAL)
     Q_PROPERTY(int selectedCameraIndex READ selectedCameraIndex WRITE setSelectedCameraIndex NOTIFY selectedCameraIndexChanged FINAL)

@@ -1,3 +1,38 @@
+/*
+ * ==========================================================================
+ *  videoframepacket.h — Video Frame & Camera Configuration Data Structures
+ * ==========================================================================
+ *
+ *  PURPOSE:
+ *    Defines the plain-data structures shared between the camera capture
+ *    layer (CameraManager), the video display layer (VideoBackend), and
+ *    the recording system (RecordingManager).
+ *
+ *    These are value types (Q_GADGET, not Q_OBJECT) — they are copied by
+ *    value across the signal/slot boundary, which is safe because the
+ *    QImage inside VideoFramePacket uses implicit sharing (copy-on-write).
+ *
+ *  LSL TIMESTAMP SIGNIFICANCE:
+ *    Every VideoFramePacket carries an lslTimestamp stamped by
+ *    lsl::local_clock() at the exact moment onVideoFrameChanged() fires.
+ *    This is the same time base used by EEG samples from the amplifier,
+ *    making it possible to find the EEG sample that matches each frame
+ *    by searching EegSyncManager's buffer for the closest timestamp.
+ *
+ *  DATA FLOW:
+ *    QVideoSink::videoFrameChanged()
+ *      → CameraManager::onVideoFrameChanged()
+ *          stamps frame with lsl::local_clock()
+ *          emits frameReady(VideoFramePacket)
+ *      → VideoBackend::onFrameReady()
+ *          stores in m_frameBuffer (indexed by lslTimestamp)
+ *          emits frameReceived(lslTimestamp)
+ *      → EegSyncManager::getEEGForFrame(lslTimestamp)
+ *          returns EEG data aligned to this frame
+ *
+ * ==========================================================================
+ */
+
 #ifndef VIDEOFRAMEPACKET_H
 #define VIDEOFRAMEPACKET_H
 
@@ -5,16 +40,13 @@
 #include <QObject>
 #include <QtQml/qqmlregistration.h>
 
-/**
- * @brief VideoFramePacket - Structure for video frame with LSL timestamp
+/*
+ * VideoFramePacket — a single captured video frame with its LSL timestamp.
  *
- * This structure holds a single video frame along with its LSL timestamp,
- * enabling precise synchronization with EEG data for multimodal data fusion.
- *
- * Usage:
- * - Each frame captured from the camera is wrapped in this structure
- * - The lslTimestamp is obtained via lsl::local_clock() at capture time
- * - This allows correlation with EEG samples that also have LSL timestamps
+ * NOTE on isValid(): The frame field is intentionally empty when CameraManager
+ * operates in timestamp-only mode (i.e. startCapture() with no QImage
+ * conversion). In that mode lslTimestamp > 0 is the only reliability check
+ * that matters; callers that need the image must check frame.isNull() separately.
  */
 struct VideoFramePacket
 {
@@ -23,24 +55,27 @@ struct VideoFramePacket
     Q_PROPERTY(qint64 frameNumber MEMBER frameNumber)
 
 public:
-    QImage frame;           ///< The captured video frame as QImage
-    double lslTimestamp;    ///< LSL timestamp at frame capture (from lsl::local_clock())
-    qint64 frameNumber;     ///< Sequential frame number for ordering
+    QImage  frame;          // Captured video frame (may be null in timestamp-only mode)
+    double  lslTimestamp;   // lsl::local_clock() value at the instant of capture
+    qint64  frameNumber;    // Monotonically increasing frame counter (session-relative)
 
     VideoFramePacket() : lslTimestamp(0.0), frameNumber(0) {}
 
     VideoFramePacket(const QImage& img, double timestamp, qint64 number = 0)
         : frame(img), lslTimestamp(timestamp), frameNumber(number) {}
 
+    // Returns true when the packet carries both a valid image and timestamp.
     bool isValid() const { return !frame.isNull() && lslTimestamp > 0.0; }
 };
 
 Q_DECLARE_METATYPE(VideoFramePacket)
 
-/**
- * @brief CameraFormat - Structure representing a camera video format
+/*
+ * CameraFormat — one entry in the device's supported format list.
  *
- * Stores resolution and frame rate information for camera configuration.
+ * Populated from QCameraDevice::videoFormats() during enumeration and stored
+ * in CameraInfo::formats. The toString() / resolutionString() helpers provide
+ * display strings for QML ComboBox delegates.
  */
 struct CameraFormat
 {
@@ -51,8 +86,8 @@ struct CameraFormat
     Q_PROPERTY(double maxFrameRate MEMBER maxFrameRate)
 
 public:
-    int width = 0;
-    int height = 0;
+    int    width        = 0;
+    int    height       = 0;
     double minFrameRate = 0.0;
     double maxFrameRate = 0.0;
 
@@ -82,10 +117,12 @@ public:
 
 Q_DECLARE_METATYPE(CameraFormat)
 
-/**
- * @brief CameraInfo - Structure representing a camera device
+/*
+ * CameraInfo — a discovered camera device with all its supported formats.
  *
- * Contains device identification and available formats.
+ * Created in CameraManager::refreshCameraList() from QMediaDevices::videoInputs().
+ * The id field is a platform-specific opaque identifier (QByteArray as QString)
+ * used to re-locate the device in subsequent QMediaDevices calls.
  */
 struct CameraInfo
 {
@@ -95,10 +132,10 @@ struct CameraInfo
     Q_PROPERTY(bool isDefault MEMBER isDefault)
 
 public:
-    QString id;                         ///< Unique device identifier
-    QString description;                ///< Human-readable device name
-    bool isDefault = false;             ///< Whether this is the system default camera
-    QList<CameraFormat> formats;        ///< Available video formats
+    QString            id;           // Platform device identifier (from QCameraDevice::id())
+    QString            description;  // Human-readable name (e.g. "Integrated Webcam")
+    bool               isDefault = false;
+    QList<CameraFormat> formats;     // All formats advertised by the device driver
 
     CameraInfo() = default;
 

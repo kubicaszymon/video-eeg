@@ -1,3 +1,12 @@
+/*
+ * ==========================================================================
+ *  eegsyncmanager.cpp — EEG-Video Synchronization Buffer Implementation
+ * ==========================================================================
+ *  See eegsyncmanager.h for architecture overview, clock drift explanation,
+ *  buffer sizing rationale, and threading model.
+ * ==========================================================================
+ */
+
 #include "eegsyncmanager.h"
 #include <QDebug>
 #include <QMutexLocker>
@@ -12,14 +21,18 @@ EegSyncManager::EegSyncManager(QObject* parent)
 {
     s_instance = this;
 
-    // Timer for periodic LSL time_correction() updates
+    // Periodic LSL time_correction() refresh — 10 s interval balances
+    // accuracy (short-term drift stays < 1 ms) with the ~100 ms blocking
+    // cost of each time_correction() call.
     m_timeCorrectionTimer = new QTimer(this);
-    m_timeCorrectionTimer->setInterval(10000); // every 10 seconds
+    m_timeCorrectionTimer->setInterval(10000);
     connect(m_timeCorrectionTimer, &QTimer::timeout, this, &EegSyncManager::updateTimeCorrection);
 
-    // Timer for throttled stats updates to QML (avoid flooding)
+    // Throttle QML property notifications to 4 Hz. The buffer is updated
+    // at ~50 Hz (EEG data rate); re-rendering the monitoring panel at the
+    // same rate would waste CPU on UI that only humans read.
     m_statsTimer = new QTimer(this);
-    m_statsTimer->setInterval(250); // 4 Hz update rate for monitoring panel
+    m_statsTimer->setInterval(250);
     connect(m_statsTimer, &QTimer::timeout, this, &EegSyncManager::statsChanged);
     m_statsTimer->start();
 
@@ -43,8 +56,8 @@ EegSyncManager* EegSyncManager::instance()
 EegSyncManager* EegSyncManager::create(QQmlEngine* qmlEngine, QJSEngine* jsEngine)
 {
     Q_UNUSED(jsEngine)
-
     auto* inst = instance();
+    // CppOwnership: QML engine must not delete this singleton
     QJSEngine::setObjectOwnership(inst, QJSEngine::CppOwnership);
     return inst;
 }
@@ -60,11 +73,8 @@ void EegSyncManager::addEegSamples(const std::vector<std::vector<float>>& chunk,
     if (chunk.empty() || timestamps.empty())
         return;
 
-    const int numSamples = static_cast<int>(chunk.size());
-    const int numTimestamps = static_cast<int>(timestamps.size());
-
-    // Ensure we have matching count (LSL should guarantee this)
-    const int count = std::min(numSamples, numTimestamps);
+    // LSL guarantees chunk.size() == timestamps.size(), but guard defensively
+    const int count = static_cast<int>(std::min(chunk.size(), timestamps.size()));
 
     QMutexLocker locker(&m_mutex);
 
@@ -72,11 +82,13 @@ void EegSyncManager::addEegSamples(const std::vector<std::vector<float>>& chunk,
     {
         const auto& sample = chunk[i];
 
-        // Extract only selected channels
+        // Store only the selected channels to reduce memory footprint.
+        // A 64-channel amplifier produces 64× the data of 8 displayed channels;
+        // storing all channels would waste ~8× buffer capacity and increase
+        // copy overhead on every query.
         std::vector<float> selected;
         if (channelIndices.isEmpty())
         {
-            // No channel filter - store all
             selected = sample;
         }
         else
@@ -87,18 +99,17 @@ void EegSyncManager::addEegSamples(const std::vector<std::vector<float>>& chunk,
                 if (idx >= 0 && idx < static_cast<int>(sample.size()))
                     selected.push_back(sample[idx]);
                 else
-                    selected.push_back(0.0f);
+                    selected.push_back(0.0f); // Guard against out-of-range indices
             }
         }
 
         m_buffer.emplace_back(timestamps[i], std::move(selected));
     }
 
-    // Enforce max buffer size
+    // Enforce rolling window: pop oldest samples when over capacity.
+    // pop_front on std::deque is O(1), making this very cheap.
     while (static_cast<int>(m_buffer.size()) > m_maxBufferSize)
-    {
         m_buffer.pop_front();
-    }
 }
 
 // ============================================================================
@@ -115,29 +126,29 @@ QVariantMap EegSyncManager::getEEGForFrame(double videoTimestamp) const
     if (m_buffer.empty() || videoTimestamp <= 0.0)
         return result;
 
-    // Apply clock drift correction
+    // Subtract the drift correction offset to convert the video timestamp
+    // from the PC clock base to the EEG device's LSL clock base.
+    // Without this, the search would look for a time that does not exist
+    // in the EEG buffer when the two clocks diverge.
     double adjustedTs = videoTimestamp - m_timeCorrection;
 
-    EegTimestampedSample sample;
-    if (m_interpolationMode == 1)
-        sample = linearInterpolate(adjustedTs);
-    else
-        sample = nearestNeighbor(adjustedTs);
+    EegTimestampedSample sample = (m_interpolationMode == 1)
+        ? linearInterpolate(adjustedTs)
+        : nearestNeighbor(adjustedTs);
 
     if (!sample.isValid())
         return result;
 
-    // Calculate sync offset
     double offsetMs = std::abs(adjustedTs - sample.lslTimestamp) * 1000.0;
     m_lastSyncOffsetMs = offsetMs;
     updateRunningAverage(offsetMs);
 
-    // Build result
     result["valid"] = true;
     result["timestamp"] = sample.lslTimestamp;
     result["offsetMs"] = offsetMs;
 
     QVariantList channels;
+    channels.reserve(static_cast<int>(sample.channels.size()));
     for (float val : sample.channels)
         channels.append(static_cast<double>(val));
     result["channels"] = channels;
@@ -155,9 +166,10 @@ QVariantList EegSyncManager::getEEGRangeForFrame(double startTs, double endTs) c
         return results;
 
     double adjustedStart = startTs - m_timeCorrection;
-    double adjustedEnd = endTs - m_timeCorrection;
+    double adjustedEnd   = endTs   - m_timeCorrection;
 
-    // Find start position with binary search
+    // Binary search to jump directly to the first sample in range — O(log N)
+    // rather than scanning from the front of the buffer.
     auto itStart = std::lower_bound(
         m_buffer.begin(), m_buffer.end(), adjustedStart,
         [](const EegTimestampedSample& s, double ts) { return s.lslTimestamp < ts; });
@@ -182,21 +194,18 @@ QVariantList EegSyncManager::getEEGRangeForFrame(double startTs, double endTs) c
 
 EegTimestampedSample EegSyncManager::nearestNeighbor(double adjustedTs) const
 {
-    // Binary search for closest timestamp
+    // std::lower_bound returns an iterator to the first element >= adjustedTs.
+    // We then compare it with the previous element to find the true nearest.
     auto it = std::lower_bound(
         m_buffer.begin(), m_buffer.end(), adjustedTs,
         [](const EegTimestampedSample& s, double ts) { return s.lslTimestamp < ts; });
 
-    if (it == m_buffer.end())
-        return m_buffer.back();
+    if (it == m_buffer.end())   return m_buffer.back();
+    if (it == m_buffer.begin()) return m_buffer.front();
 
-    if (it == m_buffer.begin())
-        return m_buffer.front();
-
-    // Compare neighbors
     auto prevIt = std::prev(it);
     double diffCurrent = std::abs(it->lslTimestamp - adjustedTs);
-    double diffPrev = std::abs(prevIt->lslTimestamp - adjustedTs);
+    double diffPrev    = std::abs(prevIt->lslTimestamp - adjustedTs);
 
     return (diffPrev < diffCurrent) ? *prevIt : *it;
 }
@@ -207,36 +216,29 @@ EegTimestampedSample EegSyncManager::linearInterpolate(double adjustedTs) const
         m_buffer.begin(), m_buffer.end(), adjustedTs,
         [](const EegTimestampedSample& s, double ts) { return s.lslTimestamp < ts; });
 
-    // Edge cases - fall back to nearest
-    if (it == m_buffer.end())
-        return m_buffer.back();
-
-    if (it == m_buffer.begin())
-        return m_buffer.front();
+    // At the edges of the buffer there is no bracketing pair — fall back
+    // to the boundary sample rather than extrapolating beyond known data.
+    if (it == m_buffer.end())   return m_buffer.back();
+    if (it == m_buffer.begin()) return m_buffer.front();
 
     auto prevIt = std::prev(it);
 
-    // Linear interpolation factor
     double dt = it->lslTimestamp - prevIt->lslTimestamp;
-    if (dt <= 0.0)
-        return *prevIt;
+    if (dt <= 0.0) return *prevIt; // Degenerate case: duplicate timestamps
 
-    double alpha = (adjustedTs - prevIt->lslTimestamp) / dt;
-    alpha = std::clamp(alpha, 0.0, 1.0);
+    // alpha ∈ [0, 1]: how far adjustedTs is between prevIt and it
+    double alpha = std::clamp((adjustedTs - prevIt->lslTimestamp) / dt, 0.0, 1.0);
 
-    // Interpolate channel values
     const auto& chA = prevIt->channels;
     const auto& chB = it->channels;
     int numCh = static_cast<int>(std::min(chA.size(), chB.size()));
 
     std::vector<float> interpolated(numCh);
     for (int i = 0; i < numCh; ++i)
-    {
-        interpolated[i] = static_cast<float>(
-            chA[i] * (1.0 - alpha) + chB[i] * alpha);
-    }
+        interpolated[i] = static_cast<float>(chA[i] * (1.0 - alpha) + chB[i] * alpha);
 
-    // Use the closer timestamp as reference
+    // Reference timestamp: use whichever boundary is closer so that
+    // the returned offsetMs calculation in getEEGForFrame() is meaningful.
     double refTs = (alpha < 0.5) ? prevIt->lslTimestamp : it->lslTimestamp;
 
     return EegTimestampedSample(refTs, std::move(interpolated));
@@ -252,8 +254,7 @@ void EegSyncManager::setLslInlet(lsl::stream_inlet* inlet)
 
     if (inlet)
     {
-        // Get initial time correction
-        updateTimeCorrection();
+        updateTimeCorrection(); // Get an initial correction immediately
         m_timeCorrectionTimer->start();
         qInfo() << "[EegSyncManager] LSL inlet set, time correction timer started";
     }
@@ -271,10 +272,16 @@ void EegSyncManager::updateTimeCorrection()
     try
     {
         m_prevTimeCorrection = m_timeCorrection;
-        m_timeCorrection = m_lslInlet->time_correction(1.0); // 1s timeout
+
+        // time_correction() blocks for up to 1 s while performing a
+        // network round-trip to the LSL transmitter. This is acceptable
+        // at a 10 s polling interval but must not be called on the hot path.
+        m_timeCorrection   = m_lslInlet->time_correction(1.0);
         m_timeCorrectionMs = m_timeCorrection;
 
-        // Calculate drift rate (change per update interval)
+        // Drift = how much the correction changed since the last update.
+        // Persistent drift indicates that the two clocks are running at
+        // measurably different rates (expected for USB devices: ~±50 ppm).
         double delta = (m_timeCorrection - m_prevTimeCorrection) * 1000.0; // ms
         m_clockDriftMs = delta;
 
@@ -300,48 +307,48 @@ void EegSyncManager::clearBuffer()
 {
     QMutexLocker locker(&m_mutex);
     m_buffer.clear();
-    m_lastSyncOffsetMs = 0.0;
-    m_avgSyncOffsetMs = 0.0;
+    m_lastSyncOffsetMs  = 0.0;
+    m_avgSyncOffsetMs   = 0.0;
     m_offsetSampleCount = 0;
-    m_offsetSum = 0.0;
+    m_offsetSum         = 0.0;
     emit statsChanged();
 }
 
 void EegSyncManager::setSamplingRate(double rate)
 {
-    if (rate > 0.0 && !qFuzzyCompare(m_samplingRate, rate))
-    {
-        m_samplingRate = rate;
+    if (rate <= 0.0 || qFuzzyCompare(m_samplingRate, rate))
+        return;
 
-        // Adjust buffer to ~30s of data
-        m_maxBufferSize = static_cast<int>(rate * 30.0);
-        emit maxBufferSizeChanged();
-        emit samplingRateChanged();
+    m_samplingRate = rate;
 
-        qInfo() << "[EegSyncManager] Sampling rate:" << rate
-                << "Hz, buffer:" << m_maxBufferSize << "samples"
-                << ", samples/frame:" << samplesPerFrame();
-    }
+    // Resize buffer to hold exactly 30 s of data at the actual rate.
+    // This must be done dynamically because the nominal rate in the LSL
+    // stream metadata sometimes differs from the actual hardware rate.
+    m_maxBufferSize = static_cast<int>(rate * 30.0);
+    emit maxBufferSizeChanged();
+    emit samplingRateChanged();
+
+    qInfo() << "[EegSyncManager] Sampling rate:" << rate
+            << "Hz, buffer:" << m_maxBufferSize << "samples"
+            << ", samples/frame:" << samplesPerFrame();
 }
 
 double EegSyncManager::samplesPerFrame() const
 {
-    if (m_videoFps > 0.0)
-        return m_samplingRate / m_videoFps;
-    return 0.0;
+    return (m_videoFps > 0.0) ? (m_samplingRate / m_videoFps) : 0.0;
 }
 
 void EegSyncManager::setMaxBufferSize(int size)
 {
-    if (size > 0 && size != m_maxBufferSize)
-    {
-        m_maxBufferSize = size;
-        emit maxBufferSizeChanged();
+    if (size <= 0 || size == m_maxBufferSize)
+        return;
 
-        QMutexLocker locker(&m_mutex);
-        while (static_cast<int>(m_buffer.size()) > m_maxBufferSize)
-            m_buffer.pop_front();
-    }
+    m_maxBufferSize = size;
+    emit maxBufferSizeChanged();
+
+    QMutexLocker locker(&m_mutex);
+    while (static_cast<int>(m_buffer.size()) > m_maxBufferSize)
+        m_buffer.pop_front();
 }
 
 // ============================================================================
@@ -369,17 +376,14 @@ double EegSyncManager::newestTimestamp() const
 double EegSyncManager::bufferDurationSec() const
 {
     QMutexLocker locker(&m_mutex);
-    if (m_buffer.size() < 2)
-        return 0.0;
+    if (m_buffer.size() < 2) return 0.0;
     return m_buffer.back().lslTimestamp - m_buffer.front().lslTimestamp;
 }
 
 QString EegSyncManager::healthStatus() const
 {
-    if (m_lastSyncOffsetMs > 15.0)
-        return QStringLiteral("DESYNC");
-    if (m_lastSyncOffsetMs > 5.0)
-        return QStringLiteral("WARNING");
+    if (m_lastSyncOffsetMs > 15.0) return QStringLiteral("DESYNC");
+    if (m_lastSyncOffsetMs >  5.0) return QStringLiteral("WARNING");
     return QStringLiteral("SYNCED");
 }
 
@@ -388,15 +392,14 @@ void EegSyncManager::updateRunningAverage(double offsetMs) const
     m_offsetSum += offsetMs;
     m_offsetSampleCount++;
 
-    // Reset running average periodically
+    // Compute running average continuously, and reset the accumulator once
+    // the window is full to avoid floating-point precision degradation over
+    // long recording sessions.
+    m_avgSyncOffsetMs = m_offsetSum / m_offsetSampleCount;
+
     if (m_offsetSampleCount >= RUNNING_AVG_WINDOW)
     {
-        m_avgSyncOffsetMs = m_offsetSum / m_offsetSampleCount;
-        m_offsetSum = 0.0;
+        m_offsetSum         = 0.0;
         m_offsetSampleCount = 0;
-    }
-    else
-    {
-        m_avgSyncOffsetMs = m_offsetSum / m_offsetSampleCount;
     }
 }

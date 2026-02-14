@@ -1,3 +1,32 @@
+/*
+ * ==========================================================================
+ *  AmplifierSetupBackend.cpp — Settings Window ViewModel Implementation
+ * ==========================================================================
+ *  See AmplifierSetupBackend.h for architecture overview and session
+ *  configuration flow. Implementation notes below.
+ *
+ *  AMPLIFIER LISTING:
+ *    getAvailableAmplifiers() returns a flat QVariantList of name strings.
+ *    The full Amplifier structs (id, channels) are held privately in
+ *    m_amplifiers; only the names are exposed to QML for the ComboBox.
+ *    getSelectedAmplifierId() / getCurrentChannels() then provide specific
+ *    fields from m_amplifiers[selectedIndex] on demand.
+ *    This avoids exposing the Amplifier struct to QML (no Q_GADGET needed).
+ *
+ *  CAMERA METHODS:
+ *    Most camera methods are one-line forwarders to CameraManager.
+ *    They exist here so the QML settings window has a single backend object
+ *    and does not need to import and access CameraManager directly.
+ *
+ *  DESTRUCTOR PREVIEW CLEANUP:
+ *    stopPreview() is called in the destructor to release the camera hardware
+ *    when the settings window closes. This is important because the QML window
+ *    may be destroyed before EegWindow starts — without this, the camera
+ *    could remain in preview state when startCapture() is later called.
+ *
+ * ==========================================================================
+ */
+
 #include "AmplifierSetupBackend.h"
 #include <qdebug.h>
 

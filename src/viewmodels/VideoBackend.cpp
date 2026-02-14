@@ -1,3 +1,11 @@
+/*
+ * ==========================================================================
+ *  VideoBackend.cpp — Video Display ViewModel Implementation
+ * ==========================================================================
+ *  See VideoBackend.h for architecture overview, data flow, and threading model.
+ * ==========================================================================
+ */
+
 #include "VideoBackend.h"
 
 #include <QDebug>
@@ -12,16 +20,24 @@ VideoBackend::VideoBackend(QObject* parent)
 {
     qInfo() << "VideoBackend created";
 
-    if (m_cameraManager) {
+    if (m_cameraManager)
+    {
+        // QueuedConnection for frameReady: CameraManager may emit from the
+        // video sink callback thread; processing must happen on the main thread.
         connect(m_cameraManager, &CameraManager::frameReady,
                 this, &VideoBackend::onFrameReady, Qt::QueuedConnection);
+
         connect(m_cameraManager, &CameraManager::errorOccurred,
                 this, &VideoBackend::onCameraError);
+
+        // Mirror CameraManager's FPS counter into our own stats property
         connect(m_cameraManager, &CameraManager::fpsUpdated,
                 this, [this]() {
                     m_currentFps = m_cameraManager->currentFps();
                     emit statsUpdated();
                 });
+
+        // Mirror CameraManager's capture state so QML sees a consistent value
         connect(m_cameraManager, &CameraManager::isCapturingChanged,
                 this, [this]() {
                     bool capturing = m_cameraManager->isCapturing();
@@ -160,11 +176,12 @@ VideoFramePacket VideoBackend::getFrameAtTime(double lslTimestamp) const
 {
     QMutexLocker locker(&m_bufferMutex);
 
-    if (m_frameBuffer.empty()) {
+    if (m_frameBuffer.empty())
         return VideoFramePacket();
-    }
 
-    // Binary search for closest timestamp
+    // Binary search: std::lower_bound returns the first frame with timestamp
+    // >= lslTimestamp, then we check the previous frame to pick the closer one.
+    // This is O(log N) in the buffer size (~300 entries).
     auto it = std::lower_bound(
         m_frameBuffer.begin(),
         m_frameBuffer.end(),

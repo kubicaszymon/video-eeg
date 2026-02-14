@@ -1,3 +1,11 @@
+/*
+ * ==========================================================================
+ *  markermanager.cpp — Event Marker Management Implementation
+ * ==========================================================================
+ *  See markermanager.h for architecture overview and marker lifecycle.
+ * ==========================================================================
+ */
+
 #include "markermanager.h"
 #include <QDebug>
 
@@ -7,8 +15,17 @@ MarkerManager::MarkerManager(QObject *parent)
     qInfo() << "[MarkerManager] Created";
 }
 
+// ============================================================================
+// Type Configuration Registry
+// ============================================================================
+
 const QMap<QString, QPair<QString, QColor>>& MarkerManager::markerTypeConfig()
 {
+    /* Color choices follow clinical EEG conventions:
+     *   Blue/Purple  — physiological state changes (eyes)
+     *   Red/Green    — pathological events (seizure onset/offset)
+     *   Orange       — artifacts
+     *   Gray         — user-defined custom markers */
     static const QMap<QString, QPair<QString, QColor>> config = {
         {"eyes_open",     {"Eyes Open",     QColor("#3498db")}},
         {"eyes_closed",   {"Eyes Closed",   QColor("#9b59b6")}},
@@ -37,6 +54,10 @@ QColor MarkerManager::getColorForType(const QString& type)
     }
     return QColor("#95a5a6");
 }
+
+// ============================================================================
+// Marker CRUD Operations
+// ============================================================================
 
 void MarkerManager::addMarkerAtPosition(const QString& type, double xPosition, double absoluteTime, const QString& customLabel)
 {
@@ -73,7 +94,20 @@ void MarkerManager::removeMarker(int index)
 
 void MarkerManager::removeMarkersInRange(double startX, double endX, double timeWindowSeconds)
 {
-    // Remove markers that were overwritten by new data in the circular buffer
+    /*
+     * Called after each circular buffer write to garbage-collect markers
+     * that the new data has overwritten. Two cases:
+     *
+     * Normal (startX <= endX):
+     *   Remove markers where startX <= markerX <= endX.
+     *
+     * Wraparound (startX > endX):
+     *   The write crossed the buffer boundary. Remove markers where
+     *   markerX >= startX (end of buffer) OR markerX <= endX (start of buffer).
+     *   Example: startX=9.5, endX=0.5 means range [9.5..10.0] + [0.0..0.5].
+     *
+     * Iterates in reverse to safely remove elements during traversal.
+     */
     bool removed = false;
 
     for (int i = m_markers.size() - 1; i >= 0; --i) {
@@ -82,11 +116,8 @@ void MarkerManager::removeMarkersInRange(double startX, double endX, double time
         bool shouldRemove = false;
 
         if (startX <= endX) {
-            // Normal case - no buffer boundary crossing
             shouldRemove = (markerX >= startX && markerX <= endX);
         } else {
-            // Wraparound - buffer has wrapped around (startX > endX)
-            // e.g. startX=9.5, endX=0.5 means writing from 9.5 to end and from 0 to 0.5
             shouldRemove = (markerX >= startX || markerX <= endX);
         }
 
@@ -110,8 +141,15 @@ void MarkerManager::clearMarkers()
     emit markersChanged();
 }
 
+// ============================================================================
+// QML Data Bridge
+// ============================================================================
+
 QVariantList MarkerManager::markersAsVariant() const
 {
+    /* Convert to QVariantList<QVariantMap> for QML consumption.
+     * QML cannot directly iterate Q_GADGET lists, so this manual
+     * conversion is necessary for the markers property binding. */
     QVariantList result;
 
     for (const auto& marker : m_markers) {

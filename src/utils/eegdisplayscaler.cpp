@@ -1,8 +1,16 @@
+/*
+ * ==========================================================================
+ *  eegdisplayscaler.cpp — EEG Signal Scaling Implementation
+ * ==========================================================================
+ *  See eegdisplayscaler.h for architecture overview, formulas, and
+ *  data transposition rationale.
+ * ==========================================================================
+ */
+
 #include "eegdisplayscaler.h"
 #include <QtMath>
 #include <QDebug>
 
-// Standard EEG sensitivity steps in μV/mm
 const QList<double> EegDisplayScaler::SENSITIVITY_OPTIONS = {
     1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0, 50.0, 100.0
 };
@@ -14,18 +22,24 @@ EegDisplayScaler::EegDisplayScaler(QObject *parent)
 
 double EegDisplayScaler::displayGain() const
 {
-    // G[px/μV] = DPI / (25.4 × Sensitivity[μV/mm])
-    // This converts μV to pixels based on physical display parameters
-    //
-    // Example at 96 DPI, 7 μV/mm:
-    //   G = 96 / (25.4 × 7) = 0.54 px/μV
-    //   70 μV signal = 37.8 px = 1 cm (correct!)
+    /*
+     * G [px/μV] = DPI / (25.4 × Sensitivity[μV/mm])
+     *
+     * Dimensional analysis:
+     *   [px/inch] / ([mm/inch] × [μV/mm]) = [px/μV]
+     *
+     * Example: 96 DPI, 7 μV/mm sensitivity:
+     *   G = 96 / (25.4 × 7) = 0.54 px/μV
+     *   A 70 μV signal spans 37.8 px ≈ 1 cm on screen (correct!)
+     */
     return m_screenDpi / (MM_PER_INCH * m_sensitivity);
 }
 
 void EegDisplayScaler::setSensitivity(double sensitivity)
 {
-    // Validate against available options
+    /* Validates against the predefined clinical sensitivity steps.
+     * Rejecting arbitrary values prevents non-standard displays that
+     * would be confusing for clinicians accustomed to standard gains. */
     if (!SENSITIVITY_OPTIONS.contains(sensitivity))
     {
         qWarning() << "[EegDisplayScaler] Invalid sensitivity:" << sensitivity
@@ -37,6 +51,10 @@ void EegDisplayScaler::setSensitivity(double sensitivity)
         return;
 
     m_sensitivity = sensitivity;
+
+    /* Both signals must be emitted because changing sensitivity recalculates
+     * the display gain (which depends on sensitivity). QML bindings on both
+     * properties will be updated. */
     emit sensitivityChanged();
     emit displayGainChanged();
 
@@ -46,6 +64,9 @@ void EegDisplayScaler::setSensitivity(double sensitivity)
 
 void EegDisplayScaler::setScreenDpi(double dpi)
 {
+    /* Screen DPI affects the physical accuracy of the display. Typically
+     * set once at startup from Screen.pixelDensity in QML. Changing DPI
+     * also recalculates the display gain since G depends on DPI. */
     if (dpi <= 0)
     {
         qWarning() << "[EegDisplayScaler] Invalid DPI:" << dpi;
@@ -65,15 +86,16 @@ void EegDisplayScaler::setScreenDpi(double dpi)
 
 double EegDisplayScaler::transformSample(double rawValueMicrovolts, double baselineOffset) const
 {
-    // IMPORTANT: Subtract from baseline so positive μV goes UP on screen
-    // Qt/QML Y-axis increases downward, but in EEG positive voltage should go up
+    /* Subtract from baseline: positive μV deflects upward on screen,
+     * compensating for Qt's downward-increasing Y-axis. */
     return baselineOffset - (rawValueMicrovolts * displayGain());
 }
 
 double EegDisplayScaler::calculateChannelOffset(int channelIndex, int totalChannels, double channelSpacing)
 {
-    // Channel 0 at the top, last channel at the bottom
-    // Offset increases as we go down the screen
+    /* Channel 0 gets the highest offset (top of the plot area),
+     * last channel gets offset 0 (bottom). This mirrors the clinical
+     * EEG montage convention where Fp1/Fp2 appear at the top. */
     return (totalChannels - 1 - channelIndex) * channelSpacing;
 }
 
@@ -92,6 +114,8 @@ QVector<QVector<double>> EegDisplayScaler::transformChunk(
     const int totalChunkChannels = static_cast<int>(chunk[0].size());
     const double gain = displayGain();
 
+    /* Output layout: [channel][sample] — transposed from input [sample][channel].
+     * This layout matches EegDataModel's column-per-channel storage. */
     QVector<QVector<double>> result(numChannels);
 
     for (int ch = 0; ch < numChannels; ++ch)
@@ -100,10 +124,11 @@ QVector<QVector<double>> EegDisplayScaler::transformChunk(
 
         const int sourceChannel = channelIndices[ch];
 
-        // Validate channel index
         if (sourceChannel < 0 || sourceChannel >= totalChunkChannels)
         {
-            // Invalid channel - fill with baseline
+            /* Out-of-range channel index — fill with flat baseline.
+             * This can happen if the user selects more channels than
+             * the amplifier provides. */
             double offset = calculateChannelOffset(ch, numChannels, channelSpacing);
             for (int s = 0; s < numSamples; ++s)
             {
@@ -112,17 +137,12 @@ QVector<QVector<double>> EegDisplayScaler::transformChunk(
             continue;
         }
 
-        // Calculate baseline offset for this channel
         const double offset = calculateChannelOffset(ch, numChannels, channelSpacing);
 
-        // Transform each sample
         for (int s = 0; s < numSamples; ++s)
         {
             const double rawValue = static_cast<double>(chunk[s][sourceChannel]);
-
-            // Scale and invert: positive μV goes UP
             const double scaledValue = offset - (rawValue * gain);
-
             result[ch].append(scaledValue);
         }
     }

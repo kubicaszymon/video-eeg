@@ -1,3 +1,12 @@
+/*
+ * ==========================================================================
+ *  EegBackend.cpp — Central EEG Data Router Implementation
+ * ==========================================================================
+ *  See EegBackend.h for architecture overview, data routing diagram,
+ *  and initialization sequence.
+ * ==========================================================================
+ */
+
 #include "EegBackend.h"
 #include "recordingmanager.h"
 #include <QDebug>
@@ -12,7 +21,9 @@ EegBackend::EegBackend(QObject *parent)
 {
     qInfo() << "[EegBackend] Created:" << this;
 
-    // Connect amplifier manager signals
+    /* All connections use Qt::QueuedConnection because AmplifierManager
+     * relays signals from the LSL worker thread. This ensures all slot
+     * execution happens safely on the main thread. */
     connect(m_amplifierManager, &AmplifierManager::dataReceived,
             this, &EegBackend::onDataReceived, Qt::QueuedConnection);
     connect(m_amplifierManager, &AmplifierManager::samplingRateDetected,
@@ -34,6 +45,10 @@ EegBackend::~EegBackend()
 
 void EegBackend::registerDataModel(EegDataModel *dataModel)
 {
+    /* The EegDataModel is instantiated in the QML layer (EegWindow.qml) and
+     * passed here via Q_INVOKABLE so the C++ backend can write data to it.
+     * We store a raw pointer (not owned) — the QML engine manages the
+     * model's lifetime as part of the QML component tree. */
     if (dataModel)
     {
         m_dataModel = dataModel;
@@ -43,6 +58,9 @@ void EegBackend::registerDataModel(EegDataModel *dataModel)
 
 void EegBackend::startStream()
 {
+    /* Immediately switch to "connecting" state so the UI can show a spinner.
+     * The actual connection happens asynchronously — onStreamConnected()
+     * will flip the state to "connected" once LSL resolves the stream. */
     m_isConnecting = true;
     m_isConnected = false;
     emit isConnectingChanged();
@@ -53,6 +71,9 @@ void EegBackend::startStream()
 
 void EegBackend::stopStream()
 {
+    /* Delegates the full shutdown sequence to AmplifierManager (LSL reader
+     * stop → thread teardown → Svarog process kill). Then resets our
+     * connection state flags so the UI returns to the disconnected state. */
     m_amplifierManager->stopStream();
 
     m_isConnecting = false;
@@ -62,7 +83,7 @@ void EegBackend::stopStream()
 }
 
 // ============================================================================
-// Connection state handlers
+// Connection State Handlers
 // ============================================================================
 
 void EegBackend::onStreamConnected()
@@ -92,6 +113,9 @@ void EegBackend::onSamplingRateDetected(double samplingRate)
         m_samplingRate = samplingRate;
         emit samplingRateChanged();
 
+        /* Configure downstream buffer sizes now that we know the actual
+         * sampling rate. The EegDataModel needs this to calculate
+         * m_maxSamples = samplingRate × timeWindowSeconds. */
         if (m_dataModel)
         {
             m_dataModel->setSamplingRate(samplingRate);
@@ -103,7 +127,7 @@ void EegBackend::onSamplingRateDetected(double samplingRate)
 }
 
 // ============================================================================
-// Data processing
+// Data Processing — THE HOT PATH
 // ============================================================================
 
 void EegBackend::onDataReceived(const std::vector<std::vector<float>>& chunk,
@@ -114,10 +138,11 @@ void EegBackend::onDataReceived(const std::vector<std::vector<float>>& chunk,
         return;
     }
 
-    // Update channel index cache if needed
     updateChannelIndexCache();
 
-    // 1) Display: transform and send to data model
+    /* Route 1: DISPLAY — scale μV→pixels and write to circular buffer.
+     * This is the only route that transforms the data; routes 2 and 3
+     * receive the raw μV values with LSL timestamps for fidelity. */
     QVector<QVector<double>> scaledData = m_scaler->transformChunk(
         chunk, m_channelIndexCache, m_spacing);
 
@@ -125,18 +150,25 @@ void EegBackend::onDataReceived(const std::vector<std::vector<float>>& chunk,
     m_dataModel->updateAllData(scaledData);
     updateMarkersAfterWrite(prevWritePos, m_dataModel->writePosition());
 
-    // 2) Sync buffer: raw data with timestamps to SyncManager
+    /* Route 2: SYNC BUFFER — raw data with timestamps for EEG-video alignment.
+     * EegSyncManager stores these in a ring buffer that VideoBackend queries
+     * to find the EEG data corresponding to each video frame's timestamp. */
     if (!timestamps.empty())
     {
         EegSyncManager::instance()->addEegSamples(chunk, timestamps, m_channelIndexCache);
     }
 
-    // 3) Recording: route raw data to RecordingManager if active
+    /* Route 3: RECORDING — raw data forwarded to RecordingManager.
+     * RecordingManager checks internally whether recording is active;
+     * if not, this is a no-op. If active, data is batched and flushed
+     * to CSV on the RecordingWorker thread. */
     RecordingManager::instance()->writeEegData(chunk, timestamps, m_channelIndexCache);
 }
 
 void EegBackend::updateChannelIndexCache()
 {
+    /* Lazy rebuild: only re-converts when channel count changes.
+     * Avoids per-chunk QVariant→int conversion overhead on the hot path. */
     const int numChannels = m_channels.size();
 
     if (m_channelIndexCache.size() != numChannels)
@@ -154,7 +186,8 @@ void EegBackend::updateMarkersAfterWrite(int prevWritePos, int newWritePos)
     if (!m_markerManager || m_samplingRate <= 0 || !m_dataModel)
         return;
 
-    // Calculate X range that was overwritten
+    /* Convert buffer positions to X-axis time coordinates, then tell
+     * MarkerManager to remove any markers in the overwritten range. */
     double startX = static_cast<double>((prevWritePos + 1) % m_dataModel->maxSamples()) / m_samplingRate;
     double endX = static_cast<double>(newWritePos) / m_samplingRate;
 
@@ -173,19 +206,22 @@ void EegBackend::addMarker(const QString& type)
         return;
     }
 
+    /* Place the marker at the current write cursor position.
+     * Convert buffer index to time-in-seconds for the X coordinate. */
     int writePos = m_dataModel->writePosition();
     double xPosition = static_cast<double>(writePos) / m_samplingRate;
 
     qInfo() << "[EegBackend] Adding marker" << type << "at X:" << xPosition;
     m_markerManager->addMarkerAtPosition(type, xPosition, xPosition);
 
-    // Write to recording if active
+    /* Simultaneously record the marker with an LSL timestamp for export.
+     * The LSL timestamp provides absolute time correlation with EEG data. */
     QString label = MarkerManager::getLabelForType(type);
     RecordingManager::instance()->writeMarker(type, label, lsl::local_clock());
 }
 
 // ============================================================================
-// Test data generation
+// Test Data Generation
 // ============================================================================
 
 void EegBackend::generateTestData()
@@ -207,7 +243,7 @@ void EegBackend::generateTestData()
         {
             double time = i * 0.1;
             double value = qSin(time * (1.0 + ch * 0.3)) * (m_spacing * 0.3);
-            testData[ch].append(offset - value);  // Invert for proper Y-axis
+            testData[ch].append(offset - value);
         }
     }
 
@@ -215,7 +251,7 @@ void EegBackend::generateTestData()
 }
 
 // ============================================================================
-// Channel configuration
+// Channel Configuration
 // ============================================================================
 
 QVariantList EegBackend::channels() const
@@ -229,12 +265,18 @@ void EegBackend::setChannels(const QVariantList &newChannels)
         return;
 
     m_channels = newChannels;
-    m_channelIndexCache.clear();  // Force cache rebuild
+
+    /* Clear the cache so updateChannelIndexCache() will rebuild it from
+     * the new QVariantList on the next onDataReceived() call. */
+    m_channelIndexCache.clear();
     emit channelsChanged();
 }
 
 QStringList EegBackend::channelNames() const
 {
+    /* Resolves numeric channel indices to human-readable names (e.g. "Fp1")
+     * by looking up the amplifier's available_channels list. Falls back to
+     * "Ch N" if the amplifier metadata is unavailable. */
     QStringList names;
 
     Amplifier* amp = m_amplifierManager->getAmplifierById(m_amplifierId);
@@ -257,7 +299,7 @@ QStringList EegBackend::channelNames() const
 }
 
 // ============================================================================
-// Amplifier configuration
+// Amplifier Configuration
 // ============================================================================
 
 int EegBackend::amplifierIdx() const
@@ -289,7 +331,7 @@ void EegBackend::setAmplifierId(const QString &newAmplifierId)
 }
 
 // ============================================================================
-// Display configuration
+// Display Configuration
 // ============================================================================
 
 double EegBackend::spacing() const
@@ -299,6 +341,9 @@ double EegBackend::spacing() const
 
 void EegBackend::setSpacing(double newSpacing)
 {
+    /* Spacing changes take effect immediately on the next data chunk —
+     * EegDisplayScaler::transformChunk() uses the spacing parameter to
+     * calculate channel baseline offsets. No buffer reallocation needed. */
     if (qFuzzyCompare(m_spacing, newSpacing))
         return;
 
@@ -313,17 +358,25 @@ double EegBackend::timeWindowSeconds() const
 
 void EegBackend::setTimeWindowSeconds(double newTimeWindowSeconds)
 {
+    /* Time window change is a heavy operation: it triggers buffer reallocation
+     * in EegDataModel (discards all visible data) and clears all markers
+     * (their X positions are relative to the old window size). */
     if (qFuzzyCompare(m_timeWindowSeconds, newTimeWindowSeconds))
         return;
 
     m_timeWindowSeconds = newTimeWindowSeconds;
     emit timeWindowSecondsChanged();
 
+    /* Propagate to EegDataModel which will recalculate m_maxSamples
+     * and reinitialize its buffer. */
     if (m_dataModel)
     {
         m_dataModel->setTimeWindowSeconds(m_timeWindowSeconds);
     }
 
+    /* Markers placed at old time-window coordinates are now meaningless
+     * (e.g. a marker at X=8.5 in a 10s window has no meaning in a 5s window).
+     * Clear them to avoid visual artifacts. */
     if (m_markerManager)
     {
         m_markerManager->clearMarkers();
