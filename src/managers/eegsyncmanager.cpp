@@ -3,7 +3,31 @@
  *  eegsyncmanager.cpp — EEG-Video Synchronization Buffer Implementation
  * ==========================================================================
  *  See eegsyncmanager.h for architecture overview, clock drift explanation,
- *  buffer sizing rationale, and threading model.
+ *  buffer sizing rationale, threading model, timestamp validation, and
+ *  session tracking.
+ *
+ *  KEY IMPLEMENTATION NOTES:
+ *
+ *  getEEGForFrame() — THE SYNCHRONIZATION QUERY
+ *    1. Increments m_totalQueryCount for per-session diagnostics.
+ *    2. Applies time_correction() to convert video timestamp to EEG clock base.
+ *    3. Validates that the adjusted timestamp falls within the buffer range.
+ *       If not, sets "outOfRange"=true with the distance to the nearest
+ *       boundary in milliseconds ("rangeErrorMs"). This catches cases where:
+ *         - Video started before EEG (timestamp < oldest EEG sample)
+ *         - EEG stream is lagging behind video (timestamp > newest EEG sample)
+ *         - Buffer sizes are mismatched (now fixed: both are 30 seconds)
+ *    4. Performs interpolation (nearest neighbor or linear) and returns
+ *       the matched sample with its offset from the query timestamp.
+ *
+ *  markSessionStart() / markSessionEnd()
+ *    Called by RecordingManager at session boundaries. Resets diagnostic
+ *    counters and logs a per-session synchronization quality summary.
+ *
+ *  isTimestampInRange()
+ *    Lightweight O(1) pre-check that callers can use before getEEGForFrame()
+ *    to avoid wasting cycles on guaranteed-fail queries.
+ *
  * ==========================================================================
  */
 
@@ -120,8 +144,11 @@ QVariantMap EegSyncManager::getEEGForFrame(double videoTimestamp) const
 {
     QVariantMap result;
     result["valid"] = false;
+    result["outOfRange"] = false;
 
     QMutexLocker locker(&m_mutex);
+
+    m_totalQueryCount++;
 
     if (m_buffer.empty() || videoTimestamp <= 0.0)
         return result;
@@ -131,6 +158,45 @@ QVariantMap EegSyncManager::getEEGForFrame(double videoTimestamp) const
     // Without this, the search would look for a time that does not exist
     // in the EEG buffer when the two clocks diverge.
     double adjustedTs = videoTimestamp - m_timeCorrection;
+
+    // --- Timestamp range validation ---
+    // Check whether the query timestamp falls within the buffer's time range.
+    // A tolerance of one inter-sample interval (1/samplingRate) is applied to
+    // account for floating-point rounding at the buffer boundaries. Queries
+    // outside this range indicate that the video and EEG streams are not
+    // overlapping in time — the caller should check "outOfRange" in the result.
+    double oldest = m_buffer.front().lslTimestamp;
+    double newest = m_buffer.back().lslTimestamp;
+    double tolerance = (m_samplingRate > 0.0) ? (1.0 / m_samplingRate) : 0.004;
+
+    if (adjustedTs < oldest - tolerance || adjustedTs > newest + tolerance)
+    {
+        m_outOfRangeCount++;
+
+        // Calculate how far outside the buffer the timestamp is, so the
+        // caller can display a meaningful diagnostic ("EEG data is 200ms behind").
+        double rangeErrorMs = 0.0;
+        if (adjustedTs < oldest)
+            rangeErrorMs = (oldest - adjustedTs) * 1000.0;
+        else
+            rangeErrorMs = (adjustedTs - newest) * 1000.0;
+
+        result["outOfRange"] = true;
+        result["rangeErrorMs"] = rangeErrorMs;
+
+        // Still attempt to return the nearest boundary sample so the caller
+        // has something to display, but mark it as out-of-range.
+        // Only log a warning once per 100 occurrences to avoid log spam.
+        if (m_outOfRangeCount % 100 == 1)
+        {
+            qDebug() << "[EegSyncManager] Query out of range:"
+                     << "videoTs=" << videoTimestamp
+                     << "adjusted=" << adjustedTs
+                     << "buffer=[" << oldest << "," << newest << "]"
+                     << "errorMs=" << rangeErrorMs
+                     << "count=" << m_outOfRangeCount;
+        }
+    }
 
     EegTimestampedSample sample = (m_interpolationMode == 1)
         ? linearInterpolate(adjustedTs)
@@ -402,4 +468,51 @@ void EegSyncManager::updateRunningAverage(double offsetMs) const
         m_offsetSum         = 0.0;
         m_offsetSampleCount = 0;
     }
+}
+
+// ============================================================================
+// Session Tracking
+// ============================================================================
+
+void EegSyncManager::markSessionStart()
+{
+    m_sessionStartTime = lsl::local_clock();
+    m_outOfRangeCount  = 0;
+    m_totalQueryCount  = 0;
+    emit sessionStartTimeChanged();
+
+    qInfo() << "[EegSyncManager] Session started at LSL time:" << m_sessionStartTime;
+}
+
+void EegSyncManager::markSessionEnd()
+{
+    qInfo() << "[EegSyncManager] Session ended. Queries:" << m_totalQueryCount
+            << "Out-of-range:" << m_outOfRangeCount
+            << "(" << (m_totalQueryCount > 0
+                       ? QString::number(100.0 * m_outOfRangeCount / m_totalQueryCount, 'f', 1) + "%"
+                       : "N/A")
+            << ")";
+
+    m_sessionStartTime = 0.0;
+    m_outOfRangeCount  = 0;
+    m_totalQueryCount  = 0;
+    emit sessionStartTimeChanged();
+}
+
+bool EegSyncManager::isTimestampInRange(double videoTimestamp) const
+{
+    QMutexLocker locker(&m_mutex);
+
+    if (m_buffer.empty() || videoTimestamp <= 0.0)
+        return false;
+
+    double adjustedTs = videoTimestamp - m_timeCorrection;
+    double oldest     = m_buffer.front().lslTimestamp;
+    double newest     = m_buffer.back().lslTimestamp;
+
+    // Tolerance: one inter-sample interval prevents false negatives
+    // at the exact buffer boundaries due to floating-point imprecision.
+    double tolerance = (m_samplingRate > 0.0) ? (1.0 / m_samplingRate) : 0.004;
+
+    return (adjustedTs >= oldest - tolerance) && (adjustedTs <= newest + tolerance);
 }

@@ -500,6 +500,17 @@ void CameraManager::onVideoFrameChanged(const QVideoFrame& frame)
     // Stamp the LSL timestamp as early as possible — before any processing.
     // This minimizes the jitter between the physical moment of capture and
     // the recorded timestamp. Any delay after this line adds to sync error.
+    //
+    // This timestamp flows through the entire synchronization pipeline:
+    //   1. VideoBackend stores it in the frame ring buffer
+    //   2. VideoDisplayWindow.qml receives it via frameReceived(lslTimestamp)
+    //   3. QML calls EegSyncManager.getEEGForFrame(lslTimestamp)
+    //   4. EegSyncManager applies time_correction(), searches EEG buffer,
+    //      validates timestamp range, and returns matched EEG data + offsetMs
+    //   5. QML updates the sync health overlay with the result
+    //
+    // The timestamp is also forwarded to RecordingManager for the frames CSV,
+    // enabling post-hoc synchronization in offline analysis tools.
     double lslTimestamp = lsl::local_clock();
 
     m_frameCount++;

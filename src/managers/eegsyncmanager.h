@@ -50,6 +50,21 @@
  *    The buffer always covers at least one full display window (~10 s)
  *    plus enough headroom for video-EEG alignment queries.
  *
+ *  TIMESTAMP VALIDATION:
+ *    getEEGForFrame() validates that the query timestamp falls within
+ *    the buffer's time range [oldest, newest] before performing the
+ *    search. If the timestamp is outside the buffer range, the result
+ *    includes "outOfRange"=true and "rangeErrorMs" indicating how far
+ *    the query timestamp is from the nearest buffer boundary. This
+ *    prevents silent misalignment when the video and EEG streams have
+ *    different start times or when one stream is lagging behind.
+ *
+ *  SESSION TRACKING:
+ *    markSessionStart() records the LSL timestamp at which the recording
+ *    session began. This enables session-relative time calculations and
+ *    provides a reference point for aligning the EEG and video buffers
+ *    when they start at different wall-clock times.
+ *
  *  THREAD SAFETY:
  *    addEegSamples()         — called on the main thread from EegBackend
  *    getEEGForFrame()        — may be called from QML / UI thread
@@ -114,6 +129,12 @@ class EegSyncManager : public QObject
     Q_PROPERTY(double samplingRate READ samplingRate NOTIFY samplingRateChanged FINAL)
     Q_PROPERTY(double samplesPerFrame READ samplesPerFrame NOTIFY samplingRateChanged FINAL)
 
+    // --- Session tracking ---
+    Q_PROPERTY(double sessionStartTime READ sessionStartTime NOTIFY sessionStartTimeChanged FINAL)
+    Q_PROPERTY(bool isSessionActive READ isSessionActive NOTIFY sessionStartTimeChanged FINAL)
+    Q_PROPERTY(int outOfRangeCount READ outOfRangeCount NOTIFY statsChanged FINAL)
+    Q_PROPERTY(int totalQueryCount READ totalQueryCount NOTIFY statsChanged FINAL)
+
 public:
     static EegSyncManager* instance();
     static EegSyncManager* create(QQmlEngine* qmlEngine, QJSEngine* jsEngine);
@@ -152,11 +173,21 @@ public:
      * LSL timestamp. Applies the current time_correction() offset before
      * searching to compensate for EEG ↔ PC clock drift.
      *
+     * Validates that the adjusted timestamp falls within the buffer range
+     * before performing the search, and reports out-of-range conditions.
+     *
      * Result keys:
-     *   "valid"     — bool: false if buffer is empty or timestamp invalid
-     *   "timestamp" — double: actual LSL timestamp of the matched sample
-     *   "channels"  — QVariantList<double>: channel values in μV
-     *   "offsetMs"  — double: |videoTs - matchedTs| in milliseconds
+     *   "valid"        — bool:   false if buffer is empty or timestamp invalid
+     *   "timestamp"    — double: actual LSL timestamp of the matched sample
+     *   "channels"     — QVariantList<double>: channel values in μV
+     *   "offsetMs"     — double: |videoTs - matchedTs| in milliseconds
+     *   "outOfRange"   — bool:   true if timestamp is outside buffer range
+     *   "rangeErrorMs" — double: distance from nearest buffer boundary (ms),
+     *                            only present when outOfRange is true
+     *
+     * Note: when outOfRange is true, "valid" may still be true if the nearest
+     * boundary sample was returned as a fallback. Callers should check
+     * outOfRange to decide whether to display a desynchronization warning.
      *
      * @param videoTimestamp  LSL timestamp stamped by lsl::local_clock()
      *                        at the moment the camera frame was captured
@@ -179,6 +210,41 @@ public:
 
     Q_INVOKABLE void setInterpolationMode(int mode); // 0=nearest, 1=linear
     Q_INVOKABLE void clearBuffer();
+
+    // -----------------------------------------------------------------------
+    // Session tracking — called by RecordingManager at session boundaries
+    // -----------------------------------------------------------------------
+
+    /*
+     * Records the LSL timestamp at which the recording session started.
+     * This provides a common reference point for session-relative time
+     * calculations across both EEG and video streams. Must be called
+     * once at the start of each recording session (from RecordingManager).
+     */
+    Q_INVOKABLE void markSessionStart();
+
+    /*
+     * Clears the session start timestamp and resets per-session counters
+     * (out-of-range count, total query count). Called at session end.
+     */
+    Q_INVOKABLE void markSessionEnd();
+
+    double sessionStartTime() const { return m_sessionStartTime; }
+    bool isSessionActive() const { return m_sessionStartTime > 0.0; }
+
+    // --- Diagnostic counters (per session) ---
+    int outOfRangeCount() const { return m_outOfRangeCount; }
+    int totalQueryCount() const { return m_totalQueryCount; }
+
+    /*
+     * Returns true if videoTimestamp falls within the current buffer range
+     * [oldest - tolerance, newest + tolerance]. Tolerance is one inter-sample
+     * interval (1/samplingRate) to account for rounding.
+     *
+     * This is a lightweight check that callers can use before getEEGForFrame()
+     * to avoid wasting cycles on queries that would return "outOfRange".
+     */
+    Q_INVOKABLE bool isTimestampInRange(double videoTimestamp) const;
 
     /*
      * Called by EegBackend::onSamplingRateDetected() when the LSL stream
@@ -225,6 +291,7 @@ signals:
     void statsChanged();
     void samplingRateChanged();
     void maxBufferSizeChanged();
+    void sessionStartTimeChanged();
 
 private:
     /* Performs a blocking time_correction() call (1 s timeout) to update
@@ -271,6 +338,13 @@ private:
     mutable int m_offsetSampleCount = 0;
     mutable double m_offsetSum = 0.0;
     static constexpr int RUNNING_AVG_WINDOW = 100;
+
+    // Session tracking
+    double m_sessionStartTime = 0.0;    // LSL timestamp at session start (0 = no active session)
+
+    // Diagnostic counters (per session, reset on markSessionEnd)
+    mutable int m_outOfRangeCount = 0;  // Number of getEEGForFrame() calls with timestamp outside buffer
+    mutable int m_totalQueryCount = 0;  // Total getEEGForFrame() calls during session
 
     // Throttled stats notify timer — emits statsChanged() at 4 Hz to QML
     QTimer* m_statsTimer = nullptr;

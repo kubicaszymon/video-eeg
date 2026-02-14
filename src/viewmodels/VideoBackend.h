@@ -24,7 +24,9 @@
  *
  *  FRAME BUFFER & SYNCHRONIZATION API:
  *    Every incoming VideoFramePacket is stored in m_frameBuffer, a std::deque
- *    capped at m_maxBufferSize (default: 300 frames ≈ 10 s at 30 fps).
+ *    capped at m_maxBufferSize (default: 900 frames = 30 s at 30 fps).
+ *    This matches EegSyncManager's 30-second EEG buffer, ensuring both
+ *    streams cover the same time window for bidirectional alignment.
  *    The buffer is sorted by lslTimestamp (insertion order from the camera).
  *
  *    getFrameAtTime(lslTimestamp) uses binary search (O(log N)) to return the
@@ -50,6 +52,13 @@
  *          addFrameToBuffer()    — stores to ring buffer
  *          updateVideoSink()     — pushes QImage to QML VideoOutput (if set)
  *          emit frameReceived()  — notifies QML of new timestamp
+ *
+ *  QML-SIDE EEG SYNCHRONIZATION (VideoDisplayWindow.qml):
+ *    The frameReceived(lslTimestamp) signal is connected in QML to a handler
+ *    that calls EegSyncManager.getEEGForFrame(lslTimestamp). This returns
+ *    a QVariantMap with the matched EEG sample, sync offset, and out-of-range
+ *    status, which drives the on-screen sync health overlays. This is the
+ *    live, per-frame synchronization feedback loop for the operator.
  *
  *  THREADING:
  *    All slots run on the main thread. Qt::QueuedConnection is used for
@@ -216,7 +225,16 @@ private:
 
     mutable QMutex             m_bufferMutex;
     std::deque<VideoFramePacket> m_frameBuffer;
-    int m_maxBufferSize = 300; // ~10 s at 30 fps
+
+    // Buffer holds 30 seconds of frames at 30 fps = 900 entries.
+    // This matches EegSyncManager's 30-second EEG buffer, ensuring that
+    // both streams cover the same time window for bidirectional alignment:
+    //   EEG → Video: EegSyncManager   (30 s of EEG samples)
+    //   Video → EEG: VideoBackend     (30 s of video frames)
+    // Mismatched buffer sizes would create a dead zone where one direction
+    // of synchronization silently fails because the other buffer has already
+    // evicted the matching data.
+    int m_maxBufferSize = 900; // 30 s × 30 fps — matched to EEG buffer duration
 };
 
 #endif // VIDEOBACKEND_H

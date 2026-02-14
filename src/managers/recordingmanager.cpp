@@ -10,6 +10,7 @@
 #include "recordingmanager.h"
 #include "recordingworker.h"
 #include "cameramanager.h"
+#include "eegsyncmanager.h"
 
 #include <QDir>
 #include <QStorageInfo>
@@ -123,6 +124,11 @@ bool RecordingManager::startRecording(const QString& saveFolderPath,
     m_videoSegmentCount = 1;
     m_pendingVideoStart = false;
     m_recordedSamples = 0;
+
+    // Notify EegSyncManager that a recording session has started.
+    // This enables session-relative time tracking and resets per-session
+    // diagnostic counters (out-of-range queries, total query count).
+    EegSyncManager::instance()->markSessionStart();
     m_recordedFrames = 0;
     m_eegFileSize = 0;
     m_videoFileSize = 0;
@@ -297,6 +303,10 @@ void RecordingManager::stopRecording()
     m_isRecording = false;
     emit isRecordingChanged();
     emit isPausedChanged();
+
+    // Notify EegSyncManager that the session has ended. Logs per-session
+    // diagnostic summary (total queries, out-of-range ratio) and resets counters.
+    EegSyncManager::instance()->markSessionEnd();
 
     // Stop timers
     m_flushTimer->stop();
