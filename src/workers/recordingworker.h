@@ -49,6 +49,7 @@
 #include <QTextStream>
 #include <QVector>
 #include <QStringList>
+#include <QJsonObject>
 #include "recordingsummary.h"
 
 class RecordingWorker : public QObject
@@ -96,6 +97,19 @@ public slots:
      * @param videoFileSizeBytes  Summed size of all MKV segments (from main thread) */
     void closeFiles(double durationSeconds, qint64 videoFileSizeBytes);
 
+    // -----------------------------------------------------------------
+    // Session state persistence (crash recovery / Auto-Resume)
+    // -----------------------------------------------------------------
+
+    /* Atomically writes the current session state to disk. Called periodically
+     * (every 5 s, piggy-backed on the flush timer) so the file is always
+     * reasonably up-to-date. Uses write-to-tmp-then-rename for atomicity. */
+    void writeSessionState(const QJsonObject& stateJson, const QString& statePath);
+
+    /* Marks the session as cleanly closed in the session state file.
+     * Called as the final operation of closeFiles(). */
+    void markSessionClosed(const QString& statePath);
+
 signals:
     void filesInitialized(bool success, const QString& error);
     void batchWritten(int sampleCount, qint64 eegFileSize);
@@ -111,6 +125,14 @@ private:
     void writeMetadata(const QString& sessionName,
                        const QStringList& channelNames,
                        double samplingRate);
+
+    // -----------------------------------------------------------------
+    // Atomic JSON write helper — writes to a .tmp file then renames to
+    // the final path in a single operation. On NTFS (Windows) and most
+    // POSIX filesystems, rename() is atomic, so the target file is
+    // never left in a half-written state on power loss.
+    // -----------------------------------------------------------------
+    static bool atomicWriteJson(const QString& finalPath, const QJsonObject& json);
 
     QFile m_eegFile;
     QFile m_markersFile;

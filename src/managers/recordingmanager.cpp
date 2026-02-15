@@ -13,9 +13,14 @@
 #include "eegsyncmanager.h"
 
 #include <QDir>
+#include <QDirIterator>
 #include <QStorageInfo>
 #include <QFileInfo>
 #include <QMediaFormat>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QDateTime>
 #include <QDebug>
 
 RecordingManager* RecordingManager::s_instance = nullptr;
@@ -60,15 +65,18 @@ RecordingManager::RecordingManager(QObject* parent)
     qRegisterMetaType<QVector<QVector<float>>>("QVector<QVector<float>>");
     qRegisterMetaType<QVector<double>>("QVector<double>");
     qRegisterMetaType<QVector<float>>("QVector<float>");
+    qRegisterMetaType<QJsonObject>("QJsonObject");
 
     // Flush timer - forces EEG batch write every 5 seconds
     m_flushTimer = new QTimer(this);
     m_flushTimer->setInterval(5000);
     connect(m_flushTimer, &QTimer::timeout, this, &RecordingManager::onFlushTimer);
 
-    // Disk check timer - checks free space every 5 minutes
+    // Disk check timer — checks free space every 60 seconds.
+    // Reduced from 5 minutes because a 1080p30 + EEG stream can consume
+    // 3-5 GB/hour, making 5-minute intervals too infrequent for early warning.
     m_diskCheckTimer = new QTimer(this);
-    m_diskCheckTimer->setInterval(5 * 60 * 1000);
+    m_diskCheckTimer->setInterval(DISK_CHECK_INTERVAL_MS);
     connect(m_diskCheckTimer, &QTimer::timeout, this, &RecordingManager::onDiskCheckTimer);
 
     // Stats timer - updates UI stats every second
@@ -165,6 +173,12 @@ bool RecordingManager::startRecording(const QString& saveFolderPath,
     connect(this, &RecordingManager::requestCloseFiles,
             m_worker, &RecordingWorker::closeFiles, Qt::QueuedConnection);
 
+    // Session state persistence (crash recovery / Auto-Resume)
+    connect(this, &RecordingManager::requestWriteSessionState,
+            m_worker, &RecordingWorker::writeSessionState, Qt::QueuedConnection);
+    connect(this, &RecordingManager::requestMarkSessionClosed,
+            m_worker, &RecordingWorker::markSessionClosed, Qt::QueuedConnection);
+
     // Clean up worker when thread finishes
     connect(m_workerThread, &QThread::finished, m_worker, &QObject::deleteLater);
 
@@ -209,6 +223,10 @@ bool RecordingManager::startRecording(const QString& saveFolderPath,
     m_flushTimer->start();
     m_diskCheckTimer->start();
     m_statsTimer->start();
+
+    // Persist initial session state immediately so a crash at any point
+    // after this line will be detectable on the next launch.
+    persistSessionState();
 
     qDebug() << "[RecordingManager] Recording started:" << sessionName
              << "this:" << this << "s_instance:" << s_instance;
@@ -300,9 +318,20 @@ void RecordingManager::stopRecording()
     double duration = recordedDurationSec();
     emit requestCloseFiles(duration, totalVideoSize);
 
+    // Mark the session as cleanly closed in the state file.
+    // This is the final write — if the app crashed *before* this point,
+    // the state file would still say "recording", enabling Auto-Resume.
+    emit requestMarkSessionClosed(m_config.sessionStateFilePath());
+
     m_isRecording = false;
     emit isRecordingChanged();
     emit isPausedChanged();
+
+    // Reset disk space warning
+    if (m_diskSpaceWarning) {
+        m_diskSpaceWarning = false;
+        emit diskSpaceWarningChanged();
+    }
 
     // Notify EegSyncManager that the session has ended. Logs per-session
     // diagnostic summary (total queries, out-of-range ratio) and resets counters.
@@ -450,6 +479,13 @@ void RecordingManager::onFlushTimer()
     if (!m_eegBatch.isEmpty()) {
         flushEegBatch();
     }
+
+    // Piggy-back session state persistence on the 5-second flush timer.
+    // This ensures the state file is always within 5 seconds of the actual
+    // recording progress. On crash, at most 5 seconds of state is lost.
+    if (m_isRecording) {
+        persistSessionState();
+    }
 }
 
 void RecordingManager::onDiskCheckTimer()
@@ -458,10 +494,28 @@ void RecordingManager::onDiskCheckTimer()
         return;
 
     qint64 freeMB = diskSpaceMB();
-    if (freeMB >= 0 && freeMB < 500) {
-        qWarning() << "[RecordingManager] Low disk space:" << freeMB << "MB";
-        emit recordingError(QString("Low disk space: %1 MB remaining. Recording will stop.").arg(freeMB));
+    if (freeMB < 0)
+        return;
+
+    // Level 1: Critical — stop recording immediately to prevent data corruption
+    if (freeMB < DISK_CRITICAL_MB) {
+        qWarning() << "[RecordingManager] CRITICAL disk space:" << freeMB << "MB — stopping recording";
+        emit recordingError(QString("Critical: only %1 MB remaining. Recording stopped to protect data.").arg(freeMB));
         stopRecording();
+        return;
+    }
+
+    // Level 2: Warning — show amber banner but continue recording
+    bool wasWarning = m_diskSpaceWarning;
+    m_diskSpaceWarning = (freeMB < DISK_WARNING_MB);
+
+    if (m_diskSpaceWarning && !wasWarning) {
+        qWarning() << "[RecordingManager] Low disk space warning:" << freeMB << "MB";
+        emit diskSpaceLow(freeMB);
+    }
+
+    if (m_diskSpaceWarning != wasWarning) {
+        emit diskSpaceWarningChanged();
     }
 }
 
@@ -590,4 +644,118 @@ void RecordingManager::cleanupWorkerThread()
         m_workerThread = nullptr;
         m_worker = nullptr; // Deleted by QThread::finished -> deleteLater
     }
+}
+
+// ==========================================================================
+//  Session State Persistence (Crash Recovery / Auto-Resume)
+// ==========================================================================
+
+QJsonObject RecordingManager::buildSessionStateJson() const
+{
+    QJsonObject state;
+    state["status"] = m_isPaused ? QStringLiteral("paused") : QStringLiteral("recording");
+    state["sessionName"] = m_config.sessionName;
+    state["saveFolderPath"] = m_config.saveFolderPath;
+    state["amplifierId"] = m_config.amplifierId;
+    state["cameraId"] = m_config.cameraId;
+    state["samplingRate"] = m_config.samplingRate;
+
+    QJsonArray chNames;
+    for (const auto& name : m_config.channelNames)
+        chNames.append(name);
+    state["channelNames"] = chNames;
+
+    QJsonArray chIndices;
+    for (int idx : m_config.channels)
+        chIndices.append(idx);
+    state["channels"] = chIndices;
+
+    state["sessionStartLslTime"] = m_sessionStartLslTime;
+    state["lastLslTimestamp"] = lsl::local_clock();
+    state["lastWallClock"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    state["totalPausedDuration"] = m_totalPausedDuration;
+    state["videoSegmentCount"] = m_videoSegmentCount;
+    state["recordedSamples"] = m_recordedSamples;
+    state["recordedFrames"] = m_recordedFrames;
+    state["eegFileSizeBytes"] = m_eegFileSize;
+    state["videoFileSizeBytes"] = m_videoFileSize;
+    state["schemaVersion"] = QStringLiteral("1.0");
+
+    return state;
+}
+
+void RecordingManager::persistSessionState()
+{
+    if (!m_isRecording || !m_worker)
+        return;
+
+    QJsonObject state = buildSessionStateJson();
+    emit requestWriteSessionState(state, m_config.sessionStateFilePath());
+}
+
+// ==========================================================================
+//  Crash Detection — called from QML at startup
+// ==========================================================================
+
+QVariantMap RecordingManager::checkForUnfinishedSession(const QString& folderPath) const
+{
+    QDir dir(folderPath);
+    if (!dir.exists())
+        return {};
+
+    // Scan for any _session_state.json file with status != "closed"
+    QStringList filters;
+    filters << "*_session_state.json";
+    QFileInfoList stateFiles = dir.entryInfoList(filters, QDir::Files, QDir::Time);
+
+    for (const QFileInfo& fi : stateFiles) {
+        QFile file(fi.absoluteFilePath());
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            continue;
+
+        QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+        file.close();
+
+        if (!doc.isObject())
+            continue;
+
+        QJsonObject state = doc.object();
+        QString status = state.value("status").toString();
+
+        // "closed" means the session ended cleanly — skip it
+        if (status == "closed")
+            continue;
+
+        // Found an unfinished session (status is "recording" or "paused")
+        qDebug() << "[RecordingManager] Unfinished session found:" << fi.fileName()
+                 << "status:" << status;
+        return state.toVariantMap();
+    }
+
+    return {};
+}
+
+// ==========================================================================
+//  Estimated Remaining Recording Time
+// ==========================================================================
+
+double RecordingManager::estimatedRemainingHours() const
+{
+    if (!m_isRecording)
+        return -1.0;
+
+    double elapsed = recordedDurationSec();
+    if (elapsed < 30.0)
+        return -1.0; // Not enough data to estimate
+
+    // Calculate bytes per second from observed EEG + video growth
+    double totalBytes = static_cast<double>(m_eegFileSize + m_videoFileSize);
+    double bytesPerSec = totalBytes / elapsed;
+
+    if (bytesPerSec < 1.0)
+        return -1.0; // Avoid division by zero
+
+    qint64 freeBytes = diskSpaceMB() * 1024LL * 1024LL;
+    double remainingSec = static_cast<double>(freeBytes) / bytesPerSec;
+    return remainingSec / 3600.0;
 }

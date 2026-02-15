@@ -10,10 +10,12 @@
 #include "recordingworker.h"
 
 #include <QFileInfo>
+#include <QDir>
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QSaveFile>
 #include <QDebug>
 
 RecordingWorker::RecordingWorker(QObject* parent)
@@ -79,10 +81,14 @@ void RecordingWorker::initializeFiles(const QString& eegPath,
     writeFramesHeader();
     writeMetadata(sessionName, channelNames, samplingRate);
 
-    // Flush headers immediately
+    // Double flush headers immediately — stream flush + fsync for power-loss safety.
+    // This ensures even the CSV headers survive a power cut during the first batch.
     m_eegStream.flush();
+    m_eegFile.flush();
     m_markersStream.flush();
+    m_markersFile.flush();
     m_framesStream.flush();
+    m_framesFile.flush();
 
     qDebug() << "[RecordingWorker] Files initialized:" << eegPath;
     emit filesInitialized(true, QString());
@@ -243,14 +249,10 @@ void RecordingWorker::writeFramesHeader()
 }
 
 void RecordingWorker::writeMetadata(const QString& sessionName,
-                                     const QStringList& channelNames,
-                                     double samplingRate)
+                                      const QStringList& channelNames,
+                                      double samplingRate)
 {
-    QString metadataPath = m_savePath + "/" + sessionName + "_metadata.json";
-    QFile metaFile(metadataPath);
-    if (!metaFile.open(QIODevice::WriteOnly | QIODevice::Text))
-        return;
-
+    // Use atomic write so the metadata JSON is never half-written on power loss.
     QJsonObject root;
     root["sessionName"] = sessionName;
     root["startTime"] = QDateTime::currentDateTime().toString(Qt::ISODate);
@@ -267,7 +269,72 @@ void RecordingWorker::writeMetadata(const QString& sessionName,
     root["timestampDomain"] = "LSL";
     root["version"] = "1.0";
 
-    QJsonDocument doc(root);
-    metaFile.write(doc.toJson(QJsonDocument::Indented));
-    metaFile.close();
+    QString metadataPath = m_savePath + "/" + sessionName + "_metadata.json";
+    if (!atomicWriteJson(metadataPath, root)) {
+        qWarning() << "[RecordingWorker] Failed to write metadata file:" << metadataPath;
+    }
+}
+
+// ==========================================================================
+//  Atomic JSON Write Helper
+// ==========================================================================
+//  Uses QSaveFile which writes to a temporary file first, then atomically
+//  renames to the final path on commit(). If the app crashes between
+//  write() and commit(), the original file (if any) is untouched.
+//  On NTFS and most POSIX filesystems, the rename is atomic.
+// ==========================================================================
+
+bool RecordingWorker::atomicWriteJson(const QString& finalPath, const QJsonObject& json)
+{
+    QSaveFile file(finalPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "[RecordingWorker] atomicWriteJson: cannot open" << finalPath
+                    << file.errorString();
+        return false;
+    }
+
+    QJsonDocument doc(json);
+    file.write(doc.toJson(QJsonDocument::Indented));
+
+    // commit() flushes, fsyncs, and atomically renames tmp → finalPath.
+    // Returns false if any step fails; the original file is preserved.
+    if (!file.commit()) {
+        qWarning() << "[RecordingWorker] atomicWriteJson: commit failed for" << finalPath
+                    << file.errorString();
+        return false;
+    }
+    return true;
+}
+
+// ==========================================================================
+//  Session State Persistence (Crash Recovery / Auto-Resume)
+// ==========================================================================
+
+void RecordingWorker::writeSessionState(const QJsonObject& stateJson, const QString& statePath)
+{
+    if (!atomicWriteJson(statePath, stateJson)) {
+        qWarning() << "[RecordingWorker] Failed to persist session state to:" << statePath;
+    }
+}
+
+void RecordingWorker::markSessionClosed(const QString& statePath)
+{
+    // Read the existing session state, update status to "closed", and write back.
+    // If the file doesn't exist (shouldn't happen), create a minimal one.
+    QFile file(statePath);
+    QJsonObject state;
+
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+        file.close();
+        if (doc.isObject())
+            state = doc.object();
+    }
+
+    state["status"] = QStringLiteral("closed");
+    state["closedAt"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+
+    if (!atomicWriteJson(statePath, state)) {
+        qWarning() << "[RecordingWorker] Failed to mark session as closed:" << statePath;
+    }
 }

@@ -206,6 +206,55 @@ ApplicationWindow {
                 }
             }
 
+            // DISK SPACE WARNING BANNER
+            // Shown when disk space drops below 5 GB but recording continues.
+            // The banner is persistent and non-dismissible to ensure visibility.
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: visible ? 40 : 0
+                visible: RecordingManager.diskSpaceWarning && isRecording
+                color: "#f39c12"
+                z: 5
+
+                Behavior on Layout.preferredHeight {
+                    NumberAnimation { duration: 200 }
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 15
+                    anchors.rightMargin: 15
+                    spacing: 10
+
+                    Label {
+                        text: "LOW DISK SPACE"
+                        font.pixelSize: 12
+                        font.bold: true
+                        color: "#1a1a1a"
+                    }
+
+                    Label {
+                        text: RecordingManager.diskSpaceMB + " MB remaining"
+                        font.pixelSize: 11
+                        color: "#2c2c2c"
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Label {
+                        text: {
+                            var hours = RecordingManager.estimatedRemainingHours
+                            if (hours < 0) return ""
+                            if (hours < 1) return "~" + Math.round(hours * 60) + " min remaining"
+                            return "~" + hours.toFixed(1) + " h remaining"
+                        }
+                        font.pixelSize: 11
+                        font.bold: true
+                        color: "#1a1a1a"
+                    }
+                }
+            }
+
             // MAIN CONTENT
             RowLayout {
                 Layout.fillWidth: true
@@ -803,9 +852,26 @@ ApplicationWindow {
                     Label {
                         text: "💾 Disk: " + RecordingManager.diskSpaceMB + " MB"
                         font.pixelSize: 10
-                        color: RecordingManager.diskSpaceMB > 1000 ? textSecondary :
-                               (RecordingManager.diskSpaceMB > 500 ? warningColor : dangerColor)
+                        color: RecordingManager.diskSpaceMB > 5000 ? textSecondary :
+                               (RecordingManager.diskSpaceMB > 1000 ? warningColor : dangerColor)
                         visible: isRecording
+                    }
+
+                    Label {
+                        text: {
+                            var hours = RecordingManager.estimatedRemainingHours
+                            if (hours < 0) return ""
+                            if (hours < 1) return "(~" + Math.round(hours * 60) + " min left)"
+                            return "(~" + hours.toFixed(1) + "h left)"
+                        }
+                        font.pixelSize: 10
+                        color: {
+                            var hours = RecordingManager.estimatedRemainingHours
+                            if (hours < 1) return dangerColor
+                            if (hours < 4) return warningColor
+                            return textSecondary
+                        }
+                        visible: isRecording && RecordingManager.estimatedRemainingHours > 0
                     }
 
                     Item { Layout.fillWidth: true }
@@ -854,6 +920,12 @@ ApplicationWindow {
         function onRecordingError(error) {
             errorDialog.text = error
             errorDialog.open()
+        }
+
+        function onDiskSpaceLow(remainingMB) {
+            console.log("Disk space warning: " + remainingMB + " MB remaining")
+            // The amber banner is bound to RecordingManager.diskSpaceWarning
+            // so it appears automatically. This handler is for logging only.
         }
     }
 

@@ -93,6 +93,14 @@ struct SessionConfig
         return QDir(saveFolderPath).filePath(sessionName + "_metadata.json");
     }
 
+    /* Persistent session state file for crash recovery (Auto-Resume).
+     * Written periodically during recording. If the app crashes, this file's
+     * "status" field will remain "recording" rather than "closed", allowing
+     * the next launch to detect the unfinished session and offer to resume. */
+    QString sessionStateFilePath() const {
+        return QDir(saveFolderPath).filePath(sessionName + "_session_state.json");
+    }
+
     /* Returns true if the minimum required fields are set.
      * Used by RecordingManager to validate before committing to disk I/O. */
     bool isValid() const {

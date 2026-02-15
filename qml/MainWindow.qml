@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
+import videoEeg
 
 Item {
     id: mainWindow
@@ -14,6 +16,10 @@ Item {
     readonly property color textColor: "#2c3e50"
     readonly property color borderColor: "#e0e6ed"
     readonly property color hoverColor: "#ecf0f1"
+
+    // Crash recovery state
+    property var recoveredSession: ({})
+    property bool hasRecoverableSession: false
 
     Rectangle {
         anchors.fill: parent
@@ -335,6 +341,245 @@ Item {
 
         onRejected: {
             console.log("Setup cancelled")
+        }
+    }
+
+    // ================================================================
+    // CRASH RECOVERY — Detect and offer to resume interrupted sessions
+    // ================================================================
+
+    FolderDialog {
+        id: recoveryFolderDialog
+        title: "Select folder with interrupted recording session"
+        onAccepted: {
+            var folderPath = selectedFolder.toString().replace("file:///", "")
+            var state = RecordingManager.checkForUnfinishedSession(folderPath)
+            if (Object.keys(state).length > 0) {
+                recoveredSession = state
+                hasRecoverableSession = true
+                recoveryDialog.open()
+            } else {
+                noSessionDialog.open()
+            }
+        }
+    }
+
+    Dialog {
+        id: noSessionDialog
+        title: "No Interrupted Session"
+        modal: true
+        anchors.centerIn: parent
+        standardButtons: Dialog.Ok
+
+        Label {
+            text: "No interrupted recording sessions were found in the selected folder."
+            wrapMode: Text.WordWrap
+            width: 300
+        }
+    }
+
+    // Recovery confirmation dialog
+    Dialog {
+        id: recoveryDialog
+        title: ""
+        modal: true
+        anchors.centerIn: parent
+        width: 520
+        padding: 0
+        standardButtons: Dialog.NoButton
+
+        background: Rectangle {
+            color: "#1a2332"
+            radius: 12
+            border.color: "#f39c12"
+            border.width: 2
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 0
+
+            // Header
+            Rectangle {
+                Layout.fillWidth: true
+                height: 55
+                color: "#f39c12"
+                radius: 12
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 12
+                    color: parent.color
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 20
+                    spacing: 10
+
+                    Label {
+                        text: "Interrupted Session Detected"
+                        font.pixelSize: 16
+                        font.bold: true
+                        color: "#1a1a1a"
+                    }
+                }
+            }
+
+            // Session info
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.margins: 20
+                spacing: 12
+
+                Label {
+                    text: "A previous recording session was not closed properly (power loss or crash)."
+                    font.pixelSize: 13
+                    color: "#e8eef5"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: infoColumn.height + 20
+                    color: "#1e2d3d"
+                    radius: 8
+
+                    ColumnLayout {
+                        id: infoColumn
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: 10
+                        spacing: 6
+
+                        Label {
+                            text: "Session: " + (recoveredSession.sessionName || "unknown")
+                            font.pixelSize: 12
+                            font.family: "Consolas"
+                            color: "#8a9cb5"
+                        }
+
+                        Label {
+                            text: "Last active: " + (recoveredSession.lastWallClock || "unknown")
+                            font.pixelSize: 12
+                            font.family: "Consolas"
+                            color: "#8a9cb5"
+                        }
+
+                        Label {
+                            text: "Samples recorded: " + (recoveredSession.recordedSamples || 0).toLocaleString()
+                            font.pixelSize: 12
+                            font.family: "Consolas"
+                            color: "#8a9cb5"
+                        }
+
+                        Label {
+                            text: "Folder: " + (recoveredSession.saveFolderPath || "unknown")
+                            font.pixelSize: 11
+                            font.family: "Consolas"
+                            color: "#6a7b8b"
+                            elide: Text.ElideMiddle
+                            Layout.fillWidth: true
+                        }
+                    }
+                }
+
+                Label {
+                    text: "The existing data files (EEG CSV, markers, video) are intact.\nYou can start a new session that appends to the same folder with a GAP marker."
+                    font.pixelSize: 12
+                    color: "#8a9cb5"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                // Buttons
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Button {
+                        text: "Resume (New Session in Same Folder)"
+                        font.pixelSize: 12
+                        font.bold: true
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 42
+                        palette.button: "#f39c12"
+                        palette.buttonText: "#1a1a1a"
+
+                        onClicked: {
+                            recoveryDialog.close()
+                            // Open the EEG window with the recovered config.
+                            // The recording will start fresh but in the same folder,
+                            // so clinicians can reconstruct the timeline post-hoc.
+                            // Channel indices are reconstructed as sequential 0..N-1
+                            // since the amplifier must be re-connected from scratch.
+                            var chNames = recoveredSession.channelNames || []
+                            var chIndices = []
+                            for (var i = 0; i < chNames.length; i++) chIndices.push(i)
+
+                            var config = {
+                                amplifierId: recoveredSession.amplifierId || "",
+                                channels: chIndices,
+                                cameraId: recoveredSession.cameraId || "",
+                                saveFolderPath: recoveredSession.saveFolderPath || "",
+                                sessionName: (recoveredSession.sessionName || "REC") + "_resumed",
+                                channelNames: chNames
+                            }
+                            console.log("Resuming session:", JSON.stringify(config))
+                            eegWindowOpen(config)
+                        }
+                    }
+
+                    Button {
+                        text: "Discard"
+                        font.pixelSize: 12
+                        Layout.preferredWidth: 100
+                        Layout.preferredHeight: 42
+                        palette.button: "#2d3e50"
+                        palette.buttonText: "#e8eef5"
+
+                        onClicked: {
+                            recoveryDialog.close()
+                            hasRecoverableSession = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // "Recover Session" button in the main UI
+    Rectangle {
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        anchors.margins: 20
+        width: recoverRow.width + 24
+        height: 38
+        radius: 6
+        color: "#2c3e50"
+        z: 10
+
+        Row {
+            id: recoverRow
+            anchors.centerIn: parent
+            spacing: 8
+
+            Label {
+                text: "Recover Interrupted Session"
+                font.pixelSize: 11
+                color: "#ecf0f1"
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: recoveryFolderDialog.open()
         }
     }
 }

@@ -91,6 +91,7 @@
 #include <QtQml/qqmlregistration.h>
 #include <QMediaRecorder>
 #include <QMediaCaptureSession>
+#include <QJsonObject>
 #include <vector>
 #include <lsl_cpp.h>
 
@@ -113,6 +114,8 @@ class RecordingManager : public QObject
     Q_PROPERTY(qint64 eegFileSizeBytes READ eegFileSizeBytes NOTIFY statsUpdated FINAL)
     Q_PROPERTY(qint64 videoFileSizeBytes READ videoFileSizeBytes NOTIFY statsUpdated FINAL)
     Q_PROPERTY(qint64 diskSpaceMB READ diskSpaceMB NOTIFY statsUpdated FINAL)
+    Q_PROPERTY(bool diskSpaceWarning READ diskSpaceWarning NOTIFY diskSpaceWarningChanged FINAL)
+    Q_PROPERTY(double estimatedRemainingHours READ estimatedRemainingHours NOTIFY statsUpdated FINAL)
 
 public:
     static RecordingManager* instance();
@@ -179,10 +182,23 @@ public:
 
     Q_INVOKABLE bool checkDiskSpace(const QString& path, qint64 requiredMB = 500);
 
+    bool diskSpaceWarning() const { return m_diskSpaceWarning; }
+    double estimatedRemainingHours() const;
+
+    // -----------------------------------------------------------------
+    // Crash recovery (Auto-Resume)
+    // -----------------------------------------------------------------
+
+    /* Scans a folder for any _session_state.json with status != "closed".
+     * Returns a QVariantMap with the session state if found, empty otherwise.
+     * Called from QML/AmplifierSetupBackend at startup. */
+    Q_INVOKABLE QVariantMap checkForUnfinishedSession(const QString& folderPath) const;
+
 signals:
     void isRecordingChanged();
     void isPausedChanged();
     void statsUpdated();
+    void diskSpaceWarningChanged();
     void recordingStarted(const QString& sessionName);
     void recordingStopped(const QString& sessionName,
                          const QString& savePath,
@@ -193,6 +209,10 @@ signals:
                          qint64 videoFrames,
                          int markerCount);
     void recordingError(const QString& error);
+    /* Emitted when disk space drops below the warning threshold (5 GB)
+     * but has not yet hit the critical threshold (1 GB). QML shows
+     * an amber banner. Carries remaining MB for display. */
+    void diskSpaceLow(qint64 remainingMB);
 
     // -----------------------------------------------------------------------
     // Command signals — used as a type-safe cross-thread RPC mechanism.
@@ -216,6 +236,10 @@ signals:
                                     const QString& segmentFile);
     void requestCloseFiles(double durationSeconds, qint64 videoFileSizeBytes);
 
+    // Session state persistence command signals (cross-thread to worker)
+    void requestWriteSessionState(const QJsonObject& stateJson, const QString& statePath);
+    void requestMarkSessionClosed(const QString& statePath);
+
 private slots:
     void onFilesInitialized(bool success, const QString& error);
     void onBatchWritten(int sampleCount, qint64 eegFileSize);
@@ -233,6 +257,8 @@ private:
     void stopVideoRecording();
     double sessionTimeSec(double lslTimestamp) const;
     void cleanupWorkerThread();
+    void persistSessionState();
+    QJsonObject buildSessionStateJson() const;
 
     static RecordingManager* s_instance;
 
@@ -268,8 +294,14 @@ private:
 
     // Periodic maintenance timers
     QTimer* m_flushTimer     = nullptr; // Forces EEG batch flush every 5 s
-    QTimer* m_diskCheckTimer = nullptr; // Checks free disk space every 5 min
+    QTimer* m_diskCheckTimer = nullptr; // Checks free disk space every 60 s
     QTimer* m_statsTimer     = nullptr; // Refreshes UI statistics every 1 s
+
+    // Disk space watchdog — two-level threshold system
+    bool m_diskSpaceWarning = false;
+    static constexpr qint64 DISK_WARNING_MB  = 5000; // 5 GB — amber warning banner
+    static constexpr qint64 DISK_CRITICAL_MB = 1000; // 1 GB — hard stop
+    static constexpr int DISK_CHECK_INTERVAL_MS = 60 * 1000; // 60 seconds
 };
 
 #endif // RECORDINGMANAGER_H
