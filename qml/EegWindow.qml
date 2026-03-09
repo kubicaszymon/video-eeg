@@ -701,38 +701,6 @@ ApplicationWindow {
                                     }
                                 }
                             }
-
-                            // Tips section
-                            Rectangle {
-                                width: 350
-                                height: 70
-                                color: "#1a2332"
-                                radius: 8
-                                border.color: "#2d3e50"
-                                border.width: 1
-                                anchors.horizontalCenter: parent.horizontalCenter
-
-                                Column {
-                                    anchors.centerIn: parent
-                                    spacing: 5
-
-                                    Label {
-                                        text: "💡 Tip"
-                                        font.pixelSize: 11
-                                        font.bold: true
-                                        color: warningColor
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                    }
-
-                                    Label {
-                                        text: "Make sure the amplifier is turned on\nand properly connected"
-                                        font.pixelSize: 10
-                                        color: textSecondary
-                                        horizontalAlignment: Text.AlignHCenter
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                    }
-                                }
-                            }
                         }
                     }
 
