@@ -304,7 +304,6 @@ Rectangle {
             }
 
             // Calibration bar - professional "step" calibrator at bottom-right of graph
-            // Shows exact voltage scale based on current sensitivity setting
             Item {
                 id: calibrationBar
                 anchors.right: eegGraph.right
@@ -314,17 +313,12 @@ Rectangle {
                 height: Math.max(calibrationBar.stepHeight, 30) + 60
                 visible: scaler !== null && selectedChannels.length > 0
 
-                // Calculate calibration step height in pixels
-                // Height = calibrationValue[μV] × displayGain[px/μV]
-                // No minimum - shows actual physical scale
                 readonly property real stepHeight: scaler ? calibrationValue * scaler.displayGain : 50
 
-                // Trigger repaint when stepHeight changes
                 onStepHeightChanged: {
                     calibrationCanvas.requestPaint()
                 }
 
-                // Background panel
                 Rectangle {
                     anchors.fill: parent
                     color: "#1a2332"
@@ -334,7 +328,6 @@ Rectangle {
                     opacity: 0.95
                 }
 
-                // Draw calibration step using Canvas for precise rendering
                 Canvas {
                     id: calibrationCanvas
                     anchors.fill: parent
@@ -348,7 +341,6 @@ Rectangle {
                         var stepH = calibrationBar.stepHeight
                         var centerY = height - 5
 
-                        // Step waveform: baseline -> up -> plateau -> down -> baseline
                         var lineWidth = 2
                         var plateauWidth = 25
                         var baselineWidth = 8
@@ -366,7 +358,7 @@ Rectangle {
                         ctx.moveTo(startX, centerY)
                         ctx.lineTo(startX + baselineWidth, centerY)
 
-                        // Step up (positive μV goes UP on screen)
+                        // Step up (positive μV goes UP)
                         ctx.lineTo(startX + baselineWidth, centerY - stepH)
 
                         // Plateau at top
@@ -380,19 +372,16 @@ Rectangle {
 
                         ctx.stroke()
 
-                        // Draw height indicator line (vertical with caps) on the right
+                        // Height indicator with caps
                         var indicatorX = startX + baselineWidth + plateauWidth + baselineWidth + 10
                         ctx.strokeStyle = "#8a9cb5"
                         ctx.lineWidth = 1
 
                         ctx.beginPath()
-                        // Vertical line
                         ctx.moveTo(indicatorX, centerY)
                         ctx.lineTo(indicatorX, centerY - stepH)
-                        // Top cap
                         ctx.moveTo(indicatorX - 4, centerY - stepH)
                         ctx.lineTo(indicatorX + 4, centerY - stepH)
-                        // Bottom cap
                         ctx.moveTo(indicatorX - 4, centerY)
                         ctx.lineTo(indicatorX + 4, centerY)
                         ctx.stroke()
@@ -401,7 +390,6 @@ Rectangle {
                     Component.onCompleted: requestPaint()
                 }
 
-                // Calibration value label
                 Label {
                     id: calibLabel
                     anchors.horizontalCenter: parent.horizontalCenter

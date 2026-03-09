@@ -91,7 +91,9 @@ ApplicationWindow {
     }
 
     function addMarker(type) {
-        console.log("Marker added:", type)
+        // Call backend immediately — lsl::local_clock() is captured as the
+        // very first thing inside EegBackend::addMarker so timestamp accuracy
+        // is not affected by any QML overhead after this point.
         backend.addMarker(type)
     }
 
