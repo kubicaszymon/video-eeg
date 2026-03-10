@@ -24,7 +24,7 @@
  *    │  │ ... old data ... │ GAP │ ← writePos → │ new data │   │
  *    │  └─────────────────────────────────────────────────────┘   │
  *    │                       ▲                                    │
- *    │              GAP_SIZE samples set to GAP_VALUE (1e9)       │
+ *    │              GAP_SIZE samples set to GAP_VALUE (NaN)       │
  *    │              so QML LineSeries breaks the line here        │
  *    └──────────────────────────────────────────────────────────────┘
  *
