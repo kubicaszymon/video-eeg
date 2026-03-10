@@ -213,7 +213,11 @@ private:
      * QML's LineSeries treats these extreme values as line breaks,
      * producing the classic "sweeping cursor" EEG display effect. */
     static constexpr int GAP_SIZE = 50;
-    static constexpr double GAP_VALUE = 1e9;
+    // NaN causes QtGraphs LineSeries to produce a true line-break (no segment
+    // is drawn to/from a NaN point).  The previous value of 1e9 was a finite
+    // number so QtGraphs still drew a near-vertical spike from the last real
+    // sample up to y=1e9 before clipping it — that was the visible spike bug.
+    static constexpr double GAP_VALUE = std::numeric_limits<double>::quiet_NaN();
     static constexpr int DEFAULT_MAX_SAMPLES = 2560;
 
     double m_cachedMin = std::numeric_limits<double>::infinity();

@@ -33,7 +33,7 @@ CameraManager* CameraManager::create(QQmlEngine* qmlEngine, QJSEngine* jsEngine)
 CameraManager::CameraManager(QObject* parent)
     : QObject(parent)
 {
-    qInfo() << "CameraManager created";
+    qInfo() << "[CameraManager] Initializing...";
 
     // Internal sink: receives frames when no external (QML) sink is attached.
     // The connection is permanent; onVideoFrameChanged() checks m_isCapturing
@@ -50,6 +50,31 @@ CameraManager::CameraManager(QObject* parent)
     m_fpsTimer = new QTimer(this);
     m_fpsTimer->setInterval(1000);
     connect(m_fpsTimer, &QTimer::timeout, this, &CameraManager::updateFpsCounter);
+
+    // Retry timer: used when the camera driver reports a transient error
+    // (common on laptops where the integrated camera may be briefly busy).
+    m_startRetryTimer = new QTimer(this);
+    m_startRetryTimer->setSingleShot(true);
+    m_startRetryTimer->setInterval(500); // 500 ms between retries
+    connect(m_startRetryTimer, &QTimer::timeout, this, [this]() {
+        if (!m_camera) return;
+        if (m_camera->isActive()) {
+            qInfo() << "[CameraManager] Camera became active after retry — OK";
+            m_startRetryCount = 0;
+            return;
+        }
+        if (m_startRetryCount < k_maxStartRetries) {
+            m_startRetryCount++;
+            qWarning() << "[CameraManager] Camera not yet active — retry"
+                       << m_startRetryCount << "/" << k_maxStartRetries;
+            m_camera->start();
+            m_startRetryTimer->start();
+        } else {
+            qWarning() << "[CameraManager] Camera failed to start after"
+                       << k_maxStartRetries << "retries — trying fallback format";
+            startCameraWithFallback();
+        }
+    });
 
     refreshCameraList();
 }
@@ -70,12 +95,20 @@ CameraManager::~CameraManager()
 
 void CameraManager::refreshCameraList()
 {
-    qInfo() << "CameraManager: Refreshing camera list...";
+    qInfo() << "[CameraManager] Refreshing camera list...";
 
     m_cameras.clear();
 
     const QList<QCameraDevice> devices = QMediaDevices::videoInputs();
     const QCameraDevice defaultDevice  = QMediaDevices::defaultVideoInput();
+
+    if (devices.isEmpty()) {
+        qWarning() << "[CameraManager] No video input devices found on this system!";
+        emit availableCamerasChanged();
+        return;
+    }
+
+    qInfo() << "[CameraManager] Found" << devices.size() << "camera device(s):";
 
     for (const QCameraDevice& device : devices)
     {
@@ -95,8 +128,20 @@ void CameraManager::refreshCameraList()
         }
 
         m_cameras.append(info);
-        qInfo() << "  Found camera:" << info.description
-                << "(" << info.formats.size() << "formats)";
+        qInfo() << "  [" << (info.isDefault ? "DEFAULT" : "      ") << "]"
+                << info.description
+                << "— id:" << QString::fromLatin1(info.id.toHex())
+                << "—" << info.formats.size() << "format(s)";
+
+        // Log the first few formats so we can diagnose resolution/FPS issues
+        for (int i = 0; i < qMin(5, info.formats.size()); ++i) {
+            const CameraFormat& f = info.formats[i];
+            qInfo() << "      format" << i << ":"
+                    << f.width << "x" << f.height
+                    << "@" << f.minFrameRate << "-" << f.maxFrameRate << "fps";
+        }
+        if (info.formats.size() > 5)
+            qInfo() << "      ... +" << (info.formats.size() - 5) << "more formats";
     }
 
     emit availableCamerasChanged();
@@ -108,12 +153,35 @@ void CameraManager::refreshCameraList()
         {
             if (m_cameras[i].isDefault)
             {
+                qInfo() << "[CameraManager] Auto-selecting default camera at index" << i;
                 setCurrentCameraIndex(i);
                 return;
             }
         }
-        setCurrentCameraIndex(0); // No default found — use first
+        qInfo() << "[CameraManager] No default camera found — auto-selecting index 0";
+        setCurrentCameraIndex(0);
     }
+}
+
+void CameraManager::logCameraDevices() const
+{
+    // Separate diagnostic dump callable at any time (e.g. after a camera error)
+    const QList<QCameraDevice> devices = QMediaDevices::videoInputs();
+    qInfo() << "[CameraManager] === Camera Diagnostic Dump ===";
+    qInfo() << "[CameraManager] Total devices visible to OS:" << devices.size();
+    for (int i = 0; i < devices.size(); ++i) {
+        const QCameraDevice& d = devices[i];
+        qInfo() << "  Device" << i << ":" << d.description()
+                << "| default:" << (d == QMediaDevices::defaultVideoInput())
+                << "| formats:" << d.videoFormats().size();
+    }
+    if (m_camera) {
+        qInfo() << "[CameraManager] Current QCamera object active:" << m_camera->isActive()
+                << "| error:" << m_camera->errorString();
+    } else {
+        qInfo() << "[CameraManager] No QCamera object instantiated";
+    }
+    qInfo() << "[CameraManager] === End Diagnostic Dump ===";
 }
 
 QVariantList CameraManager::availableCameras() const
@@ -312,13 +380,77 @@ void CameraManager::setupCamera(const QCameraDevice& device)
 {
     cleanupCamera();
 
+    m_startRetryCount = 0;
+    if (m_startRetryTimer)
+        m_startRetryTimer->stop();
+
     m_camera = new QCamera(device, this);
     connect(m_camera, &QCamera::errorOccurred,  this, &CameraManager::onCameraErrorOccurred);
     connect(m_camera, &QCamera::activeChanged,  this, &CameraManager::onCameraActiveChanged);
 
     m_captureSession->setCamera(m_camera);
 
-    qInfo() << "CameraManager: Camera setup complete for:" << device.description();
+    qInfo() << "[CameraManager] Camera object created for:" << device.description();
+}
+
+void CameraManager::startCameraWithFallback()
+{
+    if (!m_camera || m_currentCameraIndex < 0)
+        return;
+
+    const QList<CameraFormat>& formats = m_cameras[m_currentCameraIndex].formats;
+
+    // Walk from index 0 (lowest res) upward trying each format until one works.
+    // Laptop integrated cameras often refuse high-resolution modes at startup
+    // and need a lower-res format to initialise correctly first.
+    qWarning() << "[CameraManager] Trying fallback format selection for"
+               << m_cameras[m_currentCameraIndex].description;
+
+    const QList<QCameraDevice> devices = QMediaDevices::videoInputs();
+    for (const QCameraDevice& device : devices)
+    {
+        if (device.id() != m_cameras[m_currentCameraIndex].id)
+            continue;
+
+        // Find the smallest valid format (non-zero resolution, any frame rate)
+        // as the guaranteed-to-work fallback.
+        for (const QCameraFormat& qfmt : device.videoFormats())
+        {
+            if (qfmt.resolution().width() <= 0 || qfmt.resolution().height() <= 0)
+                continue;
+
+            qInfo() << "[CameraManager] Fallback: trying"
+                    << qfmt.resolution().width() << "x" << qfmt.resolution().height()
+                    << "@" << qfmt.maxFrameRate() << "fps";
+
+            m_camera->setCameraFormat(qfmt);
+
+            // Update our index to match the fallback format
+            for (int i = 0; i < formats.size(); ++i) {
+                if (formats[i].width  == qfmt.resolution().width() &&
+                    formats[i].height == qfmt.resolution().height())
+                {
+                    m_currentFormatIndex = i;
+                    emit currentFormatIndexChanged();
+                    break;
+                }
+            }
+
+            m_camera->start();
+
+            // Give the camera driver 800 ms to respond before accepting failure.
+            // Checking isActive() synchronously after start() is unreliable on
+            // some integrated camera drivers — they report active asynchronously.
+            qInfo() << "[CameraManager] Fallback format applied — waiting for activation";
+            return;
+        }
+        break;
+    }
+
+    qWarning() << "[CameraManager] All fallback formats exhausted — camera may not work";
+    logCameraDevices();
+    emit errorOccurred("Camera failed to start. Please check camera permissions "
+                       "and ensure no other application is using the camera.");
 }
 
 void CameraManager::cleanupCamera()
@@ -390,8 +522,22 @@ void CameraManager::startCapture()
     m_framesAtLastUpdate = 0;
     m_lastFpsUpdateTime  = QDateTime::currentMSecsSinceEpoch();
 
-    if (!m_camera->isActive())
-        m_camera->start();
+    // Always call start() — even if isActive() returns true.
+    // Some integrated camera drivers report active=false until the first
+    // frame arrives, so guarding on isActive() here would leave the camera
+    // silent. start() is idempotent when the camera is already running.
+    m_startRetryCount = 0;
+    m_camera->start();
+
+    // If the camera is not active after the call (async driver), schedule a
+    // retry so we don't silently leave the user with no video on laptops.
+    if (!m_camera->isActive()) {
+        qInfo() << "[CameraManager] Camera not immediately active after start() — "
+                   "scheduling retry checks (async driver)";
+        m_startRetryTimer->start();
+    } else {
+        qInfo() << "[CameraManager] Camera active immediately after start()";
+    }
 
     m_isCapturing = true;
     m_fpsTimer->start();
@@ -429,13 +575,21 @@ void CameraManager::startPreview()
 
     if (!m_camera)
     {
-        qWarning() << "CameraManager: No camera selected for preview";
+        qWarning() << "[CameraManager] No camera selected for preview";
         return;
     }
 
-    qInfo() << "CameraManager: Starting preview...";
+    qInfo() << "[CameraManager] Starting preview for:"
+            << (m_currentCameraIndex >= 0 ? m_cameras[m_currentCameraIndex].description : "unknown");
 
+    m_startRetryCount = 0;
     m_camera->start();
+
+    if (!m_camera->isActive()) {
+        qInfo() << "[CameraManager] Preview camera not yet active — scheduling retry";
+        m_startRetryTimer->start();
+    }
+
     m_isPreviewActive = true;
 
     emit isPreviewActiveChanged();
@@ -563,17 +717,33 @@ QImage CameraManager::videoFrameToImage(const QVideoFrame& frame)
 
 void CameraManager::onCameraErrorOccurred(QCamera::Error error, const QString& errorString)
 {
-    qWarning() << "CameraManager: Camera error:" << error << errorString;
-    emit errorOccurred(errorString);
+    qWarning() << "[CameraManager] Camera error" << static_cast<int>(error) << ":" << errorString;
+
+    // Dump full diagnostic info so the developer can see what happened
+    logCameraDevices();
+
+    // On a transient "access denied" or "device busy" error, the retry timer
+    // will automatically attempt to restart the camera. For other errors,
+    // propagate to the UI so the user knows.
+    if (error != QCamera::Error::NoError) {
+        emit errorOccurred(QString("Camera error: %1").arg(errorString));
+    }
 }
 
 void CameraManager::onCameraActiveChanged(bool active)
 {
-    qInfo() << "CameraManager: Camera active changed:" << active;
+    qInfo() << "[CameraManager] Camera active changed:" << active;
 
-    if (!active && m_isCapturing)
-    {
-        // Camera became inactive unexpectedly — propagate the state change
+    if (active) {
+        // Camera successfully started — cancel any pending retry
+        m_startRetryCount = 0;
+        if (m_startRetryTimer)
+            m_startRetryTimer->stop();
+
+        qInfo() << "[CameraManager] Camera is now active and delivering frames";
+    } else if (m_isCapturing) {
+        // Camera became inactive unexpectedly during capture — propagate
+        qWarning() << "[CameraManager] Camera became inactive while capturing!";
         m_isCapturing = false;
         emit isCapturingChanged();
     }

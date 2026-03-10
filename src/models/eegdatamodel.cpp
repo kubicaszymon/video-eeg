@@ -163,8 +163,9 @@ void EegDataModel::emitDataChanged(int startRow, int endRow)
 
 void EegDataModel::updateMinMaxCache(double value)
 {
-    /* Skip GAP_VALUE sentinels — they would corrupt the Y-axis range. */
-    if (value >= GAP_VALUE) return;
+    /* Skip GAP_VALUE sentinels (NaN) — they would corrupt the Y-axis range.
+     * NaN comparisons always return false, so we must use qIsNaN() explicitly. */
+    if (qIsNaN(value)) return;
 
     bool changed = false;
     if (value < m_cachedMin)

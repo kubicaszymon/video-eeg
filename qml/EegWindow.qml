@@ -52,9 +52,7 @@ ApplicationWindow {
             eegGraph.selectedChannels = channels
         }
 
-        onSamplingRateChanged: {
-            console.log("Sampling rate updated:", samplingRate, "Hz")
-        }
+        onSamplingRateChanged: { /* sampling rate updated — no action needed */ }
     }
 
     Timer {
@@ -66,16 +64,8 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
-        console.log("EegWindow opened with channels:", channels)
-        console.log("Channels count:", channelCount)
-        console.log("Amplifier ID:", amplifierId)
-
-        // Set screen DPI from actual screen pixel density
-        // Screen.pixelDensity returns pixels per millimeter, convert to DPI (pixels per inch)
-        var screenDpi = Screen.pixelDensity * 25.4
-        console.log("Screen DPI detected:", screenDpi)
-        backend.scaler.screenDpi = screenDpi
-
+        // Screen.pixelDensity returns pixels per millimeter; convert to DPI
+        backend.scaler.screenDpi = Screen.pixelDensity * 25.4
         backend.registerDataModel(eegGraph.dataModel)
         eegGraph.selectedChannels = channels
         backend.startStream()
@@ -349,15 +339,6 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    Button {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 40
-                                        text: "🧪 Generate Test Data"
-                                        font.pixelSize: 11
-                                        palette.button: accentColor
-                                        palette.buttonText: "white"
-                                        onClicked: backend.generateTestData()
-                                    }
                                 }
 
                                 // EVENT MARKERS
@@ -428,7 +409,7 @@ ApplicationWindow {
                                             Layout.fillWidth: true
 
                                             Label {
-                                                text: "⏱️ Time Window:"
+                                                text: "Time Window:"
                                                 font.pixelSize: 11
                                                 color: textSecondary
                                                 Layout.fillWidth: true
@@ -460,7 +441,7 @@ ApplicationWindow {
                                             Layout.fillWidth: true
 
                                             Label {
-                                                text: "📊 Sensitivity:"
+                                                text: "Sensitivity:"
                                                 font.pixelSize: 11
                                                 color: textSecondary
                                                 Layout.fillWidth: true
@@ -491,43 +472,6 @@ ApplicationWindow {
                                             onActivated: function(index) {
                                                 backend.scaler.sensitivity = backend.scaler.sensitivityOptions[index]
                                             }
-                                        }
-
-                                        Label {
-                                            text: "Lower values = more sensitive"
-                                            font.pixelSize: 9
-                                            color: textSecondary
-                                            Layout.fillWidth: true
-                                        }
-                                    }
-
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 5
-
-                                        RowLayout {
-                                            Layout.fillWidth: true
-
-                                            Label {
-                                                text: "📏 Channel Spacing:"
-                                                font.pixelSize: 11
-                                                color: textSecondary
-                                                Layout.fillWidth: true
-                                            }
-
-                                            Label {
-                                                text: eegGraph.dynamicChannelSpacing.toFixed(0) + " (auto)"
-                                                font.pixelSize: 11
-                                                font.bold: true
-                                                color: accentColor
-                                            }
-                                        }
-
-                                        Label {
-                                            text: "Automatically adjusted for " + channelCount + " channels"
-                                            font.pixelSize: 9
-                                            color: textSecondary
-                                            Layout.fillWidth: true
                                         }
                                     }
                                 }
@@ -706,43 +650,6 @@ ApplicationWindow {
                         }
                     }
 
-                    Rectangle {
-                        anchors.top: parent.top
-                        anchors.right: parent.right
-                        anchors.margins: 20
-                        width: 250
-                        height: 80
-                        color: "#2d3e50"
-                        radius: 8
-                        opacity: isRecording ? 0 : 0.95
-                        visible: !isRecording
-
-                        Behavior on opacity {
-                            NumberAnimation { duration: 300 }
-                        }
-
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 12
-                            spacing: 5
-
-                            Label {
-                                text: "ℹ️ Live Preview Mode"
-                                font.pixelSize: 12
-                                font.bold: true
-                                color: textColor
-                            }
-
-                            Label {
-                                text: "Data is not being saved.\nClick 'Start Recording'"
-                                font.pixelSize: 10
-                                color: textSecondary
-                                wrapMode: Text.WordWrap
-                                Layout.fillWidth: true
-                            }
-                        }
-                    }
-
                 }
             }
 
@@ -759,111 +666,78 @@ ApplicationWindow {
                     spacing: 20
 
                     Label {
-                        text: "🔌 Amplifier: " + (amplifierId || "Unknown")
+                        text: "Amplifier: " + (amplifierId || "—")
                         font.pixelSize: 10
                         color: textSecondary
                     }
 
-                    Rectangle {
-                        width: 1
-                        height: 20
-                        color: "#2d3e50"
-                    }
+                    Rectangle { width: 1; height: 20; color: "#2d3e50" }
 
                     Label {
-                        text: "📊 Frequency: " + (backend.samplingRate > 0 ? backend.samplingRate.toFixed(0) + " Hz" : "detecting...")
+                        text: backend.samplingRate > 0
+                              ? backend.samplingRate.toFixed(0) + " Hz"
+                              : "Detecting…"
                         font.pixelSize: 10
                         color: textSecondary
                     }
 
-                    Rectangle {
-                        width: 1
-                        height: 20
-                        color: "#2d3e50"
-                    }
+                    Rectangle { width: 1; height: 20; color: "#2d3e50" }
 
                     Label {
-                        text: "💾 Buffer: " + eegGraph.dataModel.maxSamples + " samples (" + timeSlider.value.toFixed(0) + "s)"
-                        font.pixelSize: 10
-                        color: textSecondary
-                    }
-
-                    Rectangle {
-                        width: 1
-                        height: 20
-                        color: "#2d3e50"
-                    }
-
-                    Label {
-                        text: "📏 Spacing: " + eegGraph.dynamicChannelSpacing.toFixed(0)
-                        font.pixelSize: 10
-                        color: textSecondary
-                    }
-
-                    Rectangle {
-                        width: 1
-                        height: 20
-                        color: "#2d3e50"
-                    }
-
-                    Label {
-                        text: "📊 Sensitivity: " + backend.scaler.sensitivity.toFixed(0) + " μV/mm"
+                        text: backend.scaler.sensitivity.toFixed(0) + " μV/mm"
                         font.pixelSize: 10
                         color: accentColor
                     }
 
+                    // Disk space — only shown while recording
                     Rectangle {
-                        width: 1
-                        height: 20
-                        color: "#2d3e50"
+                        width: 1; height: 20; color: "#2d3e50"
                         visible: isRecording
                     }
 
                     Label {
-                        text: "💾 Disk: " + RecordingManager.diskSpaceMB + " MB"
-                        font.pixelSize: 10
-                        color: RecordingManager.diskSpaceMB > 5000 ? textSecondary :
-                               (RecordingManager.diskSpaceMB > 1000 ? warningColor : dangerColor)
                         visible: isRecording
-                    }
-
-                    Label {
                         text: {
+                            var mb = RecordingManager.diskSpaceMB
                             var hours = RecordingManager.estimatedRemainingHours
-                            if (hours < 0) return ""
-                            if (hours < 1) return "(~" + Math.round(hours * 60) + " min left)"
-                            return "(~" + hours.toFixed(1) + "h left)"
+                            var timeStr = ""
+                            if (hours >= 0) {
+                                if (hours < 1) timeStr = " (~" + Math.round(hours * 60) + " min)"
+                                else timeStr = " (~" + hours.toFixed(1) + " h)"
+                            }
+                            return mb + " MB remaining" + timeStr
                         }
                         font.pixelSize: 10
                         color: {
-                            var hours = RecordingManager.estimatedRemainingHours
-                            if (hours < 1) return dangerColor
-                            if (hours < 4) return warningColor
-                            return textSecondary
+                            var mb = RecordingManager.diskSpaceMB
+                            if (mb > 5000) return textSecondary
+                            if (mb > 1000) return warningColor
+                            return dangerColor
                         }
-                        visible: isRecording && RecordingManager.estimatedRemainingHours > 0
                     }
 
                     Item { Layout.fillWidth: true }
 
+                    // EEG stream connection indicator
                     Rectangle {
-                        width: 12
-                        height: 12
-                        radius: 6
-                        color: backend.isConnecting ? warningColor : (backend.isConnected ? successColor : dangerColor)
+                        width: 10; height: 10; radius: 5
+                        color: backend.isConnecting ? warningColor
+                             : (backend.isConnected ? successColor : dangerColor)
 
                         SequentialAnimation on opacity {
                             running: backend.isConnecting || backend.isConnected
                             loops: Animation.Infinite
-                            NumberAnimation { from: 1; to: 0.3; duration: backend.isConnecting ? 500 : 1000 }
-                            NumberAnimation { from: 0.3; to: 1; duration: backend.isConnecting ? 500 : 1000 }
+                            NumberAnimation { from: 1; to: 0.3; duration: backend.isConnecting ? 500 : 1500 }
+                            NumberAnimation { from: 0.3; to: 1; duration: backend.isConnecting ? 500 : 1500 }
                         }
                     }
 
                     Label {
-                        text: backend.isConnecting ? "Connecting..." : (backend.isConnected ? "Connected" : "Disconnected")
+                        text: backend.isConnecting ? "Connecting…"
+                            : (backend.isConnected ? "Connected" : "Disconnected")
                         font.pixelSize: 10
-                        color: backend.isConnecting ? warningColor : (backend.isConnected ? successColor : dangerColor)
+                        color: backend.isConnecting ? warningColor
+                             : (backend.isConnected ? successColor : dangerColor)
                         font.bold: true
                     }
                 }
@@ -1228,26 +1102,39 @@ ApplicationWindow {
 
         Component.onCompleted: {
             if (eegWindow.cameraId !== "") {
-                console.log("Video window ready, will start capture for camera:", eegWindow.cameraId)
-                // Connect VideoOutput sink to CameraManager for direct display
+                // Connect VideoOutput sink to CameraManager for direct display.
+                // This must happen before startCapture() so the external sink
+                // is already registered when the capture session routes frames.
                 CameraManager.setExternalVideoSink(videoOutput.videoSink)
-                // Delay capture start to ensure all QML bindings are complete
+
+                // If the camera index somehow got reset (e.g. re-entering the window),
+                // attempt to re-select the camera by matching the stored ID.
+                if (CameraManager.currentCameraIndex < 0) {
+                    var cams = CameraManager.availableCameras
+                    for (var i = 0; i < cams.length; ++i) {
+                        if (cams[i].id === eegWindow.cameraId) {
+                            CameraManager.setCurrentCameraIndex(i)
+                            break
+                        }
+                    }
+                }
+
+                // Delay capture start slightly to let the QML VideoOutput finish
+                // binding its sink, and to let async camera drivers initialise.
                 captureStartTimer.start()
             }
         }
 
         Timer {
             id: captureStartTimer
-            interval: 100
+            interval: 250   // 250 ms — safe margin for async integrated camera drivers
             repeat: false
             onTriggered: {
-                console.log("Starting capture after delay...")
                 CameraManager.startCapture()
             }
         }
 
         onClosing: function(close) {
-            console.log("Video window closing")
             CameraManager.stopCapture()
         }
 
@@ -1474,9 +1361,7 @@ ApplicationWindow {
         }
     }
 
-    // Handle EegWindow closing
     onClosing: function(close) {
-        console.log("EegWindow closing, stopping streams")
         if (RecordingManager.isRecording) {
             RecordingManager.stopRecording()
         }

@@ -270,6 +270,15 @@ private:
      * normal frame hot path. */
     QImage videoFrameToImage(const QVideoFrame& frame);
 
+    /* Logs all detected cameras and their formats to the console.
+     * Called from refreshCameraList() for startup diagnostics. */
+    void logCameraDevices() const;
+
+    /* Attempts to start the camera, trying progressively lower-resolution
+     * formats if the preferred format is rejected by the driver.
+     * Used for integrated laptop cameras that may refuse certain formats. */
+    void startCameraWithFallback();
+
     static CameraManager* s_instance;
 
     QList<CameraInfo> m_cameras;
@@ -283,6 +292,11 @@ private:
 
     bool m_isCapturing    = false;
     bool m_isPreviewActive = false;
+
+    // Retry state for cameras that start asynchronously (common on laptops)
+    int     m_startRetryCount  = 0;
+    static constexpr int k_maxStartRetries = 3;
+    QTimer* m_startRetryTimer  = nullptr;
 
     qint64 m_frameCount         = 0;
     double m_currentFps         = 0.0;
